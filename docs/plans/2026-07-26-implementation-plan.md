@@ -8,9 +8,13 @@
 
 **Architecture:** 場景樹驅動的2D平臺/射擊架構。`Player`/`Enemy`共用基類`Character.gd`（繼承`CharacterBody2D`），漢字透過`Label`節點+自定義字型渲染而非Sprite2D精靈。武器/五行資料全部外接為`.tres`資源(Resource)或JSON，方便後續批次擴充而不改程式碼。關卡用Godot自帶`TileMap`+手擺場景。傷害計算走純函式（無節點依賴），可單元測試。
 
-**Tech Stack:** Godot 4.3+ (GDScript), GodotSteam外掛, Make Me a Hanzi資料集(JSON), Noto Sans TC字型, Kenney.nl/OpenGameArt素材, Sonniss/freesound音效。
+**Tech Stack:** **Godot 4.5.2-stable** (GDScript), GodotSteam GDExtension 4.20.1 (Steamworks 1.64), GUT 9.5.0, Make Me a Hanzi資料集(JSON), Noto Sans TC字型, Kenney.nl/OpenGameArt素材, Sonniss/freesound音效。
 
-**專案路徑：** `/opt/data/home/projects/ironglyph/game/`
+> **版本鎖定：** 三者版本互相綁定，不可各自升級——GodotSteam GDExtension需Godot 4.4+，GUT則是每個Godot minor版本對應一個特定版本（4.5.x → 9.5.0）。升級Godot時必須同步確認另兩者的對應版本。詳見`docs/SETUP-WINDOWS.md`。
+
+**專案路徑：**
+- 整合者機器（Windows + WSL2）：`C:\dev\ironglyph\game\` = `/mnt/c/dev/ironglyph/game/`
+- 其他Logic Worker機器：各自clone路徑下的`ironglyph/game/`
 
 ---
 
@@ -404,18 +408,19 @@ cd game && git init && git add -A && git commit -m "phase1: project skeleton, ha
 **Files:**
 - Create: `game/addons/gut/`
 
-**Step 1:** 下載GUT外掛（GitHub Release zip）：
-```python
-import urllib.request, zipfile, os
+**Step 1:** 下載GUT外掛。
 
-urllib.request.urlretrieve(
-    "https://github.com/bitwes/Gut/releases/latest/download/gut.zip",
-    "/tmp/gut.zip")
-with zipfile.ZipFile("/tmp/gut.zip") as z:
-    z.extractall("/tmp/gut_extract")
-# 解压后找到addons/gut目录，复制到game/addons/gut/
-os.makedirs("game/addons", exist_ok=True)
-# 具体路径视zip内部结构而定，通常是 /tmp/gut_extract/addons/gut
+> **版本必須對應Godot版本。** 本專案用Godot 4.5.2，對應 **GUT 9.5.0**。不要用AssetLib安裝（目前上架的是對應Godot 4.6.x的9.6.1），也不要用`releases/latest`（會抓到對應4.7.x的版本）。對應表見 https://github.com/bitwes/Gut 的readme。
+>
+> 整合者機器上已預先下載一份於 `C:\Tools\gut\addons\gut`，若在該機器操作可直接複製，跳過下載。
+
+```bash
+curl -sL -o /tmp/gut.zip https://github.com/bitwes/Gut/archive/refs/tags/v9.5.0.zip
+unzip -q /tmp/gut.zip -d /tmp/gut_extract
+mkdir -p game/addons
+cp -r /tmp/gut_extract/Gut-9.5.0/addons/gut game/addons/gut
+# 驗證版本：應輸出 version="9.5.0"
+grep version game/addons/gut/plugin.cfg
 ```
 
 **Step 2:** 在Godot編輯器 Project Settings > Plugins 面板啟用GUT外掛（或直接在`project.godot`的`[editor_plugins]`小節加入`res://addons/gut/plugin.cfg`）
@@ -1163,25 +1168,29 @@ git add -A && git commit -m "phase6: main menu, pause, weapon codex, save system
 
 ### Task 7.0: 安裝 Godot Export Templates（阻斷性前置依賴）
 
-**Objective:** 匯出Windows/Mac/Linux build需要對應的export templates（與Godot編輯器版本號完全一致），這是官方獨立分發的二進位包，體積約1-2GB，必須提前下載安裝，否則Task 7.4匯出會直接失敗報錯"範本未安裝"
+**Objective:** 匯出Windows/Mac/Linux build需要對應的export templates（與Godot編輯器版本號完全一致），這是官方獨立分發的二進位包，體積約1.3GB，必須提前下載安裝，否則Task 7.4匯出會直接失敗報錯"範本未安裝"
+
+> **整合者機器上此步驟已完成**（已安裝於 `%APPDATA%\Godot\export_templates\4.5.2.stable\`）。以下指令供其他機器或版本升級時使用。
 
 **Step 1:**
 ```bash
-# 確認目前使用的Godot確切版本號（含patch版本，如4.3.0.stable）
+# 確認目前使用的Godot確切版本號（含patch版本），應為 4.5.2.stable
 godot4 --version
 
-# 下載對應版本的export templates（範例為4.3.0，需按實際版本替換URL）
-python3 -c "
-import urllib.request
-urllib.request.urlretrieve(
-    'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz',
-    '/tmp/export_templates.tpz')
-"
+# 下載對應版本的export templates（版本號需與上一行輸出完全一致）
+curl -sL -o /tmp/export_templates.tpz \
+  https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_export_templates.tpz
 
-# 解壓到Godot期望的路徑（Linux下通常是 ~/.local/share/godot/export_templates/4.3.stable/）
-mkdir -p ~/.local/share/godot/export_templates/4.3.stable/
-unzip /tmp/export_templates.tpz -d /tmp/templates_extract/
-cp -r /tmp/templates_extract/templates/* ~/.local/share/godot/export_templates/4.3.stable/
+# 解壓到Godot期望的路徑
+#   Linux/WSL:  ~/.local/share/godot/export_templates/4.5.2.stable/
+#   Windows:    %APPDATA%\Godot\export_templates\4.5.2.stable\
+# .tpz實際上是zip格式，unzip可直接處理
+mkdir -p ~/.local/share/godot/export_templates/4.5.2.stable/
+unzip -q /tmp/export_templates.tpz -d /tmp/templates_extract/
+cp -r /tmp/templates_extract/templates/* ~/.local/share/godot/export_templates/4.5.2.stable/
+
+# 驗證：應輸出 4.5.2.stable
+cat ~/.local/share/godot/export_templates/4.5.2.stable/version.txt
 ```
 
 **Verify:** Godot編輯器選單 Editor > Manage Export Templates 顯示目前版本範本狀態為「已安裝」，而非「缺少範本」
@@ -1197,15 +1206,20 @@ cp -r /tmp/templates_extract/templates/* ~/.local/share/godot/export_templates/4
 - Create: `game/steam_appid.txt`（**本地測試必需**，內容僅一行`480`）
 - Modify: `game/scripts/save_system.gd`（加雲存檔同步）
 
-**Step 1:**
+**Step 1:** 下載GodotSteam GDExtension外掛。
+
+> **來源已變更：GodotSteam搬遷到Codeberg。** GitHub上的`GodotSteam/GodotSteam`現在只是指向Codeberg的空殼repo，其releases提供的是「重新編譯過的Godot引擎執行檔」，**不是**這裡要的`addons/godotsteam`外掛。外掛版只在Codeberg發布，tag以`-gde`結尾。
+>
+> 版本對應：本專案用Godot 4.5.2 → **GodotSteam GDExtension 4.20.1**（Steamworks 1.64，支援Godot 4.4+）。
+>
+> 整合者機器上已預先下載一份於 `C:\Tools\godotsteam\addons\godotsteam`，若在該機器操作可直接複製，跳過下載。
+
 ```bash
-python3 -c "
-import urllib.request
-urllib.request.urlretrieve(
-  'https://github.com/GodotSteam/GodotSteam/releases/latest/download/godotsteam-gdextension.zip',
-  '/tmp/godotsteam.zip')
-"
-# 解壓到 game/addons/godotsteam/
+curl -sL -o /tmp/godotsteam.zip \
+  https://codeberg.org/godotsteam/godotsteam/releases/download/v4.20.1-gde/godotsteam-4.20.1-gdextension-plugin-4.4.zip
+# zip內已是 addons/godotsteam/... 結構，直接對著 game/ 解壓即可
+unzip -q -o /tmp/godotsteam.zip -d game/
+ls game/addons/godotsteam/godotsteam.gdextension
 ```
 
 **Step 2（容易漏掉，本地測試連不上Steam的常見原因）：** 在`game/`專案根目錄（與`project.godot`同層，之後也要放在匯出build的.exe同層）建立`steam_appid.txt`，內容只有一行：
@@ -1345,3 +1359,4 @@ git tag v0.1.0-milestone-complete
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
 | 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |
+| 2026-07-26 | 實機設置後修訂依賴版本與下載來源（原本的URL全部會失敗）：①引擎鎖定 **Godot 4.5.2**（原寫「4.3+」；GodotSteam現行外掛需4.4+，且整合者機器的RTX 5080晚於4.3發布）；②Task 7.1 GodotSteam來源改為 **Codeberg** 的`v4.20.1-gde`（GitHub repo已搬遷，其releases是引擎執行檔而非外掛，原URL不存在）；③Task 2.0 GUT改為指定 **9.5.0**（原用`releases/latest`會抓到對應Godot 4.7.x的版本；AssetLib上架版對應4.6.x，兩者都不相容4.5.2）；④Task 7.0 export templates URL更新為4.5.2並補上Windows路徑；⑤專案路徑改為整合者機器實際路徑 |
