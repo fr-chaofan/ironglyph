@@ -1,9 +1,10 @@
 ; Engine configuration file.
-; 《合金文字機甲》IRONGLYPH
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
 ;
-; 由 Task 1.1 建立。修改時請注意：
-;   - [autoload] 小節採「分階段追加」，每次只加一行，不要整段覆寫（見實施計劃 Task 1.2 Step 4）
-;   - 引擎版本鎖定 4.5.2-stable，與 GodotSteam GDExtension 4.20.1、GUT 9.5.0 綁定
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -16,27 +17,21 @@ config/features=PackedStringArray("4.5", "Forward Plus")
 
 [autoload]
 
-; ⚠️ 分階段追加，每次只加一行，不要整段覆寫（見實施計劃 Task 1.2 Step 4）
-;    ElementSystem 於階段二 Task 2.1 追加、LevelManager 於階段四、SaveSystem 於階段六
-;    尚未建立的腳本不要提前寫在這裡，否則啟動會找不到檔案而報錯
 HanziData="*res://scripts/hanzi_data.gd"
 ElementSystem="*res://scripts/element_system.gd"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/godotsteam/plugin.cfg", "res://addons/gut/plugin.cfg")
 
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godotsteam/plugin.cfg", "res://addons/gut/plugin.cfg")
 
 [input]
 
-; Task 1.3b：A/D移動、Space跳躍、J開火、Q/E切換武器、Esc暫停
-; 用 physical_keycode 而非 keycode，非QWERTY版面（Dvorak/AZERTY）也能對到同一個實體按鍵位置
 move_left={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":65,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
@@ -75,17 +70,8 @@ pause={
 
 [layer_names]
 
-; Task 1.6：層號從1起算，程式碼裡的 collision_layer/mask 是位元遮罩（layer_1 = bit 0 = 值1）
 2d_physics/layer_1="ground"
 2d_physics/layer_2="player"
 2d_physics/layer_3="enemy"
 2d_physics/layer_4="player_bullet"
 2d_physics/layer_5="enemy_bullet"
-
-[physics]
-
-2d/default_gravity=980.0
-
-[rendering]
-
-renderer/rendering_method="forward_plus"

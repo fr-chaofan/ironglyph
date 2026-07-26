@@ -27,3 +27,6 @@ Thumbs.db
 
 # Editor
 *.tmp
+
+# Godot 編輯器開啟時，GDExtension 熱重載會產生 ~ 開頭的暫存副本
+game/addons/**/~*

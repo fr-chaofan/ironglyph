@@ -1,6 +1,10 @@
-; 階段一的手動驗證場景（不是正式關卡）。
-; 用途：F5 直接跑起來確認移動/跳躍/重力/鏡頭/漢字不翻轉都正常。
-; 正式關卡由階段四 LevelManager + TileMap 產生，屆時這個場景可以刪掉。
+; 階段一/二的手動驗證場景（不是正式關卡）。
+; 用途：F5 直接跑起來確認移動/跳躍/重力/鏡頭/漢字不翻轉/子彈與五行倍率。
+; 正式關卡由階段四 LevelManager + TileMap 產生，階段三敵人上線後這個場景可以刪掉。
+;
+; ⚠️ 所有UI標籤都必須放在 CanvasLayer 底下。
+;    直接掛在 Node2D 根節點下的 Control 是**世界座標**，會跟著鏡頭一起捲動，
+;    而且鏡頭跟隨玩家時會被推到畫面外看不見。CanvasLayer 底下才是螢幕座標。
 
 [gd_scene load_steps=7 format=3]
 
@@ -18,9 +22,9 @@ size = Vector2(240, 32)
 [node name="TestRoom" type="Node2D"]
 
 [node name="Background" type="ColorRect" parent="."]
-offset_left = -1200.0
-offset_top = -700.0
-offset_right = 1200.0
+offset_left = -1400.0
+offset_top = -900.0
+offset_right = 1400.0
 offset_bottom = 400.0
 color = Color(0.09, 0.09, 0.13, 1)
 
@@ -40,7 +44,7 @@ offset_bottom = 40.0
 color = Color(0.22, 0.2, 0.26, 1)
 
 [node name="Platform" type="StaticBody2D" parent="."]
-position = Vector2(320, 180)
+position = Vector2(-320, 180)
 collision_layer = 1
 collision_mask = 0
 
@@ -55,48 +59,61 @@ offset_bottom = 16.0
 color = Color(0.28, 0.26, 0.33, 1)
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
-position = Vector2(-160, 120)
-
-[node name="Hint" type="Label" parent="."]
-offset_left = -560.0
-offset_top = -300.0
-offset_right = 40.0
-offset_bottom = -240.0
-theme_override_font_sizes/font_size = 20
-text = "A/D 移動   Space 跳躍   J 開火   Q/E 切換武器   Esc 暫停"
-
-[node name="WeaponLabel" type="Label" parent="."]
-offset_left = -560.0
-offset_top = -250.0
-offset_right = 200.0
-offset_bottom = -210.0
-theme_override_font_sizes/font_size = 22
-text = "（武器）"
-script = ExtResource("2_wlabel")
-weapon_manager_path = NodePath("../Player/WeaponManager")
+position = Vector2(-40, 120)
 
 [node name="Dummies" type="Node2D" parent="."]
 
 [node name="DummyFire" parent="Dummies" instance=ExtResource("3_dummy")]
-position = Vector2(180, 250)
+position = Vector2(180, 240)
 element = "fire"
 display_char = "焰"
 
 [node name="DummyWood" parent="Dummies" instance=ExtResource("3_dummy")]
-position = Vector2(400, 250)
+position = Vector2(360, 240)
 element = "wood"
 display_char = "森"
 
 [node name="DummyWater" parent="Dummies" instance=ExtResource("3_dummy")]
-position = Vector2(620, 250)
+position = Vector2(540, 240)
 element = "water"
 display_char = "河"
 
-[node name="InfoLabel" type="Label" parent="."]
-offset_left = 240.0
-offset_top = -300.0
-offset_right = 620.0
-offset_bottom = -180.0
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Hint" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 900.0
+offset_bottom = 40.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 18
+text = "A/D 移動    Space 跳躍    J 開火    Q/E 切換武器"
+
+[node name="WeaponLabel" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 44.0
+offset_right = 900.0
+offset_bottom = 76.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 24
+text = "（武器）"
+script = ExtResource("2_wlabel")
+weapon_manager_path = NodePath("../../Player/WeaponManager")
+
+[node name="InfoLabel" type="Label" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -380.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = 120.0
+grow_horizontal = 0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 18
 text = "（環境資訊）"
+horizontal_alignment = 2
 script = ExtResource("4_info")
