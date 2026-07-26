@@ -20,6 +20,18 @@
 
 ## 階段一：專案骨架 + 核心移動 + 漢字渲染 + 鏡頭
 
+> **✅ 階段一全部完成。** 執行順序與原文編號不同——原文把 Task 1.3b（Input Map）排在 1.3 之後，
+> 但 1.3b 自己標註為「阻斷性前置依賴」，且 1.3 的程式碼直接呼叫 `move_left`/`jump`/`fire` 這些
+> action。同理 1.6（碰撞層）必須在 `player.tscn` 設 `collision_layer` 之前完成。
+>
+> **實際執行順序：1.3b → 1.6 → 1.4 → 1.3 → 1.5**
+>
+> 額外產出（原計劃沒有、但 Task 1.3 的 Verify「F5執行場景」需要）：
+> `game/scenes/test_room.tscn` —— 含地面、平台與 Player 實例的手動驗證場景，
+> 已設為 `run/main_scene`。階段四正式關卡上線後可刪除。
+>
+> 測試：`test_character.gd` + `test_player.gd`，共28項測試106個assert全過。
+
 ### Task 1.1: 初始化Godot專案結構
 
 **Objective:** 建立標準目錄結構和project.godot配置
@@ -221,10 +233,26 @@ print("缺失字:", missing if missing else "無，全部覆蓋")
 
 **Objective:** 橫版角色控制器，支援左右移動、跳躍、開火輸入
 
+> **✅ 已完成。** 實作與下方草稿的三點差異，都是為了讓階段一能獨立跑通、不必等階段二：
+>
+> 1. **`ElementSystem` 尚未存在。** 草稿的 `take_damage()` 直接呼叫 `ElementSystem.get_multiplier()`，
+>    但該單例要到階段二 Task 2.1 才建立，照抄會在第一次受擊時就崩潰。改成
+>    `get_element_multiplier()`，用 `get_node_or_null("/root/ElementSystem")` 探測：
+>    找不到就回傳中性倍率 1.0。Task 2.1 註冊單例後會自動改走真正的相剋表，**不需要回頭改這裡**。
+> 2. **`WeaponManager` 尚未存在。** 同理，`_try_fire()` 會先確認節點存在且有 `fire` 方法，
+>    階段一按開火鍵靜默略過。
+> 3. **重力改讀 `ProjectSettings`** 而非草稿的 `const GRAVITY = 980.0`。寫死的話日後調整
+>    `physics/2d/default_gravity` 角色不會跟著變，兩邊會不同步。
+>
+> 另補了 `hp_changed` / `died` 兩個訊號（HUD與敵人死亡結算都會用到），並在 `take_damage()`
+> 開頭加上 `if hp <= 0: return` —— 否則同一幀多發子彈打中將死目標時 `die()` 會跑很多次。
+
 **Files:**
 - Create: `game/scripts/character.gd`
 - Create: `game/scripts/player.gd`
 - Create: `game/scenes/player.tscn`
+- Create: `game/scenes/test_room.tscn`（Verify用的手動測試場景）
+- Create: `game/tests/test_character.gd` `game/tests/test_player.gd`（GUT）
 
 **Step 1:** 基類：
 ```gdscript
@@ -307,6 +335,17 @@ Player (CharacterBody2D, script=player.gd)
 
 **Objective:** 定義所有Input Action，Task 1.3起大量程式碼依賴這些action名稱，必須提前建立
 
+> **✅ 已完成，且已提前到 Task 1.3 之前執行**（本Task自己標註為阻斷性前置依賴，卻被排在依賴它的1.3後面）。
+>
+> ⚠️ **下方的 `Object(InputEventKey,"physical_keycode":65)` 簡寫無法被 Godot 解析**，
+> 專案啟動時該action會靜默變成沒有綁定任何按鍵。`project.godot` 裡的 `Object(...)`
+> 必須列出 InputEventKey 的完整屬性（`device`/`alt_pressed`/`keycode`/`key_label`/
+> `unicode`/`location`/`echo`/`script` 等），實際格式見已合併的 `game/project.godot`。
+> 最省事的做法還是在編輯器 Project Settings → Input Map 面板點一點，讓Godot自己寫。
+>
+> 用 `physical_keycode` 而非 `keycode` 是刻意的：非QWERTY版面（Dvorak/AZERTY）的玩家
+> 按下的仍是同一個實體位置的鍵。
+
 **Files:**
 - Modify: `game/project.godot`（`[input]`小節）
 
@@ -352,18 +391,23 @@ pause={
 
 **Objective:** 統一的"用漢字生成角色視覺"元件，供Player和所有Enemy複用
 
+> **✅ 已完成。**
+
 **Files:**
 - Create: `game/scripts/hanzi_sprite.gd`
-- Create: `game/assets/fonts/NotoSansTC-Bold.ttf`（下載思源黑體繁體版）
+- Create: `game/assets/fonts/NotoSansTC-Bold.otf`（下載思源黑體繁體版）
 
-**Step 1:** 下載字型：
+**Step 1:** 下載字型。
+
+> ⚠️ **原草稿的URL會404**，兩處都錯：`Sans/OTF/TraditionalChinese/` 底下的檔名是
+> `NotoSansCJKtc-Bold.otf`（不是 `NotoSansTC-Bold.otf`），且那是17MB的全CJK字型。
+>
+> 改用 **`Sans/SubsetOTF/TC/NotoSansTC-Bold.otf`（5.6MB）**——繁中子集版，涵蓋本專案
+> 全部用字與UI文字綽綽有餘，入版控與匯出build都省下11MB。
+
 ```bash
-python3 -c "
-import urllib.request
-urllib.request.urlretrieve(
-  'https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansTC-Bold.otf',
-  'game/assets/fonts/NotoSansTC-Bold.otf')
-"
+curl -sL -o game/assets/fonts/NotoSansTC-Bold.otf \
+  https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf
 ```
 
 **Step 2:** 封裝元件（描邊發光、受擊抖動）：
@@ -395,6 +439,10 @@ func shatter_and_die() -> void:
 
 **Objective:** Camera2D平滑跟隨玩家，限制在關卡邊界內
 
+> **✅ 已完成。** 額外加了 `has_bounds` 旗標與 `clear_level_bounds()`：未套用邊界前 Godot 的
+> `limit_*` 是預設的正負一億（等同不限制），有旗標才能區分「還沒設定」與「設定成很大的範圍」，
+> 階段四 LevelManager 載入關卡時會用到。
+
 **Files:**
 - Modify: `game/scenes/player.tscn`（Camera2D子節點配置）
 - Create: `game/scripts/camera_bounds.gd`
@@ -422,6 +470,13 @@ func _ready() -> void:
 ### Task 1.6: 基礎碰撞層設定
 
 **Objective:** 定義Player/Enemy/Bullet/Ground的物理層，避免後續碰撞漏判
+
+> **✅ 已完成，且已提前到 Task 1.3 之前執行**（`player.tscn` 要設 `collision_layer` 就得先有層定義）。
+>
+> 注意層號與位元值的換算：`layer_1` 是 bit 0，位元值 **1**；`layer_2` = 2、`layer_3` = 4、
+> `layer_4` = 8、`layer_5` = 16。Player 設 `collision_layer = 2`（player）、
+> `collision_mask = 5`（ground 1 + enemy 4），刻意不含 `player_bullet`(8)，否則自己的子彈會打到自己。
+> 這條已寫成測試 `test_碰撞層為player且不與自己的子彈碰撞`。
 
 **Files:**
 - Modify: `game/project.godot`（Layer Names配置）
@@ -1412,6 +1467,7 @@ git tag v0.1.0-milestone-complete
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
 | 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |
+| 2026-07-26 | 階段一完成（Task 1.3/1.3b/1.4/1.5/1.6）。**調整執行順序為 1.3b → 1.6 → 1.4 → 1.3 → 1.5**：1.3b自己標註為阻斷性前置依賴卻被排在依賴它的1.3之後，1.6同理（`player.tscn`要設`collision_layer`需先有層定義）。修正三處無效內容：①Task 1.4字型URL 404（目錄下的檔名是`NotoSansCJKtc-*`，改用5.6MB的`SubsetOTF/TC`繁中子集版）；②Task 1.3b的`Object(InputEventKey,...)`簡寫無法被解析，需列出完整屬性；③Task 1.3的`character.gd`直接呼叫尚未存在的`ElementSystem`與`WeaponManager`，改為執行期探測+中性倍率回退，階段二接上後自動生效。另新增`test_room.tscn`供Task 1.3的F5驗證，重力改讀ProjectSettings，補`hp_changed`/`died`訊號與死亡去重 |
 | 2026-07-26 | Task 1.2/1.2b完成：資料集覆蓋率23/23。原字表的「燄」查無（「焰」的異體字，資料集只收「焰」），依決策不做近似字替換而移除，補上同屬火的「焚」維持每屬性4隻敵人對稱；「焚」拆解為`⿱林火`，「林」同為木屬性敵字，部首武器多一個跨屬性互動。Task 5.1敵人表同步更新。實作上把一次性程式碼片段抽成可重跑的`tools/build_hanzi_data.py`（內建覆蓋率檢查與下載快取），並多存`radical`/`medians`兩欄位供部首武器與崩解特效使用 |
 | 2026-07-26 | Task 1.1實機執行後修正其指令錯誤：①Step 1的`godot4 --headless --path . --editor --quit`**無法從無到有生成`project.godot`**（該指令要求檔案已存在，Godot沒有建立專案的CLI），改為手動撰寫設定檔並補上`--import`步驟；②Verify的`--check-only`**不能單獨使用**（是修飾旗標，需搭配`-s <腳本>`），改用探測腳本讀回ProjectSettings驗證。另標註Task 2.0（GUT）與Task 7.1 Step 1（GodotSteam）已於PR #2提前完成，避免重複執行 |
 | 2026-07-26 | 實機設置後修訂依賴版本與下載來源（原本的URL全部會失敗）：①引擎鎖定 **Godot 4.5.2**（原寫「4.3+」；GodotSteam現行外掛需4.4+，且整合者機器的RTX 5080晚於4.3發布）；②Task 7.1 GodotSteam來源改為 **Codeberg** 的`v4.20.1-gde`（GitHub repo已搬遷，其releases是引擎執行檔而非外掛，原URL不存在）；③Task 2.0 GUT改為指定 **9.5.0**（原用`releases/latest`會抓到對應Godot 4.7.x的版本；AssetLib上架版對應4.6.x，兩者都不相容4.5.2）；④Task 7.0 export templates URL更新為4.5.2並補上Windows路徑；⑤專案路徑改為整合者機器實際路徑 |
