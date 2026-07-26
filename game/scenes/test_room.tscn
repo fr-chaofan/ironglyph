@@ -2,10 +2,12 @@
 ; 用途：F5 直接跑起來確認移動/跳躍/重力/鏡頭/漢字不翻轉都正常。
 ; 正式關卡由階段四 LevelManager + TileMap 產生，屆時這個場景可以刪掉。
 
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
+[ext_resource type="PackedScene" path="res://scenes/training_dummy.tscn" id="3_dummy"]
+[ext_resource type="Script" uid="uid://de4cdh6bamawn" path="res://scripts/debug_info_label.gd" id="4_info"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2400, 80)
@@ -72,3 +74,29 @@ theme_override_font_sizes/font_size = 22
 text = "（武器）"
 script = ExtResource("2_wlabel")
 weapon_manager_path = NodePath("../Player/WeaponManager")
+
+[node name="Dummies" type="Node2D" parent="."]
+
+[node name="DummyFire" parent="Dummies" instance=ExtResource("3_dummy")]
+position = Vector2(180, 250)
+element = "fire"
+display_char = "焰"
+
+[node name="DummyWood" parent="Dummies" instance=ExtResource("3_dummy")]
+position = Vector2(400, 250)
+element = "wood"
+display_char = "森"
+
+[node name="DummyWater" parent="Dummies" instance=ExtResource("3_dummy")]
+position = Vector2(620, 250)
+element = "water"
+display_char = "河"
+
+[node name="InfoLabel" type="Label" parent="."]
+offset_left = 240.0
+offset_top = -300.0
+offset_right = 620.0
+offset_bottom = -180.0
+theme_override_font_sizes/font_size = 18
+text = "（環境資訊）"
+script = ExtResource("4_info")
