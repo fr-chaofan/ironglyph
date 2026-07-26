@@ -20,6 +20,7 @@ config/features=PackedStringArray("4.5", "Forward Plus")
 ;    ElementSystem 於階段二 Task 2.1 追加、LevelManager 於階段四、SaveSystem 於階段六
 ;    尚未建立的腳本不要提前寫在這裡，否則啟動會找不到檔案而報錯
 HanziData="*res://scripts/hanzi_data.gd"
+ElementSystem="*res://scripts/element_system.gd"
 
 [editor_plugins]
 

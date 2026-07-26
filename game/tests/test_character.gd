@@ -23,17 +23,30 @@ func test_take_damage_扣血() -> void:
 	assert_eq(c.hp, 70)
 
 
-func test_沒有ElementSystem時倍率為1() -> void:
-	# 階段二 Task 2.1 才會建立 ElementSystem，在那之前一律中性倍率
-	assert_null(c_get_element_system(), "階段一不該有 ElementSystem 單例")
+func test_取得不到ElementSystem時回退為中性倍率() -> void:
+	# character.gd 用 get_node_or_null("/root/ElementSystem") 探測單例，取不到就回傳 1.0。
+	# 這個回退路徑在階段一是常態；階段二之後雖然單例一定在，但仍要保證
+	# 單元測試或工具場景等沒有載入 autoload 的情境不會崩潰。
+	# 這裡暫時把單例改名，讓探測失敗，藉此實際走到回退分支。
+	var singleton := get_tree().root.get_node_or_null(^"ElementSystem")
+	assert_not_null(singleton, "階段二後單例應存在")
+	singleton.name = "ElementSystemHidden"
+
 	var c := _make_character(100)
-	assert_almost_eq(c.get_element_multiplier("fire", "wood"), 1.0, 0.001)
+	assert_almost_eq(c.get_element_multiplier("fire", "wood"), 1.0, 0.001,
+		"探測不到單例時應回退為 1.0 而非崩潰")
 	c.take_damage(25, "fire")
-	assert_eq(c.hp, 75, "倍率1.0時傷害應原樣扣除")
+	assert_eq(c.hp, 75, "回退倍率 1.0 時傷害應原樣扣除")
+
+	singleton.name = "ElementSystem"
 
 
-func c_get_element_system() -> Node:
-	return get_tree().root.get_node_or_null(^"ElementSystem")
+func test_有ElementSystem時走真實相剋表() -> void:
+	var c := _make_character(100, "wood")
+	assert_almost_eq(c.get_element_multiplier("fire", "wood"), 1.0, 0.001,
+		"火不剋木，應為中性")
+	assert_almost_eq(c.get_element_multiplier("metal", "wood"), 1.5, 0.001,
+		"金剋木，應為優勢倍率")
 
 
 func test_hp不會扣成負數() -> void:

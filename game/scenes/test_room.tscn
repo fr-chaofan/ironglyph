@@ -2,9 +2,10 @@
 ; 用途：F5 直接跑起來確認移動/跳躍/重力/鏡頭/漢字不翻轉都正常。
 ; 正式關卡由階段四 LevelManager + TileMap 產生，屆時這個場景可以刪掉。
 
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
+[ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2400, 80)
@@ -60,4 +61,14 @@ offset_top = -300.0
 offset_right = 40.0
 offset_bottom = -240.0
 theme_override_font_sizes/font_size = 20
-text = "A/D 移動   Space 跳躍   J 開火(階段二接上)   Esc 暫停"
+text = "A/D 移動   Space 跳躍   J 開火   Q/E 切換武器   Esc 暫停"
+
+[node name="WeaponLabel" type="Label" parent="."]
+offset_left = -560.0
+offset_top = -250.0
+offset_right = 200.0
+offset_bottom = -210.0
+theme_override_font_sizes/font_size = 22
+text = "（武器）"
+script = ExtResource("2_wlabel")
+weapon_manager_path = NodePath("../Player/WeaponManager")

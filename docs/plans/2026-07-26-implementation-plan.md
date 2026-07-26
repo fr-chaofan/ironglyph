@@ -502,6 +502,11 @@ cd game && git init && git add -A && git commit -m "phase1: project skeleton, ha
 
 ## 階段二：部首武器系統 + 五行相剋
 
+> **✅ 階段二全部完成**（Task 2.1/2.2/2.3/2.4）。測試累計66項311個assert全過。
+>
+> ⚠️ **Task 2.3 的子彈碰撞訊號接錯了**，照抄會導致「子彈能生成、能飛，但永遠打不到任何人」——
+> 詳見該Task下方說明。這正是原文Verify裡自己警告的那個坑，但原文給的解法本身是錯的。
+
 ### Task 2.0: 安裝 GUT 測試框架（Task 2.1單元測試的前置依賴）
 
 **Objective:** Task 2.1要用GUT寫純邏輯單元測試，必須先安裝這個外掛，否則`-s addons/gut/gut_cmdln.gd`會找不到檔案
@@ -542,6 +547,18 @@ mkdir -p game/tests
 ### Task 2.1: 五行相剋資料表 + 純邏輯單元測試
 
 **Objective:** 建立`ElementSystem` autoload單例，五行剋制倍率計算可獨立測試
+
+> **✅ 已完成。**
+>
+> ⚠️ **倍率 1.5 / 0.6 是待playtest調校的初始值，不是定案。** 這兩個數字直接決定「換對武器」的
+> 收益大小：太接近1.0，玩家不會想切武器，相剋機制形同虛設；差距太大則變成不換武器就打不動，
+> 切武器從策略變成雜務。調整時只改 `res://data/elements.json`，不需要動腳本。見 Task 8.1 playtest。
+>
+> 額外加了 `has_advantage()` / `get_counter_to()`——後者供HUD提示玩家「該換哪個屬性的武器」。
+>
+> 測試除了原文的三項，另加：相剋環完整性（每個屬性恰好剋一個、恰好被一個剋，形成單一循環而非
+> 分岔或自剋）、以及 `beats` 與 `loses_to` 的互相一致性——`loses_to` 是可從 `beats` 推導的冗餘
+> 資料，兩邊寫不一致會產生「A剋B、但B也剋A」的矛盾。
 
 **Files:**
 - Create: `game/scripts/element_system.gd` (autoload)
@@ -618,6 +635,9 @@ func test_neutral_always_normal():
 
 **Objective:** 定義資源化的武器資料，非硬編碼
 
+> **✅ 已完成，資料照原文未改。** 測試補了幾項資料完整性檢查：欄位齊全、id不重複、屬性值合法、
+> 以及**五行各屬性都有對應武器**——缺任一屬性的武器，玩家就沒辦法剋制對應屬性的敵人。
+
 **Files:**
 - Create: `game/data/weapons.json`
 
@@ -644,6 +664,35 @@ func test_neutral_always_normal():
 ### Task 2.3: WeaponManager + 武器切換
 
 **Objective:** Player持有的武器管理器，Q/E切換武器，讀取weapons.json生成子彈
+
+> **✅ 已完成。** 修正一個會讓整個戰鬥系統失效的錯誤，另補三處。
+>
+> ### ⚠️ 子彈接錯碰撞訊號（照抄會「打不到人」）
+>
+> 原文 Step 2 用 `area_entered`、Step 3 也要求連接 `area_entered`：
+> ```gdscript
+> func _on_area_entered(area: Node) -> void:
+>     if area.get_parent() is Character:
+> ```
+> 但 `Character` 繼承 `CharacterBody2D`（屬於 `PhysicsBody2D`），而 **Area2D 的 `area_entered`
+> 只會對其他 Area2D 觸發，對 PhysicsBody2D 永遠不會觸發**。照抄的結果是子彈能生成、能飛、
+> 能撞到東西，但傷害永遠不會結算。
+>
+> 正解是接 **`body_entered`**，並直接判斷 `body is Character`（不需要 `get_parent()`——
+> 撞到的就是角色本身，不是它的子節點）。已寫成測試
+> `test_子彈用body_entered而非area_entered` 守住。
+>
+> ### 其他三處補強
+>
+> | 問題 | 處理 |
+> |---|---|
+> | **子彈永不消失** | 原文的子彈打空後會一直往畫面外飛且永不釋放，一場戰鬥累積成千上萬個節點。加了 `max_lifetime`（預設3秒）自動釋放，並讓子彈打到地形也消失（否則會穿牆） |
+> | **武器清單為空時除以零** | `current_index % weapons.size()` 在載入失敗時會除以零。`cycle_weapon()` 開頭擋掉空清單 |
+> | **子彈掛在 Player 底下** | 原文 `get_tree().current_scene.add_child()` 方向正確，但補上 `current_scene` 為 null 時（單元測試環境）退回場景樹根節點。子彈絕不能掛在 Player 底下——會跟著角色移動，且角色死亡 `queue_free` 時會把空中的子彈一起帶走 |
+>
+> 另加 `muzzle_offset`（子彈生成點前移，避免一出生就卡在自己的碰撞體裡）與 `weapon_changed` 訊號
+> （供HUD更新），以及 `game/scripts/debug_weapon_label.gd` —— 原文Verify要求的「臨時debug label」，
+> 已掛在 `test_room.tscn` 左上角，Q/E切換時即時顯示武器名/部首/屬性/傷害。
 
 **Files:**
 - Create: `game/scripts/weapon_manager.gd`
@@ -717,6 +766,12 @@ func _on_area_entered(area: Node) -> void:
 ### Task 2.4: 武器手感打磨（後坐力/開火動畫/描邊色）
 
 **Objective:** 每種武器按五行有不同的顏色/粒子反饋，避免武器手感雷同
+
+> **✅ 顏色部分已完成**，`ELEMENT_COLORS` 直接併入 `bullet.gd` 的 `setup()`。
+> 已測試五個屬性的顏色互不相同。
+>
+> **後坐力與開火動畫尚未做**——那需要實際手感調校，屬於整合者在有display的機器上的工作
+> （見本文件開頭的協作分工），不適合headless盲調。
 
 **Files:**
 - Modify: `game/scripts/bullet.gd`（按element著色）
@@ -1467,6 +1522,7 @@ git tag v0.1.0-milestone-complete
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
 | 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |
+| 2026-07-26 | 階段二完成（Task 2.1/2.2/2.3/2.4）。**修正一個會讓整個戰鬥系統失效的錯誤**：Task 2.3 的子彈用 `area_entered` 偵測命中，但 `Character` 繼承 `CharacterBody2D`（PhysicsBody2D），Area2D 的 `area_entered` 對 PhysicsBody2D 永遠不會觸發——照抄的結果是子彈能生成能飛但傷害永不結算。改用 `body_entered` 並直接判斷 `body is Character`。另補：子彈加存活上限（原本打空後永不釋放，會無限累積節點）與打到地形消失；`cycle_weapon()` 擋掉空武器清單避免除以零；子彈父節點在 `current_scene` 為 null 時退回場景樹根。五行倍率 1.5/0.6 沿用原文數值，標註為**待playtest調校的初始值**。Task 2.4 的顏色已做，後坐力/開火動畫留給整合者在有display的機器上調 |
 | 2026-07-26 | 階段一完成（Task 1.3/1.3b/1.4/1.5/1.6）。**調整執行順序為 1.3b → 1.6 → 1.4 → 1.3 → 1.5**：1.3b自己標註為阻斷性前置依賴卻被排在依賴它的1.3之後，1.6同理（`player.tscn`要設`collision_layer`需先有層定義）。修正三處無效內容：①Task 1.4字型URL 404（目錄下的檔名是`NotoSansCJKtc-*`，改用5.6MB的`SubsetOTF/TC`繁中子集版）；②Task 1.3b的`Object(InputEventKey,...)`簡寫無法被解析，需列出完整屬性；③Task 1.3的`character.gd`直接呼叫尚未存在的`ElementSystem`與`WeaponManager`，改為執行期探測+中性倍率回退，階段二接上後自動生效。另新增`test_room.tscn`供Task 1.3的F5驗證，重力改讀ProjectSettings，補`hp_changed`/`died`訊號與死亡去重 |
 | 2026-07-26 | Task 1.2/1.2b完成：資料集覆蓋率23/23。原字表的「燄」查無（「焰」的異體字，資料集只收「焰」），依決策不做近似字替換而移除，補上同屬火的「焚」維持每屬性4隻敵人對稱；「焚」拆解為`⿱林火`，「林」同為木屬性敵字，部首武器多一個跨屬性互動。Task 5.1敵人表同步更新。實作上把一次性程式碼片段抽成可重跑的`tools/build_hanzi_data.py`（內建覆蓋率檢查與下載快取），並多存`radical`/`medians`兩欄位供部首武器與崩解特效使用 |
 | 2026-07-26 | Task 1.1實機執行後修正其指令錯誤：①Step 1的`godot4 --headless --path . --editor --quit`**無法從無到有生成`project.godot`**（該指令要求檔案已存在，Godot沒有建立專案的CLI），改為手動撰寫設定檔並補上`--import`步驟；②Verify的`--check-only`**不能單獨使用**（是修飾旗標，需搭配`-s <腳本>`），改用探測腳本讀回ProjectSettings驗證。另標註Task 2.0（GUT）與Task 7.1 Step 1（GodotSteam）已於PR #2提前完成，避免重複執行 |

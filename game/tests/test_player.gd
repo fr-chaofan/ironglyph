@@ -94,9 +94,13 @@ func test_重力讓角色下墜() -> void:
 	assert_gt(_player.velocity.y, 0.0, "空中應受重力加速下墜")
 
 
-func test_沒有WeaponManager時開火不會崩潰() -> void:
-	# 階段二 Task 2.2 才會有 WeaponManager，階段一按開火鍵應靜默略過
-	assert_null(_player.weapon_manager, "階段一不該有 WeaponManager")
+func test_WeaponManager已接上() -> void:
+	# 階段一時此節點還不存在、`_try_fire()` 靜默略過；Task 2.3 接上後應能取到
+	assert_not_null(_player.weapon_manager, "Task 2.3 後應有 WeaponManager")
+	assert_true(_player.weapon_manager.has_method(&"fire"))
+
+
+func test_按開火鍵不會崩潰() -> void:
 	Input.action_press(&"fire")
 	await wait_physics_frames(3)
 	Input.action_release(&"fire")
