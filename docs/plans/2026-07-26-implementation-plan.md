@@ -90,9 +90,20 @@ rm game/probe.gd game/probe.gd.uid
 
 **Objective:** 拿到"字→部首→筆畫路徑"資料，供後續所有漢字渲染/拆解使用。**注意：Make Me a Hanzi實際是兩個檔案**——`dictionary.txt`（含character/decomposition/pinyin/radical等欄位）和`graphics.txt`（含strokes筆畫SVG路徑、medians中軸點），兩者需分別抓取再合併，欄位不要混淆。
 
+> **✅ 此Task與Task 1.2b已完成**（於整合者機器實機執行）。實際實作與下方原始草稿有兩點差異：
+>
+> 1. **抽成可重跑的腳本** `tools/build_hanzi_data.py`，而非一次性貼上的程式碼片段。Task 1.2b的覆蓋率檢查已內建在同一支腳本裡（不需另外跑一遍），且會快取下載的30MB資料檔。日後字表變動只要改腳本裡的`NEEDED_CHARS`再重跑。
+> 2. **多存了`radical`與`medians`兩個欄位**。`radical`供部首武器機制直接查詢；`medians`（筆畫中軸點）供Task 3.4崩解特效決定碎片飛散方向，比只有SVG path好用。
+>
+> **覆蓋率結果：23/23全部覆蓋。** 但初次執行時原字表中的「燄」查無——它是「焰」的異體字，資料集只收「焰」。依專案決策不做近似字替換，已將「燄」從字表移除，並補上同為火屬性、資料集有收錄的「焚」以維持每屬性4隻敵人的對稱。「焚」拆解為`⿱林火`，其中「林」本身也是木屬性敵字，部首武器機制因此多一個跨屬性互動。下方字表與Task 5.1敵人表均已同步更新。
+>
+> 驗證：`game/tests/test_hanzi_data.gd`（GUT，9項測試69個assert全過），含一項掃描全部字檢查拆解式不含自我循環定義。
+
 **Files:**
 - Create: `game/data/hanzi_decomposition.json`（合併後的精簡JSON）
 - Create: `game/scripts/hanzi_data.gd` (autoload單例，命名為`HanziData`)
+- Create: `tools/build_hanzi_data.py`（產生上述JSON的腳本，含覆蓋率檢查）
+- Create: `game/tests/test_hanzi_data.gd`（GUT測試）
 
 **Step 1:** 抓取兩個資料檔並合併：
 ```python
@@ -109,7 +120,7 @@ urllib.request.urlretrieve(
 # dictionary.txt: 每行一個JSON物件，含 character/decomposition/radical/pinyin
 # graphics.txt: 每行一個JSON物件，含 character/strokes(SVG path陣列)/medians
 
-needed_chars = set("我淼焱森河海湖雨焰炎灶燄鋼針劍錘樹藤林巖石山塵")  # 從Task 2.1/3.1/5.1字表彙總
+needed_chars = set("我淼焱森河海湖雨焰炎灶焚鋼針劍錘樹藤林巖石山塵")  # 從Task 2.1/3.1/5.1字表彙總
 
 dict_data = {}
 with open("/tmp/mmh_dictionary.txt", encoding="utf-8") as f:
@@ -190,7 +201,7 @@ HanziData="*res://scripts/hanzi_data.gd"
 ```python
 import json
 
-needed_chars = "我淼焱森河海湖雨焰炎灶燄鋼針劍錘樹藤林巖石山塵"
+needed_chars = "我淼焱森河海湖雨焰炎灶焚鋼針劍錘樹藤林巖石山塵"
 found = set()
 with open("/tmp/mmh_dictionary.txt", encoding="utf-8") as f:
     for line in f:
@@ -696,7 +707,7 @@ git add -A && git commit -m "phase2: radical weapon system, five-element damage 
   {"char":"焰","element":"fire","ai":"chase_melee","hp":35,"damage":14,"speed":100},
   {"char":"炎","element":"fire","ai":"patrol_ranged","hp":30,"damage":10,"speed":70},
   {"char":"灶","element":"fire","ai":"stationary_aoe","hp":40,"damage":16,"speed":0},
-  {"char":"燄","element":"fire","ai":"chase_melee","hp":38,"damage":13,"speed":95},
+  {"char":"焚","element":"fire","ai":"chase_melee","hp":38,"damage":13,"speed":95},
   {"char":"鋼","element":"metal","ai":"patrol_ranged","hp":50,"damage":15,"speed":50},
   {"char":"針","element":"metal","ai":"chase_melee","hp":22,"damage":9,"speed":130},
   {"char":"劍","element":"metal","ai":"chase_melee","hp":40,"damage":18,"speed":110},
@@ -1401,5 +1412,6 @@ git tag v0.1.0-milestone-complete
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
 | 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |
+| 2026-07-26 | Task 1.2/1.2b完成：資料集覆蓋率23/23。原字表的「燄」查無（「焰」的異體字，資料集只收「焰」），依決策不做近似字替換而移除，補上同屬火的「焚」維持每屬性4隻敵人對稱；「焚」拆解為`⿱林火`，「林」同為木屬性敵字，部首武器多一個跨屬性互動。Task 5.1敵人表同步更新。實作上把一次性程式碼片段抽成可重跑的`tools/build_hanzi_data.py`（內建覆蓋率檢查與下載快取），並多存`radical`/`medians`兩欄位供部首武器與崩解特效使用 |
 | 2026-07-26 | Task 1.1實機執行後修正其指令錯誤：①Step 1的`godot4 --headless --path . --editor --quit`**無法從無到有生成`project.godot`**（該指令要求檔案已存在，Godot沒有建立專案的CLI），改為手動撰寫設定檔並補上`--import`步驟；②Verify的`--check-only`**不能單獨使用**（是修飾旗標，需搭配`-s <腳本>`），改用探測腳本讀回ProjectSettings驗證。另標註Task 2.0（GUT）與Task 7.1 Step 1（GodotSteam）已於PR #2提前完成，避免重複執行 |
 | 2026-07-26 | 實機設置後修訂依賴版本與下載來源（原本的URL全部會失敗）：①引擎鎖定 **Godot 4.5.2**（原寫「4.3+」；GodotSteam現行外掛需4.4+，且整合者機器的RTX 5080晚於4.3發布）；②Task 7.1 GodotSteam來源改為 **Codeberg** 的`v4.20.1-gde`（GitHub repo已搬遷，其releases是引擎執行檔而非外掛，原URL不存在）；③Task 2.0 GUT改為指定 **9.5.0**（原用`releases/latest`會抓到對應Godot 4.7.x的版本；AssetLib上架版對應4.6.x，兩者都不相容4.5.2）；④Task 7.0 export templates URL更新為4.5.2並補上Windows路徑；⑤專案路徑改為整合者機器實際路徑 |

@@ -14,6 +14,13 @@ config/description="橫版闖關遊戲：主角與敵人為渲染漢字，武器
 run/main_scene=""
 config/features=PackedStringArray("4.5", "Forward Plus")
 
+[autoload]
+
+; ⚠️ 分階段追加，每次只加一行，不要整段覆寫（見實施計劃 Task 1.2 Step 4）
+;    ElementSystem 於階段二 Task 2.1 追加、LevelManager 於階段四、SaveSystem 於階段六
+;    尚未建立的腳本不要提前寫在這裡，否則啟動會找不到檔案而報錯
+HanziData="*res://scripts/hanzi_data.gd"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godotsteam/plugin.cfg", "res://addons/gut/plugin.cfg")
