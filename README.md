@@ -6,7 +6,7 @@
 
 ## 專案狀態
 
-🚧 規劃階段 — 引擎已定案，7天開發計劃已完成，尚未開始編碼。
+🚧 規劃階段 — 引擎已定案，詳細實施計劃已完成，尚未開始編碼。
 
 ## 引擎
 
@@ -15,7 +15,8 @@
 ## 文件
 
 - [`docs/GDD.md`](docs/GDD.md) — 遊戲設計文件：語言規範、核心玩法、五行部首武器系統、引擎選型對比、成本估算、Steam上架計劃
-- [`docs/plans/2026-07-26-7day-implementation-plan.md`](docs/plans/2026-07-26-7day-implementation-plan.md) — 7天詳細實施計劃，26個任務，含完整程式碼示例
+- [`docs/plans/2026-07-26-implementation-plan.md`](docs/plans/2026-07-26-implementation-plan.md) — 詳細實施計劃，8個階段、28個任務，含完整程式碼示例
+- [`docs/COLLABORATION.md`](docs/COLLABORATION.md) — 多AI協作規範：分支策略、任務分派、模組所有權、程式碼審查流程
 
 ## 核心玩法
 
@@ -31,8 +32,12 @@ Boss為複合字（淼/焱/森），拆解出多個部首子武器，多階段�
 
 ## 目標
 
-- 7天開發出完整可玩版本（4關+3 Boss，10種部首武器，20種敵字）
-- 提交Steam審核，目標從零到上線約3-4週
+- 開發出完整可玩版本（4關+3 Boss，10種部首武器，20種敵字）
+- 提交Steam審核
+
+## 協作模式
+
+本專案採用多AI agent協作開發，詳見 [`docs/COLLABORATION.md`](docs/COLLABORATION.md)。核心原則：模組化任務拆分、分支隔離、強制程式碼審查後合併。
 
 ## 已知風險 / 待驗證事項
 

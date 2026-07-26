@@ -1,20 +1,20 @@
-# 《合金文字機甲》IRONGLYPH — 7天實施計劃
+# 《合金文字機甲》IRONGLYPH — 實施計劃
 
 > ⚠️ 語言規範：本專案所有文字內容一律使用繁體中文，詳見 `docs/GDD.md` 第0節。
 
 > **For Hermes:** 用 subagent-driven-development 配合本計劃逐任務執行；遊戲開發驗證方式為"在Godot編輯器/匯出build中執行並目視確認"，而非pytest單元測試（除純邏輯模組如傷害計算外）。
 
-**Goal:** 用 Godot 4 + GodotSteam，在7天內做出一個完整可玩、可提交Steam稽核的橫版闖關遊戲：主角/敵人為渲染漢字，武器基於部首拆解，五行相剋為核心平衡機制。
+**Goal:** 用 Godot 4 + GodotSteam，做出一個完整可玩、可提交Steam稽核的橫版闖關遊戲：主角/敵人為渲染漢字，武器基於部首拆解，五行相剋為核心平衡機制。
 
 **Architecture:** 場景樹驅動的2D平臺/射擊架構。`Player`/`Enemy`共用基類`Character.gd`（繼承`CharacterBody2D`），漢字透過`Label`節點+自定義字型渲染而非Sprite2D精靈。武器/五行資料全部外接為`.tres`資源(Resource)或JSON，方便後續批次擴充而不改程式碼。關卡用Godot自帶`TileMap`+手擺場景。傷害計算走純函式（無節點依賴），可單元測試。
 
 **Tech Stack:** Godot 4.3+ (GDScript), GodotSteam外掛, Make Me a Hanzi資料集(JSON), Noto Sans TC字型, Kenney.nl/OpenGameArt素材, Sonniss/freesound音效。
 
-**專案路徑：** `/opt/data/home/projects/hanzi-runner-game/game/`
+**專案路徑：** `/opt/data/home/projects/ironglyph/game/`
 
 ---
 
-## Day 1: 專案骨架 + 核心移動 + 漢字渲染 + 鏡頭
+## 階段一：專案骨架 + 核心移動 + 漢字渲染 + 鏡頭
 
 ### Task 1.1: 初始化Godot專案結構
 
@@ -47,30 +47,124 @@ window/stretch/aspect="keep"
 
 ---
 
-### Task 1.2: 下載並接入 Make Me a Hanzi 資料集
+### Task 1.2: 下載並接入 Make Me a Hanzi 資料集 + 建立 HanziData 單例
 
-**Objective:** 拿到"字→部首→筆畫路徑"資料，供後續所有漢字渲染/拆解使用
+**Objective:** 拿到"字→部首→筆畫路徑"資料，供後續所有漢字渲染/拆解使用。**注意：Make Me a Hanzi實際是兩個檔案**——`dictionary.txt`（含character/decomposition/pinyin/radical等欄位）和`graphics.txt`（含strokes筆畫SVG路徑、medians中軸點），兩者需分別抓取再合併，欄位不要混淆。
 
 **Files:**
-- Create: `game/data/hanzi_decomposition.json`（從makemeahanzi倉庫轉換/裁剪出專案需要的字）
+- Create: `game/data/hanzi_decomposition.json`（合併後的精簡JSON）
+- Create: `game/scripts/hanzi_data.gd` (autoload單例，命名為`HanziData`)
 
-**Step 1:** 抓取資料集（graphics.txt / dictionary.txt）：
+**Step 1:** 抓取兩個資料檔並合併：
 ```python
 # 在agent環境執行，非Godot內
 import urllib.request, json
-url = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt"
-urllib.request.urlretrieve(url, "/tmp/mmh_dictionary.txt")
+
+urllib.request.urlretrieve(
+    "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt",
+    "/tmp/mmh_dictionary.txt")
+urllib.request.urlretrieve(
+    "https://raw.githubusercontent.com/skishore/makemeahanzi/master/graphics.txt",
+    "/tmp/mmh_graphics.txt")
+
+# dictionary.txt: 每行一個JSON物件，含 character/decomposition/radical/pinyin
+# graphics.txt: 每行一個JSON物件，含 character/strokes(SVG path陣列)/medians
+
+needed_chars = set("我淼焱森河海湖雨焰炎灶燄鋼針劍錘樹藤林巖石山塵")  # 從Task 2.1/3.1/5.1字表彙總
+
+dict_data = {}
+with open("/tmp/mmh_dictionary.txt", encoding="utf-8") as f:
+    for line in f:
+        d = json.loads(line)
+        if d["character"] in needed_chars:
+            dict_data[d["character"]] = {"decomposition": d.get("decomposition", "")}
+
+graphics_data = {}
+with open("/tmp/mmh_graphics.txt", encoding="utf-8") as f:
+    for line in f:
+        g = json.loads(line)
+        if g["character"] in needed_chars:
+            graphics_data[g["character"]] = {"strokes": g.get("strokes", [])}
+
+merged = {}
+for ch in needed_chars:
+    merged[ch] = {
+        "decomposition": dict_data.get(ch, {}).get("decomposition", ""),
+        "strokes": graphics_data.get(ch, {}).get("strokes", [])
+    }
+
+with open("game/data/hanzi_decomposition.json", "w", encoding="utf-8") as f:
+    json.dump(merged, f, ensure_ascii=False, indent=2)
 ```
 
-**Step 2:** 轉換為專案用的精簡JSON（只保留立項需要的字集：見Task 2.1的敵字/武器表），存到`game/data/hanzi_decomposition.json`，結構：
+**Step 2:** 結構範例（`decomposition`是拆解字串如"⿰氵可"，`strokes`是SVG path字串陣列）：
 ```json
 {
-  "淼": {"decomposition": ["水","水","水"], "strokes": [...svg paths...]},
-  "河": {"decomposition": ["氵","可"], "strokes": [...]}
+  "淼": {"decomposition": "⿱水淼", "strokes": ["M123,45 ... Z", "..."]},
+  "河": {"decomposition": "⿰氵可", "strokes": ["M67,89 ... Z", "..."]}
 }
 ```
 
-**Verify:** `python3 -c "import json; d=json.load(open('game/data/hanzi_decomposition.json')); print(len(d))"` 輸出條目數 > 0
+**Step 3:** 建立`HanziData`單例（供Task 3.4筆畫崩解特效等後續所有Task呼叫）：
+```gdscript
+# game/scripts/hanzi_data.gd (autoload singleton "HanziData")
+extends Node
+
+var data: Dictionary = {}
+
+func _ready() -> void:
+    var f = FileAccess.open("res://data/hanzi_decomposition.json", FileAccess.READ)
+    if f:
+        data = JSON.parse_string(f.get_as_text())
+
+func get_strokes(character: String) -> Array:
+    if data.has(character):
+        return data[character].get("strokes", [])
+    return []
+
+func get_decomposition(character: String) -> String:
+    if data.has(character):
+        return data[character].get("decomposition", "")
+    return ""
+```
+
+**Step 4:** 在`project.godot`的`[autoload]`小節註冊：
+```ini
+[autoload]
+HanziData="*res://scripts/hanzi_data.gd"
+ElementSystem="*res://scripts/element_system.gd"
+LevelManager="*res://scripts/level_manager.gd"
+SaveSystem="*res://scripts/save_system.gd"
+```
+（`ElementSystem`/`LevelManager`/`SaveSystem`在階段二/四/六建立時對應加入，此處先佔位統一管理，避免後續各Task各自為政漏掉autoload註冊）
+
+**Verify:** `python3 -c "import json; d=json.load(open('game/data/hanzi_decomposition.json')); print(len(d))"` 輸出條目數 > 0；Godot內執行`print(HanziData.get_strokes("淼"))`能列印出非空陣列
+
+**⚠️ 風險提示：** 若`needed_chars`中有字在Make Me a Hanzi資料集找不到（生僻Boss字常見問題），`merged[ch]`會得到空陣列——必須在這一步就跑一次覆蓋率檢查（見下方Task 1.2b），而不是等到階段三/五用到時才發現。
+
+---
+
+### Task 1.2b: 資料集覆蓋率驗證（阻斷性檢查，必須在階段一完成）
+
+**Objective:** 確認所有計劃使用的敵字/Boss字都能在Make Me a Hanzi資料集中查到，且字形為繁體
+
+**Step 1:**
+```python
+import json
+
+needed_chars = "我淼焱森河海湖雨焰炎灶燄鋼針劍錘樹藤林巖石山塵"
+found = set()
+with open("/tmp/mmh_dictionary.txt", encoding="utf-8") as f:
+    for line in f:
+        d = json.loads(line)
+        if d["character"] in needed_chars:
+            found.add(d["character"])
+
+missing = set(needed_chars) - found
+print("缺失字:", missing if missing else "無，全部覆蓋")
+```
+
+**Verify:** `missing`集合為空。若有缺失字，需要為缺失字手動準備筆畫資料（可用Godot內建`Font.get_glyph_contours()` API即時取字形輪廓做替代方案），或替換為資料集有收錄的近似字
 
 ---
 
@@ -115,12 +209,18 @@ func die() -> void:
 ```
 
 **Step 2:** Player控制：
+
+**⚠️ 設計修正：漢字不可水平鏡像翻轉** —— 像素精靈常用`scale.x = sign(dir)`來翻轉朝向，但漢字鏡像後字形會變成無法辨識的反字（例如"我"字左右鏡像後不是"我"）。改用獨立的朝向指示器（腳下箭頭/三角形圖示），漢字本體永遠正向顯示：
+
 ```gdscript
 # game/scripts/player.gd
 extends Character
 
 @onready var hanzi_label: Label = $HanziLabel
 @onready var weapon_manager: Node = $WeaponManager
+@onready var direction_indicator: Node2D = $DirectionIndicator  # 朝向指示器，非文字本體
+
+var facing_dir: float = 1.0
 
 func _physics_process(delta: float) -> void:
     apply_gravity(delta)
@@ -131,10 +231,11 @@ func _physics_process(delta: float) -> void:
     var dir := Input.get_axis("move_left", "move_right")
     velocity.x = dir * speed
     if dir != 0:
-        hanzi_label.scale.x = sign(dir) * abs(hanzi_label.scale.x)
+        facing_dir = sign(dir)
+        direction_indicator.scale.x = facing_dir  # 只翻轉指示器，不翻轉漢字本體
 
     if Input.is_action_pressed("fire"):
-        weapon_manager.fire()
+        weapon_manager.fire(facing_dir)
 
     move_and_slide()
 ```
@@ -143,12 +244,58 @@ func _physics_process(delta: float) -> void:
 ```
 Player (CharacterBody2D, script=player.gd)
 ├── CollisionShape2D
-├── HanziLabel (Label, text="我", font=NotoSansTC, font_size=64)
-├── WeaponManager (Node, script=weapon_manager.gd — Day 2建立)
+├── HanziLabel (Label, text="我", font=NotoSansTC, font_size=64)  # 永不翻轉
+├── DirectionIndicator (Node2D/Sprite2D，簡單箭頭或三角形，可翻轉)
+├── WeaponManager (Node, script=weapon_manager.gd — 階段二建立)
 └── Camera2D
 ```
 
-**Verify:** F5執行場景，方向鍵移動、空格跳躍、"我"字左右翻轉跟隨方向
+**Verify:** F5執行場景，方向鍵移動、空格跳躍，"我"字本體不變形，僅腳下/身側指示器隨方向翻轉
+
+---
+
+### Task 1.3b: Input Map 設定（阻斷性前置依賴）
+
+**Objective:** 定義所有Input Action，Task 1.3起大量程式碼依賴這些action名稱，必須提前建立
+
+**Files:**
+- Modify: `game/project.godot`（`[input]`小節）
+
+**Step 1:**
+```ini
+[input]
+move_left={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":65)]
+}
+move_right={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":68)]
+}
+jump={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":32)]
+}
+fire={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":74)]
+}
+weapon_next={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":69)]
+}
+weapon_prev={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":81)]
+}
+pause={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194305)]
+}
+```
+（鍵位：A/D移動，Space跳躍，J開火，Q/E切換武器，Esc暫停；也可以直接在Godot編輯器Project Settings > Input Map面板裡手動新增，等效於編輯這段設定）
+
+**Verify:** Godot編輯器 Project Settings > Input Map 面板能看到全部7個action且各綁定一個按鍵
 
 ---
 
@@ -187,7 +334,7 @@ func flash_hit() -> void:
     tween.tween_property(self, "modulate", Color(1,1,1), 0.1)
 
 func shatter_and_die() -> void:
-    # Day 3詳細實現：按筆畫拆分成多個Label碎片飛散
+    # 階段三詳細實現：按筆畫拆分成多個Label碎片飛散
     queue_free()
 ```
 
@@ -242,14 +389,46 @@ func _ready() -> void:
 
 **Verify:** Player碰撞層設為layer_2，只與layer_1/layer_3碰撞，檢查Inspector面板配置正確
 
-**Day 1 End-of-day commit:**
+**階段一完成後提交（milestone commit）：**
 ```bash
-cd game && git init && git add -A && git commit -m "day1: project skeleton, hanzi rendering, player movement, camera"
+cd game && git init && git add -A && git commit -m "phase1: project skeleton, hanzi rendering, player movement, camera"
 ```
 
 ---
 
-## Day 2: 部首武器系統 + 五行相剋
+## 階段二：部首武器系統 + 五行相剋
+
+### Task 2.0: 安裝 GUT 測試框架（Task 2.1單元測試的前置依賴）
+
+**Objective:** Task 2.1要用GUT寫純邏輯單元測試，必須先安裝這個外掛，否則`-s addons/gut/gut_cmdln.gd`會找不到檔案
+
+**Files:**
+- Create: `game/addons/gut/`
+
+**Step 1:** 下載GUT外掛（GitHub Release zip）：
+```python
+import urllib.request, zipfile, os
+
+urllib.request.urlretrieve(
+    "https://github.com/bitwes/Gut/releases/latest/download/gut.zip",
+    "/tmp/gut.zip")
+with zipfile.ZipFile("/tmp/gut.zip") as z:
+    z.extractall("/tmp/gut_extract")
+# 解压后找到addons/gut目录，复制到game/addons/gut/
+os.makedirs("game/addons", exist_ok=True)
+# 具体路径视zip内部结构而定，通常是 /tmp/gut_extract/addons/gut
+```
+
+**Step 2:** 在Godot編輯器 Project Settings > Plugins 面板啟用GUT外掛（或直接在`project.godot`的`[editor_plugins]`小節加入`res://addons/gut/plugin.cfg`）
+
+**Step 3:** 建立測試目錄：
+```bash
+mkdir -p game/tests
+```
+
+**Verify:** `godot4 --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit` 執行後回報"0 tests"而非"檔案不存在"錯誤（此時tests目錄還是空的，先確認命令本身能跑通）
+
+---
 
 ### Task 2.1: 五行相剋資料表 + 純邏輯單元測試
 
@@ -375,16 +554,18 @@ func _process(delta: float) -> void:
     if Input.is_action_just_pressed("weapon_prev"):
         current_index = (current_index - 1 + weapons.size()) % weapons.size()
 
-func fire() -> void:
+func fire(direction: float = 1.0) -> void:
     if cooldown > 0.0:
         return
     var w = weapons[current_index]
     cooldown = w["fire_rate"]
     var bullet_scene = preload("res://scenes/projectiles/bullet_base.tscn")
     var bullet = bullet_scene.instantiate()
-    bullet.setup(w["damage"], w["element"], get_parent().global_position, get_parent().hanzi_label.scale.x)
+    bullet.setup(w["damage"], w["element"], get_parent().global_position, Vector2(direction, 0))
     get_tree().current_scene.add_child(bullet)
 ```
+
+**（注意：Task 1.3已將`facing_dir`改為獨立變數而非讀取`hanzi_label.scale.x`，`fire()`需要呼叫方傳入方向，對應Player._physics_process()裡的`weapon_manager.fire(facing_dir)`呼叫。`bullet.setup()`的方向參數統一用`Vector2`——玩家子彈只在水平方向上有速度分量`Vector2(direction, 0)`，Boss彈幕（階段五）則用任意角度的`Vector2`，兩者共用同一套`bullet.gd`不需要分叉邏輯）**
 
 **Step 2:**
 ```gdscript
@@ -394,16 +575,16 @@ extends Area2D
 var damage: int
 var element: String
 var speed: float = 500.0
-var direction: float = 1.0
+var direction: Vector2 = Vector2.RIGHT
 
-func setup(dmg: int, elem: String, spawn_pos: Vector2, dir: float) -> void:
+func setup(dmg: int, elem: String, spawn_pos: Vector2, dir: Vector2) -> void:
     damage = dmg
     element = elem
-    direction = dir
+    direction = dir.normalized()
     global_position = spawn_pos
 
 func _physics_process(delta: float) -> void:
-    position.x += speed * direction * delta
+    position += direction * speed * delta
 
 func _on_area_entered(area: Node) -> void:
     if area.get_parent() is Character:
@@ -411,7 +592,9 @@ func _on_area_entered(area: Node) -> void:
     queue_free()
 ```
 
-**Verify:** 按Q/E切換武器名在UI顯示變化（臨時debug label），按fire鍵生成子彈並飛行、命中測試假人扣血
+**Step 3（容易漏掉的一步）：** 在Godot編輯器裡開啟`bullet_base.tscn`，選中根節點Area2D，在Inspector的Node > Signals分頁裡把`area_entered`訊號連接到`_on_area_entered`函式（或在`_ready()`裡用程式碼連接：`area_entered.connect(_on_area_entered)`）。同時設定該Area2D的Collision Layer為`player_bullet`(layer 4)，Collision Mask勾選`enemy`(layer 3)，確保只偵測到敵人而不會偵測到其他子彈或地形。
+
+**Verify:** 按Q/E切換武器名在UI顯示變化（臨時debug label），按fire鍵生成子彈並飛行、命中測試假人扣血（若沒有連接signal，命中不會有任何反應——這是最容易漏掉導致"子彈能生成但打不到人"的坑）
 
 ---
 
@@ -437,14 +620,14 @@ const ELEMENT_COLORS = {
 
 **Verify:** 10種武器子彈顏色區分明顯，肉眼可辨認元素歸屬
 
-**Day 2 End-of-day commit:**
+**階段二完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "day2: radical weapon system, five-element damage calc, weapon switching"
+git add -A && git commit -m "phase2: radical weapon system, five-element damage calc, weapon switching"
 ```
 
 ---
 
-## Day 3: 敵字系統 + AI + 死亡特效
+## 階段三：敵字系統 + AI + 死亡特效
 
 ### Task 3.1: 敵字資料表（20種）
 
@@ -513,12 +696,22 @@ func setup(data: Dictionary) -> void:
     ai_type = data["ai"]
 
 func take_damage(amount: int, attacker_element: String) -> void:
-    super.take_damage(amount, attacker_element)
-    hanzi_label.flash_hit()
+    # 注意：不能先呼叫 super.take_damage() 再呼叫 flash_hit() ——
+    # 如果這一下正好把敵人打死，super.take_damage()內部會觸發die()->shatter_and_die()->queue_free()，
+    # 敵人節點已經在銷毀佇列裡，此後再對它做flash_hit()會報錯或產生視覺衝突。
+    # 正確順序：先判斷是否會死，若不會死才閃紅；死亡交給die()/shatter_and_die()統一處理死亡視覺。
+    var multiplier = ElementSystem.get_multiplier(attacker_element, element)
+    var actual_damage = int(amount * multiplier)
+    var will_die = (hp - actual_damage) <= 0
+    hp -= actual_damage
+    if will_die:
+        die()
+    else:
+        hanzi_label.flash_hit()
 
 func die() -> void:
     hanzi_label.shatter_and_die()
-    super.die()
+    queue_free()
 ```
 
 **Step 2 (巡邏AI示例，其餘兩種同結構不同邏輯):**
@@ -587,7 +780,7 @@ func spawn() -> void:
 **Files:**
 - Modify: `game/scripts/hanzi_sprite.gd`
 
-**Step 1:** 利用Day1.2的筆畫SVG路徑資料，用`Line2D`或多個小`Label`模擬碎片：
+**Step 1:** 利用階段一Task 1.2的筆畫SVG路徑資料，用`Line2D`或多個小`Label`模擬碎片：
 ```gdscript
 func shatter_and_die() -> void:
     var strokes = HanziData.get_strokes(text)  # 從hanzi_decomposition.json取
@@ -606,14 +799,14 @@ func shatter_and_die() -> void:
 
 **Verify:** 擊殺敵人後原地字形消失，若干碎片飛散並淡出，無殘留節點（用Godot遠端場景樹檢查節點數不增長）
 
-**Day 3 End-of-day commit:**
+**階段三完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "day3: enemy system, 4 AI behaviors, 20 enemy chars, shatter death effect"
+git add -A && git commit -m "phase3: enemy system, 4 AI behaviors, 20 enemy chars, shatter death effect"
 ```
 
 ---
 
-## Day 4: 關卡設計（4關）
+## 階段四：關卡設計（4關）
 
 ### Task 4.1: TileMap關卡基礎 — 水域關
 
@@ -697,14 +890,14 @@ func next_level() -> void:
 
 **Verify:** LevelExit觸發`LevelManager.next_level()`，4關順序切換，最後一關後進入勝利畫面
 
-**Day 4 End-of-day commit:**
+**階段四完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "day4: four themed levels, checkpoints, level manager"
+git add -A && git commit -m "phase4: four themed levels, checkpoints, level manager"
 ```
 
 ---
 
-## Day 5: Boss戰（3只複合字Boss）
+## 階段五：Boss戰（3隻複合字Boss）
 
 ### Task 5.1: Boss基類 + 多階段狀態機
 
@@ -729,6 +922,8 @@ git add -A && git commit -m "day4: four themed levels, checkpoints, level manage
 extends Enemy
 class_name Boss
 
+@onready var attack_patterns: BossAttackPatterns = $BossAttackPatterns
+
 var phase: int = 1
 var max_phases: int = 3
 var sub_radicals: Array = []
@@ -739,23 +934,36 @@ func setup_boss(data: Dictionary) -> void:
     sub_radicals = data["sub_radicals"]
 
 func take_damage(amount: int, attacker_element: String) -> void:
-    super.take_damage(amount, attacker_element)
-    var phase_threshold = float(max_hp) / max_phases
-    var expected_phase = max_phases - int(hp / phase_threshold)
-    if expected_phase > phase and phase < max_phases:
-        phase = expected_phase
-        enter_phase(phase)
+    # Boss繼承自Enemy，Enemy.take_damage()已經處理了「先判斷會不會死、避免死亡後還操作已釋放節點」的邏輯。
+    # 這裡只需要在呼叫父類邏輯「之前」算好階段轉換，因為一旦這次傷害導致死亡，就不需要再進入新階段了。
+    var multiplier = ElementSystem.get_multiplier(attacker_element, element)
+    var actual_damage = int(amount * multiplier)
+    var will_die = (hp - actual_damage) <= 0
+
+    if not will_die:
+        # 用ceil計算「目前血量對應第幾階段」，避免浮點數整除邊界誤差。
+        # 例：max_hp=300, max_phases=3 → 每階段100血。剩餘hp=200時應仍在phase 1（剛降到閾值），
+        # hp=199時進入phase 2，hp=99時進入phase 3。
+        var hp_after = hp - actual_damage
+        var phase_size = float(max_hp) / max_phases
+        var expected_phase = max_phases - ceili(hp_after / phase_size) + 1
+        expected_phase = clampi(expected_phase, 1, max_phases)
+        if expected_phase > phase:
+            phase = expected_phase
+            call_deferred("enter_phase", phase)  # 延後到本幀傷害處理完再觸發，避免與super.take_damage內的flash_hit衝突
+
+    super.take_damage(amount, attacker_element)  # 交給Enemy.take_damage統一處理扣血/受擊特效/死亡判斷
 
 func enter_phase(p: int) -> void:
     hanzi_label.flash_hit()
     # 每階段召喚對應部首子彈幕，攻擊模式升級
-    spawn_sub_radical_attack(sub_radicals[p - 1] if p - 1 < sub_radicals.size() else sub_radicals[-1])
-
-func spawn_sub_radical_attack(radical: String) -> void:
-    pass  # Task 5.2實現具體彈幕模式
+    var radical = sub_radicals[p - 1] if p - 1 < sub_radicals.size() else sub_radicals[-1]
+    attack_patterns.spawn_phase_attack(p, radical, element, global_position)
 ```
 
-**Verify:** Boss血量降到2/3、1/3閾值時觸發`enter_phase`，列印phase切換日誌確認閾值正確
+**（節點結構補充：`Boss`場景需要一個子節點`BossAttackPatterns`掛載`boss_attack_patterns.gd`，見Task 5.2）**
+
+**Verify:** Boss血量降到2/3、1/3閾值時觸發`enter_phase`，列印phase切換日誌確認閾值正確（用整數邊界值如hp剛好等於閾值時測試，確認不會因浮點誤差重複觸發或跳過階段）
 
 ---
 
@@ -766,16 +974,42 @@ func spawn_sub_radical_attack(radical: String) -> void:
 **Files:**
 - Create: `game/scripts/boss_attack_patterns.gd`
 
-**Step 1（示例：淼的環形水彈）:**
+**Step 1:** `BossAttackPatterns`是掛載在每個Boss場景下的子節點（`class_name BossAttackPatterns`），`Boss.gd`透過`@onready var attack_patterns: BossAttackPatterns = $BossAttackPatterns`取得引用並呼叫，兩者是**父子節點組合關係**，不是繼承關係：
+
 ```gdscript
-func spawn_ring_attack(origin: Vector2, count: int, element: String) -> void:
+# game/scripts/boss_attack_patterns.gd
+extends Node
+class_name BossAttackPatterns
+
+# 統一入口：依階段編號分派到對應彈幕模式，強度隨階段遞增
+func spawn_phase_attack(phase: int, radical: String, element: String, origin: Vector2) -> void:
+    var intensity_multiplier = 1.0 + (phase - 1) * 0.5  # phase 1=1.0x, phase 2=1.5x, phase 3=2.0x
+    match radical:
+        "水":
+            spawn_ring_attack(origin, 8 + phase * 4, element, intensity_multiplier)
+        "火":
+            spawn_tracking_attack(origin, 3 + phase, element, intensity_multiplier)
+        "木":
+            spawn_ground_spike_attack(origin, 4 + phase * 2, element, intensity_multiplier)
+        _:
+            spawn_ring_attack(origin, 8, element, intensity_multiplier)  # 預設環形彈幕
+
+func spawn_ring_attack(origin: Vector2, count: int, element: String, intensity: float = 1.0) -> void:
     var bullet_scene = preload("res://scenes/projectiles/bullet_base.tscn")
     for i in range(count):
         var angle = (TAU / count) * i
         var bullet = bullet_scene.instantiate()
-        bullet.setup_directional(15, element, origin, Vector2(cos(angle), sin(angle)))
+        bullet.setup(int(15 * intensity), element, origin, Vector2(cos(angle), sin(angle)))
         get_tree().current_scene.add_child(bullet)
+
+func spawn_tracking_attack(origin: Vector2, count: int, element: String, intensity: float = 1.0) -> void:
+    pass  # 追蹤彈邏輯：實作時可用bullet的_physics_process裡動態朝向玩家位置調整方向
+
+func spawn_ground_spike_attack(origin: Vector2, count: int, element: String, intensity: float = 1.0) -> void:
+    pass  # 地刺邏輯：在玩家腳下一定範圍內按時間差生成向上突刺的Area2D
 ```
+
+**（`bullet.setup()`使用Task 2.3已統一的`Vector2`方向參數，Boss彈幕與Player子彈共用同一套`bullet.gd`，全方向彈幕與左右直線彈道都能正確處理，不需要額外型別轉換）**
 
 **Verify:** 每個Boss3個階段攻擊模式肉眼可辨不同，且階段2/3傷害或彈幕密度高於階段1
 
@@ -806,14 +1040,14 @@ func shake(duration: float, strength: float) -> void:
 
 **Verify:** Boss進入新階段/死亡時螢幕震動明顯，無卡頓或震動殘留（戰鬥結束offset歸零）
 
-**Day 5 End-of-day commit:**
+**階段五完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "day5: boss base class, 3-phase state machine, 3 bosses with unique attacks, screen shake"
+git add -A && git commit -m "phase5: boss base class, 3-phase state machine, 3 bosses with unique attacks, screen shake"
 ```
 
 ---
 
-## Day 6: UI / 選單 / 音訊 / 存檔
+## 階段六：UI / 選單 / 音訊 / 存檔
 
 ### Task 6.1: 主選單 + 暫停選單
 
@@ -845,7 +1079,7 @@ func _unhandled_input(event: InputEvent) -> void:
 - Create: `game/scenes/ui/weapon_codex.tscn`
 - Create: `game/scripts/weapon_codex.gd`
 
-**Verify:** 開啟圖鑑，10個武器條目全部按weapons.json資料渲染，元素顏色與Day2.4一致
+**Verify:** 開啟圖鑑，10個武器條目全部按weapons.json資料渲染，元素顏色與階段二Task 2.4一致
 
 ---
 
@@ -895,14 +1129,41 @@ func set_checkpoint(node_path: String, pos: Vector2) -> void:
 
 **Verify:** 每次開火/命中/死亡/切關都有對應音效，音量無爆音或明顯失衡
 
-**Day 6 End-of-day commit:**
+**階段六完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "day6: main menu, pause, weapon codex, save system, audio integration"
+git add -A && git commit -m "phase6: main menu, pause, weapon codex, save system, audio integration"
 ```
 
 ---
 
-## Day 7: 打磨 + Steamworks接入 + 打包
+## 階段七：Steamworks整合 + 打包匯出
+
+### Task 7.0: 安裝 Godot Export Templates（阻斷性前置依賴）
+
+**Objective:** 匯出Windows/Mac/Linux build需要對應的export templates（與Godot編輯器版本號完全一致），這是官方獨立分發的二進位包，體積約1-2GB，必須提前下載安裝，否則Task 7.4匯出會直接失敗報錯"範本未安裝"
+
+**Step 1:**
+```bash
+# 確認目前使用的Godot確切版本號（含patch版本，如4.3.0.stable）
+godot4 --version
+
+# 下載對應版本的export templates（範例為4.3.0，需按實際版本替換URL）
+python3 -c "
+import urllib.request
+urllib.request.urlretrieve(
+    'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz',
+    '/tmp/export_templates.tpz')
+"
+
+# 解壓到Godot期望的路徑（Linux下通常是 ~/.local/share/godot/export_templates/4.3.stable/）
+mkdir -p ~/.local/share/godot/export_templates/4.3.stable/
+unzip /tmp/export_templates.tpz -d /tmp/templates_extract/
+cp -r /tmp/templates_extract/templates/* ~/.local/share/godot/export_templates/4.3.stable/
+```
+
+**Verify:** Godot編輯器選單 Editor > Manage Export Templates 顯示目前版本範本狀態為「已安裝」，而非「缺少範本」
+
+---
 
 ### Task 7.1: GodotSteam外掛接入
 
@@ -910,6 +1171,7 @@ git add -A && git commit -m "day6: main menu, pause, weapon codex, save system, 
 
 **Files:**
 - Create: `game/addons/godotsteam/`（下載GodotSteam預編譯外掛）
+- Create: `game/steam_appid.txt`（**本地測試必需**，內容僅一行`480`）
 - Modify: `game/scripts/save_system.gd`（加雲存檔同步）
 
 **Step 1:**
@@ -923,7 +1185,13 @@ urllib.request.urlretrieve(
 # 解壓到 game/addons/godotsteam/
 ```
 
-**Step 2:**
+**Step 2（容易漏掉，本地測試連不上Steam的常見原因）：** 在`game/`專案根目錄（與`project.godot`同層，之後也要放在匯出build的.exe同層）建立`steam_appid.txt`，內容只有一行：
+```
+480
+```
+這個檔案讓Godot執行時能在**沒有透過Steam客戶端啟動遊戲**的情況下，也初始化Steamworks API（用測試App ID 480，Valve官方公開提供給所有開發者測試用，正式上架前需替換為真實App ID）。缺少這個檔案時，`Steam.steamInit()`在本地直接執行exe會靜默失敗。
+
+**Step 3:**
 ```gdscript
 # 在project.godot autoload加入 Steam.gd
 extends Node
@@ -933,13 +1201,15 @@ func _ready() -> void:
     Steam.steamInit()
     if Steam.isSteamRunning():
         print("Steam connected: ", Steam.getPersonaName())
+    else:
+        print("Steam未執行或steam_appid.txt缺失，成就/雲存檔功能將不可用")
 ```
 
-**Verify:** 本地Steam客戶端執行時，遊戲啟動列印出Steam使用者名稱（用測試App ID 480驗證整合通路，正式AppID需等Steamworks稽核透過後替換）
+**Verify:** 本地Steam客戶端執行時，遊戲啟動列印出Steam使用者名稱（用測試App ID 480驗證整合通路，正式AppID需等Steamworks稽核透過後替換）；確認`game/steam_appid.txt`檔案存在且內容正確
 
 ---
 
-### Task 7.2: 成就係統接入（可選，視時間）
+### Task 7.2: 成就系統接入（可選，視時間）
 
 **Files:**
 - Modify: Steam.gd，新增解鎖成就呼叫
@@ -955,72 +1225,92 @@ func unlock_achievement(id: String) -> void:
 
 ---
 
-### Task 7.3: 全流程測試 + Bug修復
-
-**Objective:** 從主選單到通關4關+3Boss+勝利畫面完整走一遍，記錄並修復阻斷性bug
-
-**Step 1:** 製作測試checklist：
-```
-[ ] 主選單→開始遊戲→關卡1載入正常
-[ ] 4種武器切換、傷害剋制倍率生效
-[ ] 20種敵人AI行為符合預期，無卡死/穿牆
-[ ] 4關全部可通關，存檔點正常
-[ ] 3個Boss戰全部可擊敗，3階段轉換正常
-[ ] 暫停選單、武器圖鑑正常開啟關閉
-[ ] 音效/BGM無缺失或報錯
-[ ] 存檔讀取在重啟後正確恢復
-[ ] Steam連線狀態正常（本地測試環境）
-```
-
-**Verify:** checklist全部打勾，無Godot控制檯報錯（`godot4 --headless` 跑一遍場景載入檢查stderr為空）
-
----
-
-### Task 7.4: 匯出Windows Build
+### Task 7.3: 匯出Windows Build
 
 **Objective:** 生成可提交Steamworks的可執行檔案
 
 **Files:**
 - Create: `game/export_presets.cfg`
 
+**前置依賴：** Task 7.0（export templates已安裝）
+
 **Step 1:**
 ```bash
-godot4 --headless --export-release "Windows Desktop" builds/windows/hanzi-runner.exe
+godot4 --headless --export-release "Windows Desktop" builds/windows/ironglyph.exe
+```
+
+**Step 2:** 把`steam_appid.txt`複製到build輸出目錄，與`.exe`同層：
+```bash
+cp game/steam_appid.txt builds/windows/steam_appid.txt
 ```
 
 **Verify:** 生成的`.exe`在Wine或Windows環境下能正常啟動並進入主選單
 
+**階段七完成後提交（milestone commit）：**
+```bash
+git add -A && git commit -m "phase7: steamworks integration, export templates, windows build export"
+```
+
 ---
 
-### Task 7.5: Steam店鋪素材準備（與開發並行，非阻斷項）
+## 階段八：全流程測試打磨 + Steam店鋪素材
 
-**Objective:** 準備提交所需的最低素材集
+> **調整說明：** 原計劃把「Steamworks接入」「全流程測試+bug修復」「build匯出」「店鋪素材」全部塞進同一階段，經review後拆分——手感/難度調優和完整通關測試往往比寫程式碼本身耗時更長，不應該和Steam技術整合擠在一起。現拆為階段七（技術整合+匯出）與階段八（測試打磨+上架準備）兩個獨立階段。
+
+### Task 8.1: 全流程測試 + Bug修復
+
+**Objective:** 從主選單到通關4關+3Boss+勝利畫面完整走一遍，記錄並修復阻斷性bug
+
+**Step 1:** 製作測試checklist：
+```
+[ ] 主選單→開始遊戲→關卡1載入正常
+[ ] 10種武器切換、傷害剋制倍率生效（包含五行剋制的「剋」與「被剋」兩個方向都要試）
+[ ] 20種敵人AI行為符合預期，無卡死/穿牆
+[ ] 4關全部可通關，存檔點正常
+[ ] 3個Boss戰全部可擊敗，3階段轉換正常，血量邊界值不會跳過或重複觸發階段
+[ ] 暫停選單、武器圖鑑正常開啟關閉
+[ ] 音效/BGM無缺失或報錯
+[ ] 存檔讀取在重啟後正確恢復
+[ ] Steam連線狀態正常（本地測試環境，steam_appid.txt存在）
+[ ] 子彈命中判定正常（bullet的area_entered訊號已連接，見Task 2.3）
+```
+
+**Verify:** checklist全部打勾，無Godot控制檯報錯（`godot4 --headless` 跑一遍場景載入檢查stderr為空）
+
+**⚠️ 提醒：** 這一步在沒有GPU/display的agent環境裡只能做到"headless跑一遍場景載入不報錯"，真正的手感/視覺/難度曲線驗證需要在本地有display的Godot環境裡由人工完成——見專案README關於環境分工的說明。
+
+---
+
+### Task 8.2: Steam店鋪素材準備
+
+**Objective:** 準備提交所需的最低素材集，**全部文字內容使用繁體中文**
 
 **Files:**
-- Create: `docs/steam_assets/` 存放膠囊圖、截圖、預告片指令碼
+- Create: `docs/steam_assets/` 存放膠囊圖、截圖、預告片腳本
 
-**Step 1:** 錄製Day7測試流程影片作為預告片素材基礎，用免費工具剪輯30-60秒預告
+**Step 1:** 錄製Task 8.1測試流程影片作為預告片素材基礎，用免費工具剪輯30-60秒預告
 **Step 2:** 至少5張不同關卡/Boss戰截圖
 **Step 3:** 完成IARC分級問卷（Steamworks後臺線上填寫，幾分鐘完成）
+**Step 4:** 撰寫店鋪頁面文案（繁體中文）：遊戲簡介、特色條列、系統需求
 
-**Verify:** Steamworks後臺"店鋪頁面"checklist無紅色缺失項，可提交稽核佇列
+**Verify:** Steamworks後臺「店鋪頁面」checklist無紅色缺失項，可提交稽核佇列
 
-**Day 7 End-of-day commit:**
+**階段七完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "day7: steamworks integration, full playtest pass, windows build export"
-git tag v0.1.0-week1-complete
+git add -A && git commit -m "phase7: steamworks integration, full playtest pass, windows build export"
+git tag v0.1.0-milestone-complete
 ```
 
 ---
 
 ## 執行方式建議
 
-按 `subagent-driven-development` 模式逐Day執行：每個Day作為一個批次，Day內的Task可視依賴關係並行或序列分派給subagent，每個Task完成後做spec compliance檢查（對照本計劃的Verify標準）+ 場景實際執行驗證。
+按 `subagent-driven-development` 模式逐階段執行：每個階段作為一個批次，階段內的Task可視依賴關係並行或序列分派給subagent，每個Task完成後做spec compliance檢查（對照本計劃的Verify標準）+ 場景實際執行驗證。
 
 **關鍵風險點（提前預警）：**
 1. Task 1.2 資料集裁剪 — 需要你確認最終敵字/Boss字清單是否都在Make Me a Hanzi覆蓋範圍內（待驗證事項，見GDD.md第7節）
 2. Task 3.4 筆畫崩解特效 — 視覺效果需要人工過目調整引數（飛散速度/碎片數量），不是純程式碼能一次到位的
-3. Task 7.1 Steam App ID — 正式App ID需Steamworks稽核透過後才能拿到，Day7只能用測試ID(480)驗證整合通路，真正上線前需替換
+3. Task 7.1 Steam App ID — 正式App ID需Steamworks稽核透過後才能拿到，階段七只能用測試ID(480)驗證整合通路，真正上線前需替換
 4. 音效/BGM篩選（Task 6.4）— 免費庫素材質量參差，需要人工試聽挑選，不能完全交給AI自動選擇
 
 ---
@@ -1029,4 +1319,5 @@ git tag v0.1.0-week1-complete
 
 | 日期 | 變更 |
 |---|---|
-| 2026-07-26 | 完成7天詳細實施計劃，共7天/26個Task，覆蓋核心系統到Steam打包全流程 |
+| 2026-07-26 | 完成詳細實施計劃，共8個階段/28個Task，覆蓋核心系統到Steam打包全流程 |
+| 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
