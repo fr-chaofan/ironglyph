@@ -97,13 +97,15 @@ with open("game/data/hanzi_decomposition.json", "w", encoding="utf-8") as f:
     json.dump(merged, f, ensure_ascii=False, indent=2)
 ```
 
-**Step 2:** 結構範例（`decomposition`是拆解字串如"⿰氵可"，`strokes`是SVG path字串陣列）：
+**Step 2:** 結構範例（`decomposition`是拆解字串，採用IDS漢字描述字元標準如"⿰氵可"表示左右結構；`strokes`是SVG path字串陣列）：
 ```json
 {
-  "淼": {"decomposition": "⿱水淼", "strokes": ["M123,45 ... Z", "..."]},
-  "河": {"decomposition": "⿰氵可", "strokes": ["M67,89 ... Z", "..."]}
+  "河": {"decomposition": "⿰氵可", "strokes": ["M67,89 ... Z", "..."]},
+  "淼": {"decomposition": "...", "strokes": ["...", "...", "..."]}
 }
 ```
+
+**⚠️ 注意：** 上方"淼"的`decomposition`具體值刻意留空/省略——"淼"是三個"水"疊加的複合結構，正確的IDS拆解字串需要從資料集實際查詢取得，不應該由人工/AI憑印象編造（容易寫出邏輯錯誤的自我循環定義，例如誤寫成含有"淼"自身的拆解式）。所有敵字/Boss字的真實`decomposition`與`strokes`值，一律以Task 1.2 Step 1實際抓取、合併後的`hanzi_decomposition.json`為準，不要手動編輯或臆測。
 
 **Step 3:** 建立`HanziData`單例（供Task 3.4筆畫崩解特效等後續所有Task呼叫）：
 ```gdscript
@@ -132,11 +134,8 @@ func get_decomposition(character: String) -> String:
 ```ini
 [autoload]
 HanziData="*res://scripts/hanzi_data.gd"
-ElementSystem="*res://scripts/element_system.gd"
-LevelManager="*res://scripts/level_manager.gd"
-SaveSystem="*res://scripts/save_system.gd"
 ```
-（`ElementSystem`/`LevelManager`/`SaveSystem`在階段二/四/六建立時對應加入，此處先佔位統一管理，避免後續各Task各自為政漏掉autoload註冊）
+**⚠️ 注意：此階段（階段一）只有`hanzi_data.gd`已經建立，因此`[autoload]`只註冊`HanziData`一項。** `ElementSystem`（階段二Task 2.1建立）、`LevelManager`（階段四建立）、`SaveSystem`（階段六建立）**都不要在這裡提前寫入**——把尚未建立的腳本路徑寫進`[autoload]`會導致Godot啟動時找不到檔案而報錯，使階段一的`--check-only`驗證直接失敗。正確做法是：每個模組完成對應腳本後，由整合者在`[autoload]`小節**追加**一行（Task 2.1完成後追加`ElementSystem`；階段四完成後追加`LevelManager`；階段六完成後追加`SaveSystem`）。每次只新增一行，不要整段覆寫，避免蓋掉其他人已註冊的autoload。
 
 **Verify:** `python3 -c "import json; d=json.load(open('game/data/hanzi_decomposition.json')); print(len(d))"` 輸出條目數 > 0；Godot內執行`print(HanziData.get_strokes("淼"))`能列印出非空陣列
 
@@ -479,7 +478,14 @@ func get_multiplier(attacker: String, defender: String) -> float:
     return 1.0
 ```
 
-**Step 3 (test):** 用GUT測試框架（`addons/gut`）寫純邏輯測試：
+**Step 3：** 在`project.godot`的`[autoload]`小節**追加**一行（不要覆寫Task 1.2已註冊的`HanziData`）：
+```ini
+[autoload]
+HanziData="*res://scripts/hanzi_data.gd"
+ElementSystem="*res://scripts/element_system.gd"
+```
+
+**Step 4 (test):** 用GUT測試框架（`addons/gut`）寫純邏輯測試：
 ```gdscript
 # game/tests/test_element_system.gd
 extends GutTest
@@ -888,6 +894,14 @@ func next_level() -> void:
         get_tree().change_scene_to_file("res://scenes/ui/victory_screen.tscn")
 ```
 
+**Step 2：** 在`project.godot`的`[autoload]`小節**追加**一行（不要覆寫先前已註冊的`HanziData`/`ElementSystem`）：
+```ini
+[autoload]
+HanziData="*res://scripts/hanzi_data.gd"
+ElementSystem="*res://scripts/element_system.gd"
+LevelManager="*res://scripts/level_manager.gd"
+```
+
 **Verify:** LevelExit觸發`LevelManager.next_level()`，4關順序切換，最後一關後進入勝利畫面
 
 **階段四完成後提交（milestone commit）：**
@@ -1113,6 +1127,15 @@ func set_checkpoint(node_path: String, pos: Vector2) -> void:
     save_game(data)
 ```
 
+**Step 2：** 在`project.godot`的`[autoload]`小節**追加**一行（不要覆寫先前已註冊的三項）：
+```ini
+[autoload]
+HanziData="*res://scripts/hanzi_data.gd"
+ElementSystem="*res://scripts/element_system.gd"
+LevelManager="*res://scripts/level_manager.gd"
+SaveSystem="*res://scripts/save_system.gd"
+```
+
 **Verify:** 存檔點觸發後關閉遊戲重開，從存檔點位置+對應關卡恢復，而非從頭開始
 
 ---
@@ -1319,5 +1342,6 @@ git tag v0.1.0-milestone-complete
 
 | 日期 | 變更 |
 |---|---|
-| 2026-07-26 | 完成詳細實施計劃，共8個階段/28個Task，覆蓋核心系統到Steam打包全流程 |
+| 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
+| 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |

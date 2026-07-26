@@ -15,7 +15,7 @@
 ## 文件
 
 - [`docs/GDD.md`](docs/GDD.md) — 遊戲設計文件：語言規範、核心玩法、五行部首武器系統、引擎選型對比、成本估算、Steam上架計劃
-- [`docs/plans/2026-07-26-implementation-plan.md`](docs/plans/2026-07-26-implementation-plan.md) — 詳細實施計劃，8個階段、28個任務，含完整程式碼示例
+- [`docs/plans/2026-07-26-implementation-plan.md`](docs/plans/2026-07-26-implementation-plan.md) — 詳細實施計劃，8個階段、33個任務，含完整程式碼示例
 - [`docs/COLLABORATION.md`](docs/COLLABORATION.md) — 多AI協作規範：分支策略、任務分派、模組所有權、程式碼審查流程
 
 ## 核心玩法
