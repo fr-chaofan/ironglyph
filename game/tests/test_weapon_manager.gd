@@ -195,6 +195,31 @@ func test_子彈按五行著色() -> void:
 	assert_eq(seen_colors.size(), 5, "五個屬性的顏色應互不相同")
 
 
+func test_六種顏色兩兩之間有足夠差異() -> void:
+	# 實機驗證時發現金屬(0.8,0.8,0.9)與中性純白在畫面上分辨不出來。
+	# 顏色是玩家辨識屬性的主要線索，撞色等於這個線索失效。
+	# 這裡量化把關：任兩色的RGB距離必須超過門檻。
+	const MIN_DISTANCE := 0.45
+
+	var names: Array = Bullet.ELEMENT_COLORS.keys()
+	for i in range(names.size()):
+		for j in range(i + 1, names.size()):
+			var a: Color = Bullet.ELEMENT_COLORS[names[i]]
+			var b: Color = Bullet.ELEMENT_COLORS[names[j]]
+			var distance := Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
+			assert_gt(
+				distance, MIN_DISTANCE,
+				"「%s」與「%s」顏色太接近（距離 %.2f），畫面上會分辨不出來" % [names[i], names[j], distance]
+			)
+
+
+func test_中性色不是純白() -> void:
+	# 五行傳統配色是「金＝白」，中性色若也用白就必然與金屬撞色。
+	# 正解是把中性色移開白色，而不是改動金屬色。
+	assert_ne(Bullet.ELEMENT_COLORS["neutral"], Color.WHITE,
+		"中性色用純白會與五行的金屬色撞色")
+
+
 func test_子彈命中Character會扣血() -> void:
 	var target: Character = preload("res://scripts/character.gd").new()
 	target.max_hp = 100

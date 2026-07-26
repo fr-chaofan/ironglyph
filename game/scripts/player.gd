@@ -11,12 +11,31 @@ extends Character
 ## 面向：1 = 右、-1 = 左。開火方向與朝向指示器都看這個值。
 var facing_dir: float = 1.0
 
+## 可連續跳躍的次數。2 = 二段跳（落地跳 + 空中跳一次）。
+## 單次跳躍高度為 jump_velocity² / (2 × gravity)，預設值約 90px；
+## 二段跳讓玩家最高可達約兩倍，關卡高低差設計以此為上限。
+@export var max_jumps: int = 2
+
+## 空中跳的力道倍率。略弱於地面跳，讓兩段的手感有區別，
+## 也避免二段跳變成「跳一次就上天」。
+@export var air_jump_multiplier: float = 0.9
+
+var _jumps_used: int = 0
+
 
 func _physics_process(delta: float) -> void:
+	var was_on_floor := is_on_floor()
 	apply_gravity(delta)
 
-	if Input.is_action_just_pressed(&"jump") and is_on_floor():
-		velocity.y = jump_velocity
+	if was_on_floor:
+		_jumps_used = 0
+
+	if Input.is_action_just_pressed(&"jump") and _jumps_used < max_jumps:
+		# 空中跳直接覆寫 velocity.y 而非疊加——下墜途中按二段跳應該立刻往上，
+		# 而不是被既有的下墜速度抵銷掉
+		var power := jump_velocity if _jumps_used == 0 else jump_velocity * air_jump_multiplier
+		velocity.y = power
+		_jumps_used += 1
 
 	var dir := Input.get_axis(&"move_left", &"move_right")
 	velocity.x = dir * speed

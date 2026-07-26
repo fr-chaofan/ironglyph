@@ -88,6 +88,50 @@ func test_指示器反覆翻轉不會累積縮放() -> void:
 		"反覆翻轉後縮放量值應維持不變")
 
 
+func test_二段跳可用兩次() -> void:
+	# 起始就在空中（before_each 剛實例化，還沒落地）
+	assert_eq(_player.max_jumps, 2, "預設應為二段跳")
+
+	Input.action_press(&"jump")
+	await wait_physics_frames(2)
+	Input.action_release(&"jump")
+	var after_first: float = _player.velocity.y
+	assert_lt(after_first, 0.0, "第一段跳應產生向上速度")
+
+	await wait_physics_frames(6)
+	Input.action_press(&"jump")
+	await wait_physics_frames(2)
+	Input.action_release(&"jump")
+	assert_lt(_player.velocity.y, 0.0, "第二段跳應再次產生向上速度")
+
+
+func test_第三次跳躍無效() -> void:
+	for i in range(3):
+		Input.action_press(&"jump")
+		await wait_physics_frames(2)
+		Input.action_release(&"jump")
+		await wait_physics_frames(3)
+
+	assert_eq(_player._jumps_used, 2, "空中最多只能用掉 max_jumps 次")
+
+
+func test_空中跳直接覆寫下墜速度() -> void:
+	# 下墜途中按二段跳應該立刻往上，而不是被既有下墜速度抵銷
+	_player._jumps_used = 1
+	_player.velocity.y = 600.0  # 正在快速下墜
+
+	Input.action_press(&"jump")
+	await wait_physics_frames(2)
+	Input.action_release(&"jump")
+
+	assert_lt(_player.velocity.y, 0.0, "下墜中按二段跳應立刻轉為向上")
+
+
+func test_空中跳力道略弱於地面跳() -> void:
+	assert_lt(_player.air_jump_multiplier, 1.0, "空中跳應略弱，讓兩段手感有區別")
+	assert_gt(_player.air_jump_multiplier, 0.5, "但不該弱到失去意義")
+
+
 func test_重力讓角色下墜() -> void:
 	_player.velocity = Vector2.ZERO
 	await wait_physics_frames(5)
