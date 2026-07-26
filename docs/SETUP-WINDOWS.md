@@ -77,13 +77,25 @@ git clone https://github.com/fr-chaofan/ironglyph.git /mnt/c/dev/ironglyph
 
 ## 步驟四：安裝 Godot 4（原生Windows）
 
-1. 前往 https://godotengine.org/download/windows/ 下載 **Godot 4.3 穩定版**（標準版即可，GDScript不需要.NET版本）
+> **版本定案：Godot 4.5.2-stable**（原初版寫4.3，已改；理由見下方「版本選擇說明」）
+
+1. 前往 https://godotengine.org/download/archive/4.5.2-stable/ 下載 **Godot 4.5.2 穩定版 Windows 64位元**（標準版即可，GDScript不需要.NET版本）
 2. 解壓縮到固定位置，例如 `C:\Tools\Godot\`，執行檔可改名為`godot4.exe`方便命令列呼叫
 3. 把該目錄加入系統PATH（系統內容 → 環境變數 → Path 新增該目錄），之後可在cmd/PowerShell直接輸入`godot4`啟動
 4. 打開Godot編輯器一次，開啟`C:\dev\ironglyph\game`專案，確認右下角渲染器顯示Vulkan/Forward+
 
-**下載Export Templates**（打包Windows/Steam build必需，體積約1-2GB）：
+**下載Export Templates**（打包Windows/Steam build必需，體積約1.3GB）：
 - Godot編輯器選單 Editor → Manage Export Templates → Download and Install，會自動抓取對應目前版本的範本
+- 或手動下載 `Godot_v4.5.2-stable_export_templates.tpz`（其實是zip），解壓後把`templates/`底下全部檔案放到 `%APPDATA%\Godot\export_templates\4.5.2.stable\`，效果相同且不受編輯器下載節點速度影響
+
+### 版本選擇說明（為何不用4.3）
+
+初版文件寫Godot 4.3，實際設置時發現兩個問題，故改為4.5.2：
+
+1. **GodotSteam外掛已不支援4.3。** 現行GDExtension版本（4.16以後）最低要求Godot 4.4；還支援4.3的最後一版是GodotSteam 4.15（Steamworks 1.62，已停止更新）。
+2. **本機顯卡為RTX 5080（Blackwell架構），晚於Godot 4.3發布。** Blackwell相關的驅動修正在4.4之後才進入引擎。
+
+實施計劃寫的是「Godot 4.3+」，且`game/`專案尚未建立，此時改版本零成本。選4.5.2而非最新的4.7.1，是因為GodotSteam的release明確以4.5.2為建置目標之一（v4.20.1 = Godot 4.7.1 / 4.5.2），相容性最有保障。
 
 **（可選）VSCode + godot-tools擴充套件：**
 - 安裝VSCode（原生Windows）+ **WSL擴充套件**（連接WSL2裡的檔案）+ **godot-tools擴充套件**（GDScript語法高亮/跳轉定義）
@@ -93,8 +105,10 @@ git clone https://github.com/fr-chaofan/ironglyph.git /mnt/c/dev/ironglyph
 
 ## 步驟五：GodotSteam 插件
 
-1. 前往 https://github.com/GodotSteam/GodotSteam/releases 下載對應Godot 4.3的release（選64位元版本）
-2. 解壓縮後把`addons/godotsteam`整個資料夾複製到 `C:\dev\ironglyph\game\addons\godotsteam`
+> **注意：GodotSteam已從GitHub搬遷到Codeberg。** GitHub上的`GodotSteam/GodotSteam`現在只是一個指向Codeberg的空殼repo，其releases提供的是「重新編譯過的Godot引擎執行檔」，**不是**本專案要的`addons/godotsteam`外掛資料夾。外掛版（GDExtension）只在Codeberg發布，tag以`-gde`結尾。
+
+1. 前往 https://codeberg.org/godotsteam/godotsteam/releases 找 **`v4.20.1-gde`**（標題為 "Godot 4.4+ - Steamworks 1.64 - GodotSteam GDExtension 4.20.1"），下載 `godotsteam-4.20.1-gdextension-plugin-4.4.zip`
+2. 解壓縮後把`addons/godotsteam`整個資料夾複製到 `C:\dev\ironglyph\game\addons\godotsteam`（zip內已是`addons/godotsteam/...`結構，直接對著`game/`解壓即可）
 3. Godot編輯器開啟專案後，Project Settings → Plugins，勾選啟用GodotSteam
 
 ---
@@ -113,9 +127,13 @@ git clone https://github.com/fr-chaofan/ironglyph.git /mnt/c/dev/ironglyph
 
 ## 步驟七：GUT 測試框架
 
-Godot編輯器內：AssetLib分頁 → 搜尋「Gut」→ 下載安裝 GUT (Godot Unit Test) 插件，裝完在Project Settings → Plugins裡啟用。
+> **不要用AssetLib安裝。** GUT的版本與Godot版本嚴格對應，而AssetLib目前上架的是9.6.1（對應Godot 4.6.x），裝到我們的4.5.2上會出問題。**Godot 4.5.x對應的是GUT 9.5.0**，只能從GitHub取得。
 
-（這一步在有GUI的機器上比實施計劃Task 2.0原先寫的headless手動下載zip流程簡單很多，之後這個環節可以都交給這台機器操作）
+1. 下載 https://github.com/bitwes/Gut/archive/refs/tags/v9.5.0.zip
+2. 解壓後把`addons/gut`整個資料夾複製到 `C:\dev\ironglyph\game\addons\gut`
+3. Godot編輯器 Project Settings → Plugins，勾選啟用Gut
+
+GUT與Godot的版本對應表見 https://github.com/bitwes/Gut 的readme。**日後若升級Godot版本，GUT必須同步換版。**
 
 ---
 
@@ -135,6 +153,8 @@ claude auth login          # 瀏覽器OAuth登入，或 claude auth login --cons
 # 可選：同時安裝 Codex CLI
 npm install -g @openai/codex
 ```
+
+（Claude Code另有不依賴Node的原生安裝方式 `curl -fsSL https://claude.ai/install.sh | bash`，會裝到`~/.local/bin/claude`。本機用的就是原生版；但Node LTS仍建議裝著，Codex CLI與其他npm工具會用到。）
 
 驗證：
 ```bash
@@ -161,9 +181,10 @@ pip install opencc-python-reimplemented
 
 - [ ] `dxdiag` 確認GPU驅動正常，Direct3D加速已啟用
 - [ ] Godot編輯器開啟專案，右下角渲染器顯示Vulkan/Forward+（非軟渲染）
+- [ ] `godot4 --version` 回報 `4.5.2.stable`
 - [ ] Export Templates已安裝（Editor → Manage Export Templates 顯示「已安裝」）
-- [ ] GodotSteam外掛已啟用，`steam_appid.txt`已放置於`game/`目錄
-- [ ] GUT外掛已安裝啟用
+- [ ] GodotSteam外掛（GDExtension 4.20.1，來自Codeberg）已啟用，`steam_appid.txt`已放置於`game/`目錄
+- [ ] GUT外掛（9.5.0，非AssetLib版本）已安裝啟用
 - [ ] WSL2裡 `claude --version`、`git --version`、`python3 --version` 皆正常
 - [ ] `git clone`到`C:\dev\ironglyph`成功，WSL2裡`/mnt/c/dev/ironglyph`能看到同樣檔案
 - [ ] 用Godot開啟`game/`專案（階段一完成後）能實際執行看到畫面，F5能跑起來
@@ -192,3 +213,4 @@ pip install opencc-python-reimplemented
 | 日期 | 變更 |
 |---|---|
 | 2026-07-26 | 初版：WSL2 + 原生Windows雙環境設置指南，涵蓋GPU驅動、Godot、GodotSteam、Steam測試、GUT、AI coding agent CLI、Python環境 |
+| 2026-07-26 | 實機設置後修訂：①引擎版本 4.3 → **4.5.2**（GodotSteam現行外掛需4.4+，且本機RTX 5080晚於4.3發布）；②GodotSteam下載來源改為 **Codeberg** 的`-gde` release（GitHub repo已搬遷，其releases是引擎執行檔而非外掛）；③GUT改為手動安裝 **9.5.0**（AssetLib上架的9.6.1對應Godot 4.6.x，版本不符） |
