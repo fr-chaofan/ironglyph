@@ -28,15 +28,25 @@
 - Create: `game/project.godot`
 - Create: `game/scenes/` `game/scripts/` `game/data/` `game/assets/fonts/` `game/assets/sfx/` `game/assets/art/`
 
-**Step 1:** 用Godot 4命令列初始化專案（headless模式）：
+> **✅ 此Task已完成**（PR #2，於整合者機器實機執行）。以下步驟已按實際執行情況修正，供其他機器重建或日後參考。
+
+**Step 1:** 建立目錄結構並**手動撰寫**`project.godot`：
+
+> ⚠️ **不能用命令列生成`project.godot`。** 原本寫的 `godot4 --headless --path . --editor --quit` 無效——該指令要求`project.godot`**已經存在**才能開啟專案，在空目錄執行只會印出版本號後結束，不會產生任何檔案。Godot沒有提供「從無到有建立專案」的CLI，只能由Project Manager的GUI或手寫設定檔。
+
 ```bash
-mkdir -p game/scenes game/scripts game/data game/assets/{fonts,sfx,art,music}
-cd game
-godot4 --headless --path . --editor --quit  # 生成project.godot骨架
+mkdir -p game/scenes game/scripts game/data game/tests game/assets/{fonts,sfx,art,music}
 ```
 
-**Step 2:** 編輯`project.godot`設定視窗解析度為橫版闖關常見比例：
+然後手動建立`game/project.godot`（完整內容見已合併的PR #2）：
 ```ini
+config_version=5
+
+[application]
+config/name="IRONGLYPH"
+run/main_scene=""
+config/features=PackedStringArray("4.5", "Forward Plus")
+
 [display]
 window/size/viewport_width=1280
 window/size/viewport_height=720
@@ -44,10 +54,35 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 
 [physics]
-2d/default_gravity=980
+2d/default_gravity=980.0
+
+[rendering]
+renderer/rendering_method="forward_plus"
 ```
 
-**Verify:** `godot4 --headless --path . --check-only` 無報錯
+**Step 2:** 讓Godot匯入專案、產生`.godot/`快取與`.uid`檔：
+```bash
+godot4 --headless --path game --import
+```
+
+**Verify:**
+
+> ⚠️ **`--check-only`不能單獨使用。** 原本寫的 `godot4 --headless --path . --check-only` 會報 `Couldn't detect whether to run the editor, the project manager or a specific project. Aborting.`——`--check-only`是「只做語法檢查不執行」的修飾旗標，必須搭配`-s <腳本>`或`--script`使用。
+
+改用一支探測腳本確認設定確實被讀進來（跑完即可刪除）：
+```bash
+cat > game/probe.gd <<'GDEOF'
+extends SceneTree
+func _init() -> void:
+	print("renderer: ", ProjectSettings.get_setting("rendering/renderer/rendering_method"))
+	print("viewport: ", ProjectSettings.get_setting("display/window/size/viewport_width"))
+	print("gravity: ", ProjectSettings.get_setting("physics/2d/default_gravity"))
+	quit()
+GDEOF
+godot4 --headless --path game -s probe.gd
+rm game/probe.gd game/probe.gd.uid
+```
+應輸出 `forward_plus` / `1280` / `980.0`，且`--import`過程無ERROR。
 
 ---
 
@@ -404,6 +439,10 @@ cd game && git init && git add -A && git commit -m "phase1: project skeleton, ha
 ### Task 2.0: 安裝 GUT 測試框架（Task 2.1單元測試的前置依賴）
 
 **Objective:** Task 2.1要用GUT寫純邏輯單元測試，必須先安裝這個外掛，否則`-s addons/gut/gut_cmdln.gd`會找不到檔案
+
+> **✅ 此Task已完成**（PR #2，GUT 9.5.0已入版控並在`[editor_plugins]`啟用）。clone repo後不需重跑Step 1/2，直接跳到Task 2.1寫測試即可。以下步驟保留供版本升級時參考。
+>
+> 已驗證：`godot4 --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit` 能正常啟動GUT並回報 "Nothing was run"（`tests/`目前為空）。
 
 **Files:**
 - Create: `game/addons/gut/`
@@ -1201,10 +1240,13 @@ cat ~/.local/share/godot/export_templates/4.5.2.stable/version.txt
 
 **Objective:** 接入Steamworks成就/雲存檔基礎功能
 
-**Files:**
-- Create: `game/addons/godotsteam/`（下載GodotSteam預編譯外掛）
-- Create: `game/steam_appid.txt`（**本地測試必需**，內容僅一行`480`）
-- Modify: `game/scripts/save_system.gd`（加雲存檔同步）
+> **⚠️ Step 1（外掛安裝）已在PR #2提前完成** —— 因為整合者機器設置時順手裝了。GodotSteam GDExtension 4.20.1已入版控並在`[editor_plugins]`啟用，已驗證`ClassDB.class_exists("Steam")`回傳`true`。
+>
+> **Step 2（`steam_appid.txt`）每台機器要自己建**——該檔案刻意不入版控（是Valve公開測試ID，正式App ID稽核透過後才替換），clone後需自行執行 `echo 480 > game/steam_appid.txt`。
+>
+> **Step 3以後（autoload、成就、雲存檔）尚未做**，仍是本Task的實際工作範圍。
+>
+> 另注意：入庫的外掛已裁剪非目標平臺二進位（見`game/addons/godotsteam/PLATFORMS-NOTE.md`），Task 7.3/7.4若要匯出Mac/Linux以外的平臺需先補回。
 
 **Step 1:** 下載GodotSteam GDExtension外掛。
 
@@ -1359,4 +1401,5 @@ git tag v0.1.0-milestone-complete
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
 | 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |
+| 2026-07-26 | Task 1.1實機執行後修正其指令錯誤：①Step 1的`godot4 --headless --path . --editor --quit`**無法從無到有生成`project.godot`**（該指令要求檔案已存在，Godot沒有建立專案的CLI），改為手動撰寫設定檔並補上`--import`步驟；②Verify的`--check-only`**不能單獨使用**（是修飾旗標，需搭配`-s <腳本>`），改用探測腳本讀回ProjectSettings驗證。另標註Task 2.0（GUT）與Task 7.1 Step 1（GodotSteam）已於PR #2提前完成，避免重複執行 |
 | 2026-07-26 | 實機設置後修訂依賴版本與下載來源（原本的URL全部會失敗）：①引擎鎖定 **Godot 4.5.2**（原寫「4.3+」；GodotSteam現行外掛需4.4+，且整合者機器的RTX 5080晚於4.3發布）；②Task 7.1 GodotSteam來源改為 **Codeberg** 的`v4.20.1-gde`（GitHub repo已搬遷，其releases是引擎執行檔而非外掛，原URL不存在）；③Task 2.0 GUT改為指定 **9.5.0**（原用`releases/latest`會抓到對應Godot 4.7.x的版本；AssetLib上架版對應4.6.x，兩者都不相容4.5.2）；④Task 7.0 export templates URL更新為4.5.2並補上Windows路徑；⑤專案路徑改為整合者機器實際路徑 |
