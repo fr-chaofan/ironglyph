@@ -1,0 +1,34 @@
+; Engine configuration file.
+; 《合金文字機甲》IRONGLYPH
+;
+; 由 Task 1.1 建立。修改時請注意：
+;   - [autoload] 小節採「分階段追加」，每次只加一行，不要整段覆寫（見實施計劃 Task 1.2 Step 4）
+;   - 引擎版本鎖定 4.5.2-stable，與 GodotSteam GDExtension 4.20.1、GUT 9.5.0 綁定
+
+config_version=5
+
+[application]
+
+config/name="IRONGLYPH"
+config/description="橫版闖關遊戲：主角與敵人為渲染漢字，武器基於部首拆解，五行相剋為核心平衡機制。"
+run/main_scene=""
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godotsteam/plugin.cfg", "res://addons/gut/plugin.cfg")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
+[physics]
+
+2d/default_gravity=980.0
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
