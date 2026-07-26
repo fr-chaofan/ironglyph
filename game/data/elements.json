@@ -1,0 +1,11 @@
+{
+  "relations": {
+    "water": {"beats": "fire", "loses_to": "earth"},
+    "fire": {"beats": "metal", "loses_to": "water"},
+    "metal": {"beats": "wood", "loses_to": "fire"},
+    "wood": {"beats": "earth", "loses_to": "metal"},
+    "earth": {"beats": "water", "loses_to": "wood"}
+  },
+  "advantage_multiplier": 1.5,
+  "disadvantage_multiplier": 0.6
+}
