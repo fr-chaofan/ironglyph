@@ -1,35 +1,37 @@
-# 部首闯字 (working title) — 7天实施计划
+# 《合金文字機甲》IRONGLYPH — 7天實施計劃
 
-> **For Hermes:** 用 subagent-driven-development 配合本计划逐任务执行；游戏开发验证方式为"在Godot编辑器/导出build中运行并目视确认"，而非pytest单元测试（除纯逻辑模块如伤害计算外）。
+> ⚠️ 語言規範：本專案所有文字內容一律使用繁體中文，詳見 `docs/GDD.md` 第0節。
 
-**Goal:** 用 Godot 4 + GodotSteam，在7天内做出一个完整可玩、可提交Steam审核的横版闯关游戏：主角/敌人为渲染汉字，武器基于部首拆解，五行相克为核心平衡机制。
+> **For Hermes:** 用 subagent-driven-development 配合本計劃逐任務執行；遊戲開發驗證方式為"在Godot編輯器/匯出build中執行並目視確認"，而非pytest單元測試（除純邏輯模組如傷害計算外）。
 
-**Architecture:** 场景树驱动的2D平台/射击架构。`Player`/`Enemy`共用基类`Character.gd`（继承`CharacterBody2D`），汉字通过`Label`节点+自定义字体渲染而非Sprite2D精灵。武器/五行数据全部外置为`.tres`资源(Resource)或JSON，方便后续批量扩充而不改代码。关卡用Godot自带`TileMap`+手摆场景。伤害计算走纯函数（无节点依赖），可单元测试。
+**Goal:** 用 Godot 4 + GodotSteam，在7天內做出一個完整可玩、可提交Steam稽核的橫版闖關遊戲：主角/敵人為渲染漢字，武器基於部首拆解，五行相剋為核心平衡機制。
 
-**Tech Stack:** Godot 4.3+ (GDScript), GodotSteam插件, Make Me a Hanzi数据集(JSON), Noto Sans TC字体, Kenney.nl/OpenGameArt素材, Sonniss/freesound音效。
+**Architecture:** 場景樹驅動的2D平臺/射擊架構。`Player`/`Enemy`共用基類`Character.gd`（繼承`CharacterBody2D`），漢字透過`Label`節點+自定義字型渲染而非Sprite2D精靈。武器/五行資料全部外接為`.tres`資源(Resource)或JSON，方便後續批次擴充而不改程式碼。關卡用Godot自帶`TileMap`+手擺場景。傷害計算走純函式（無節點依賴），可單元測試。
 
-**项目路径：** `/opt/data/home/projects/hanzi-runner-game/game/`
+**Tech Stack:** Godot 4.3+ (GDScript), GodotSteam外掛, Make Me a Hanzi資料集(JSON), Noto Sans TC字型, Kenney.nl/OpenGameArt素材, Sonniss/freesound音效。
+
+**專案路徑：** `/opt/data/home/projects/hanzi-runner-game/game/`
 
 ---
 
-## Day 1: 项目骨架 + 核心移动 + 汉字渲染 + 镜头
+## Day 1: 專案骨架 + 核心移動 + 漢字渲染 + 鏡頭
 
-### Task 1.1: 初始化Godot项目结构
+### Task 1.1: 初始化Godot專案結構
 
-**Objective:** 建立标准目录结构和project.godot配置
+**Objective:** 建立標準目錄結構和project.godot配置
 
 **Files:**
 - Create: `game/project.godot`
 - Create: `game/scenes/` `game/scripts/` `game/data/` `game/assets/fonts/` `game/assets/sfx/` `game/assets/art/`
 
-**Step 1:** 用Godot 4命令行初始化项目（headless模式）：
+**Step 1:** 用Godot 4命令列初始化專案（headless模式）：
 ```bash
 mkdir -p game/scenes game/scripts game/data game/assets/{fonts,sfx,art,music}
 cd game
 godot4 --headless --path . --editor --quit  # 生成project.godot骨架
 ```
 
-**Step 2:** 编辑`project.godot`设置窗口分辨率为横版闯关常见比例：
+**Step 2:** 編輯`project.godot`設定視窗解析度為橫版闖關常見比例：
 ```ini
 [display]
 window/size/viewport_width=1280
@@ -41,26 +43,26 @@ window/stretch/aspect="keep"
 2d/default_gravity=980
 ```
 
-**Verify:** `godot4 --headless --path . --check-only` 无报错
+**Verify:** `godot4 --headless --path . --check-only` 無報錯
 
 ---
 
-### Task 1.2: 下载并接入 Make Me a Hanzi 数据集
+### Task 1.2: 下載並接入 Make Me a Hanzi 資料集
 
-**Objective:** 拿到"字→部首→笔画路径"数据，供后续所有汉字渲染/拆解使用
+**Objective:** 拿到"字→部首→筆畫路徑"資料，供後續所有漢字渲染/拆解使用
 
 **Files:**
-- Create: `game/data/hanzi_decomposition.json`（从makemeahanzi仓库转换/裁剪出项目需要的字）
+- Create: `game/data/hanzi_decomposition.json`（從makemeahanzi倉庫轉換/裁剪出專案需要的字）
 
-**Step 1:** 抓取数据集（graphics.txt / dictionary.txt）：
+**Step 1:** 抓取資料集（graphics.txt / dictionary.txt）：
 ```python
-# 在agent环境执行，非Godot内
+# 在agent環境執行，非Godot內
 import urllib.request, json
 url = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt"
 urllib.request.urlretrieve(url, "/tmp/mmh_dictionary.txt")
 ```
 
-**Step 2:** 转换为项目用的精简JSON（只保留立项需要的字集：见Task 2.1的敌字/武器表），存到`game/data/hanzi_decomposition.json`，结构：
+**Step 2:** 轉換為專案用的精簡JSON（只保留立項需要的字集：見Task 2.1的敵字/武器表），存到`game/data/hanzi_decomposition.json`，結構：
 ```json
 {
   "淼": {"decomposition": ["水","水","水"], "strokes": [...svg paths...]},
@@ -68,20 +70,20 @@ urllib.request.urlretrieve(url, "/tmp/mmh_dictionary.txt")
 }
 ```
 
-**Verify:** `python3 -c "import json; d=json.load(open('game/data/hanzi_decomposition.json')); print(len(d))"` 输出条目数 > 0
+**Verify:** `python3 -c "import json; d=json.load(open('game/data/hanzi_decomposition.json')); print(len(d))"` 輸出條目數 > 0
 
 ---
 
-### Task 1.3: Character基类 + Player移动/跳跃/开火骨架
+### Task 1.3: Character基類 + Player移動/跳躍/開火骨架
 
-**Objective:** 横版角色控制器，支持左右移动、跳跃、开火输入
+**Objective:** 橫版角色控制器，支援左右移動、跳躍、開火輸入
 
 **Files:**
 - Create: `game/scripts/character.gd`
 - Create: `game/scripts/player.gd`
 - Create: `game/scenes/player.tscn`
 
-**Step 1:** 基类：
+**Step 1:** 基類：
 ```gdscript
 # game/scripts/character.gd
 class_name Character
@@ -137,28 +139,28 @@ func _physics_process(delta: float) -> void:
     move_and_slide()
 ```
 
-**Step 3:** 场景`player.tscn`节点结构：
+**Step 3:** 場景`player.tscn`節點結構：
 ```
 Player (CharacterBody2D, script=player.gd)
 ├── CollisionShape2D
 ├── HanziLabel (Label, text="我", font=NotoSansTC, font_size=64)
-├── WeaponManager (Node, script=weapon_manager.gd — Day 2创建)
+├── WeaponManager (Node, script=weapon_manager.gd — Day 2建立)
 └── Camera2D
 ```
 
-**Verify:** F5运行场景，方向键移动、空格跳跃、"我"字左右翻转跟随方向
+**Verify:** F5執行場景，方向鍵移動、空格跳躍、"我"字左右翻轉跟隨方向
 
 ---
 
-### Task 1.4: 字体渲染系统封装
+### Task 1.4: 字型渲染系統封裝
 
-**Objective:** 统一的"用汉字生成角色视觉"组件，供Player和所有Enemy复用
+**Objective:** 統一的"用漢字生成角色視覺"元件，供Player和所有Enemy複用
 
 **Files:**
 - Create: `game/scripts/hanzi_sprite.gd`
-- Create: `game/assets/fonts/NotoSansTC-Bold.ttf`（下载思源黑体繁体版）
+- Create: `game/assets/fonts/NotoSansTC-Bold.ttf`（下載思源黑體繁體版）
 
-**Step 1:** 下载字体：
+**Step 1:** 下載字型：
 ```bash
 python3 -c "
 import urllib.request
@@ -168,7 +170,7 @@ urllib.request.urlretrieve(
 "
 ```
 
-**Step 2:** 封装组件（描边发光、受击抖动）：
+**Step 2:** 封裝元件（描邊發光、受擊抖動）：
 ```gdscript
 # game/scripts/hanzi_sprite.gd
 extends Label
@@ -185,20 +187,20 @@ func flash_hit() -> void:
     tween.tween_property(self, "modulate", Color(1,1,1), 0.1)
 
 func shatter_and_die() -> void:
-    # Day 3详细实现：按笔画拆分成多个Label碎片飞散
+    # Day 3詳細實現：按筆畫拆分成多個Label碎片飛散
     queue_free()
 ```
 
-**Verify:** 场景内替换`character_text`，字形跟随变化，受击时短暂变红
+**Verify:** 場景內替換`character_text`，字形跟隨變化，受擊時短暫變紅
 
 ---
 
-### Task 1.5: 横版镜头跟随
+### Task 1.5: 橫版鏡頭跟隨
 
-**Objective:** Camera2D平滑跟随玩家，限制在关卡边界内
+**Objective:** Camera2D平滑跟隨玩家，限制在關卡邊界內
 
 **Files:**
-- Modify: `game/scenes/player.tscn`（Camera2D子节点配置）
+- Modify: `game/scenes/player.tscn`（Camera2D子節點配置）
 - Create: `game/scripts/camera_bounds.gd`
 
 **Step 1:**
@@ -217,13 +219,13 @@ func _ready() -> void:
     position_smoothing_speed = 8.0
 ```
 
-**Verify:** 玩家移动到关卡边缘时镜头停止跟随，不露出关卡外空白
+**Verify:** 玩家移動到關卡邊緣時鏡頭停止跟隨，不露出關卡外空白
 
 ---
 
-### Task 1.6: 基础碰撞层设置
+### Task 1.6: 基礎碰撞層設定
 
-**Objective:** 定义Player/Enemy/Bullet/Ground的物理层，避免后续碰撞漏判
+**Objective:** 定義Player/Enemy/Bullet/Ground的物理層，避免後續碰撞漏判
 
 **Files:**
 - Modify: `game/project.godot`（Layer Names配置）
@@ -238,7 +240,7 @@ func _ready() -> void:
 2d_physics/layer_5="enemy_bullet"
 ```
 
-**Verify:** Player碰撞层设为layer_2，只与layer_1/layer_3碰撞，检查Inspector面板配置正确
+**Verify:** Player碰撞層設為layer_2，只與layer_1/layer_3碰撞，檢查Inspector面板配置正確
 
 **Day 1 End-of-day commit:**
 ```bash
@@ -247,17 +249,17 @@ cd game && git init && git add -A && git commit -m "day1: project skeleton, hanz
 
 ---
 
-## Day 2: 部首武器系统 + 五行相克
+## Day 2: 部首武器系統 + 五行相剋
 
-### Task 2.1: 五行相克数据表 + 纯逻辑单元测试
+### Task 2.1: 五行相剋資料表 + 純邏輯單元測試
 
-**Objective:** 建立`ElementSystem` autoload单例，五行克制倍率计算可独立测试
+**Objective:** 建立`ElementSystem` autoload單例，五行剋制倍率計算可獨立測試
 
 **Files:**
 - Create: `game/scripts/element_system.gd` (autoload)
 - Create: `game/data/elements.json`
 
-**Step 1:** 数据表：
+**Step 1:** 資料表：
 ```json
 {
   "relations": {
@@ -272,7 +274,7 @@ cd game && git init && git add -A && git commit -m "day1: project skeleton, hanz
 }
 ```
 
-**Step 2:** 逻辑：
+**Step 2:** 邏輯：
 ```gdscript
 # game/scripts/element_system.gd (autoload singleton "ElementSystem")
 extends Node
@@ -298,7 +300,7 @@ func get_multiplier(attacker: String, defender: String) -> float:
     return 1.0
 ```
 
-**Step 3 (test):** 用GUT测试框架（`addons/gut`）写纯逻辑测试：
+**Step 3 (test):** 用GUT測試框架（`addons/gut`）寫純邏輯測試：
 ```gdscript
 # game/tests/test_element_system.gd
 extends GutTest
@@ -313,13 +315,13 @@ func test_neutral_always_normal():
     assert_eq(ElementSystem.get_multiplier("neutral", "water"), 1.0)
 ```
 
-**Verify:** `godot4 --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit` 全部通过
+**Verify:** `godot4 --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit` 全部透過
 
 ---
 
-### Task 2.2: 部首武器数据表（10个武器）
+### Task 2.2: 部首武器資料表（10個武器）
 
-**Objective:** 定义资源化的武器数据，非硬编码
+**Objective:** 定義資源化的武器資料，非硬編碼
 
 **Files:**
 - Create: `game/data/weapons.json`
@@ -327,26 +329,26 @@ func test_neutral_always_normal():
 **Step 1:**
 ```json
 [
-  {"id":"shui","radical":"氵","element":"water","name":"水波弹","damage":8,"fire_rate":0.4,"projectile":"wave","range":"medium"},
+  {"id":"shui","radical":"氵","element":"water","name":"水波彈","damage":8,"fire_rate":0.4,"projectile":"wave","range":"medium"},
   {"id":"huo","radical":"灬","element":"fire","name":"火球","damage":12,"fire_rate":0.6,"projectile":"fireball_aoe","range":"medium"},
-  {"id":"jin","radical":"钅","element":"metal","name":"暗器","damage":6,"fire_rate":0.15,"projectile":"blade","range":"long"},
+  {"id":"jin","radical":"釒","element":"metal","name":"暗器","damage":6,"fire_rate":0.15,"projectile":"blade","range":"long"},
   {"id":"mu","radical":"木","element":"wood","name":"藤蔓刺","damage":10,"fire_rate":0.5,"projectile":"vine","range":"short"},
   {"id":"tu","radical":"土","element":"earth","name":"石撞","damage":15,"fire_rate":0.8,"projectile":"rock","range":"short"},
-  {"id":"gong","radical":"弓","element":"neutral","name":"基础弓箭","damage":7,"fire_rate":0.3,"projectile":"arrow","range":"long"},
-  {"id":"dao","radical":"刂","element":"neutral","name":"近战刀","damage":14,"fire_rate":0.35,"projectile":"melee","range":"melee"},
+  {"id":"gong","radical":"弓","element":"neutral","name":"基礎弓箭","damage":7,"fire_rate":0.3,"projectile":"arrow","range":"long"},
+  {"id":"dao","radical":"刂","element":"neutral","name":"近戰刀","damage":14,"fire_rate":0.35,"projectile":"melee","range":"melee"},
   {"id":"shou","radical":"扌","element":"neutral","name":"手雷","damage":20,"fire_rate":1.0,"projectile":"grenade_aoe","range":"medium"},
-  {"id":"bing","radical":"冫","element":"water","name":"冰锥","damage":9,"fire_rate":0.45,"projectile":"ice_shard","range":"medium"},
-  {"id":"shi","radical":"石","element":"earth","name":"碎石弹","damage":11,"fire_rate":0.5,"projectile":"pebble","range":"medium"}
+  {"id":"bing","radical":"冫","element":"water","name":"冰錐","damage":9,"fire_rate":0.45,"projectile":"ice_shard","range":"medium"},
+  {"id":"shi","radical":"石","element":"earth","name":"碎石彈","damage":11,"fire_rate":0.5,"projectile":"pebble","range":"medium"}
 ]
 ```
 
-**Verify:** JSON.parse_string成功加载10条记录
+**Verify:** JSON.parse_string成功載入10條記錄
 
 ---
 
-### Task 2.3: WeaponManager + 武器切换
+### Task 2.3: WeaponManager + 武器切換
 
-**Objective:** Player持有的武器管理器，Q/E切换武器，读取weapons.json生成子弹
+**Objective:** Player持有的武器管理器，Q/E切換武器，讀取weapons.json生成子彈
 
 **Files:**
 - Create: `game/scripts/weapon_manager.gd`
@@ -409,16 +411,16 @@ func _on_area_entered(area: Node) -> void:
     queue_free()
 ```
 
-**Verify:** 按Q/E切换武器名在UI显示变化（临时debug label），按fire键生成子弹并飞行、命中测试假人扣血
+**Verify:** 按Q/E切換武器名在UI顯示變化（臨時debug label），按fire鍵生成子彈並飛行、命中測試假人扣血
 
 ---
 
-### Task 2.4: 武器手感打磨（后坐力/开火动画/描边色）
+### Task 2.4: 武器手感打磨（後坐力/開火動畫/描邊色）
 
-**Objective:** 每种武器按五行有不同的颜色/粒子反馈，避免武器手感雷同
+**Objective:** 每種武器按五行有不同的顏色/粒子反饋，避免武器手感雷同
 
 **Files:**
-- Modify: `game/scripts/bullet.gd`（按element着色）
+- Modify: `game/scripts/bullet.gd`（按element著色）
 
 **Step 1:**
 ```gdscript
@@ -433,7 +435,7 @@ const ELEMENT_COLORS = {
 # 在setup()中: modulate = ELEMENT_COLORS.get(elem, Color.WHITE)
 ```
 
-**Verify:** 10种武器子弹颜色区分明显，肉眼可辨认元素归属
+**Verify:** 10種武器子彈顏色區分明顯，肉眼可辨認元素歸屬
 
 **Day 2 End-of-day commit:**
 ```bash
@@ -442,16 +444,16 @@ git add -A && git commit -m "day2: radical weapon system, five-element damage ca
 
 ---
 
-## Day 3: 敌字系统 + AI + 死亡特效
+## Day 3: 敵字系統 + AI + 死亡特效
 
-### Task 3.1: 敌字数据表（20种）
+### Task 3.1: 敵字資料表（20種）
 
-**Objective:** 定义敌人字、五行归属、AI类型、血量/伤害
+**Objective:** 定義敵人字、五行歸屬、AI型別、血量/傷害
 
 **Files:**
 - Create: `game/data/enemies.json`
 
-**Step 1:** 示例（完整20条，按5行×4个铺开）：
+**Step 1:** 示例（完整20條，按5行×4個鋪開）：
 ```json
 [
   {"char":"河","element":"water","ai":"patrol_ranged","hp":30,"damage":8,"speed":80},
@@ -470,20 +472,20 @@ git add -A && git commit -m "day2: radical weapon system, five-element damage ca
   {"char":"藤","element":"wood","ai":"patrol_ranged","hp":28,"damage":8,"speed":75},
   {"char":"森","element":"wood","ai":"chase_melee","hp":48,"damage":14,"speed":65},
   {"char":"林","element":"wood","ai":"patrol_ranged","hp":26,"damage":7,"speed":80},
-  {"char":"岩","element":"earth","ai":"stationary_aoe","hp":65,"damage":19,"speed":0},
+  {"char":"巖","element":"earth","ai":"stationary_aoe","hp":65,"damage":19,"speed":0},
   {"char":"石","element":"earth","ai":"chase_melee","hp":30,"damage":12,"speed":55},
   {"char":"山","element":"earth","ai":"patrol_ranged","hp":42,"damage":13,"speed":45},
   {"char":"塵","element":"earth","ai":"chase_melee","hp":20,"damage":6,"speed":140}
 ]
 ```
 
-**Verify:** JSON加载20条，按element分组各4个
+**Verify:** JSON載入20條，按element分組各4個
 
 ---
 
-### Task 3.2: Enemy基类 + 三种AI行为树（巡逻/追击/远程/定点AOE）
+### Task 3.2: Enemy基類 + 三種AI行為樹（巡邏/追擊/遠程/定點AOE）
 
-**Objective:** 用状态机实现4种AI行为，数据驱动生成不同敌人
+**Objective:** 用狀態機實現4種AI行為，資料驅動生成不同敵人
 
 **Files:**
 - Create: `game/scripts/enemy.gd`
@@ -519,7 +521,7 @@ func die() -> void:
     super.die()
 ```
 
-**Step 2 (巡逻AI示例，其余两种同结构不同逻辑):**
+**Step 2 (巡邏AI示例，其餘兩種同結構不同邏輯):**
 ```gdscript
 # game/scripts/enemy_ai_patrol.gd
 extends Node
@@ -540,13 +542,13 @@ func _physics_process(delta: float) -> void:
     enemy.move_and_slide()
 ```
 
-**Verify:** 场景内放置一个"河"敌人，运行后左右巡逻150px范围内往返
+**Verify:** 場景內放置一個"河"敵人，執行後左右巡邏150px範圍內往返
 
 ---
 
-### Task 3.3: 敌人生成器 (EnemySpawner)
+### Task 3.3: 敵人生成器 (EnemySpawner)
 
-**Objective:** 关卡内按点位/波次生成敌人，从enemies.json按key取数据
+**Objective:** 關卡內按點位/波次生成敵人，從enemies.json按key取資料
 
 **Files:**
 - Create: `game/scripts/enemy_spawner.gd`
@@ -574,24 +576,24 @@ func spawn() -> void:
     enemy.setup(enemy_data_table[enemy_char])
 ```
 
-**Verify:** 在关卡场景放5个EnemySpawner节点，各自设置不同enemy_char，运行后生成对应敌人且属性正确（打印hp/damage确认）
+**Verify:** 在關卡場景放5個EnemySpawner節點，各自設定不同enemy_char，執行後生成對應敵人且屬性正確（列印hp/damage確認）
 
 ---
 
-### Task 3.4: 笔画崩解死亡特效
+### Task 3.4: 筆畫崩解死亡特效
 
-**Objective:** 敌人死亡时字形按笔画拆散飞出，视觉爽感核心卖点
+**Objective:** 敵人死亡時字形按筆畫拆散飛出，視覺爽感核心賣點
 
 **Files:**
 - Modify: `game/scripts/hanzi_sprite.gd`
 
-**Step 1:** 利用Day1.2的笔画SVG路径数据，用`Line2D`或多个小`Label`模拟碎片：
+**Step 1:** 利用Day1.2的筆畫SVG路徑資料，用`Line2D`或多個小`Label`模擬碎片：
 ```gdscript
 func shatter_and_die() -> void:
-    var strokes = HanziData.get_strokes(text)  # 从hanzi_decomposition.json取
+    var strokes = HanziData.get_strokes(text)  # 從hanzi_decomposition.json取
     for stroke_path in strokes:
         var fragment = Label.new()
-        fragment.text = "﹒"  # 简化：用笔画点位近似，或用Polygon2D渲染真实path
+        fragment.text = "﹒"  # 簡化：用筆畫點位近似，或用Polygon2D渲染真實path
         fragment.global_position = global_position + Vector2(randf_range(-10,10), randf_range(-10,10))
         get_tree().current_scene.add_child(fragment)
         var tween = fragment.create_tween()
@@ -602,7 +604,7 @@ func shatter_and_die() -> void:
     queue_free()
 ```
 
-**Verify:** 击杀敌人后原地字形消失，若干碎片飞散并淡出，无残留节点（用Godot远程场景树检查节点数不增长）
+**Verify:** 擊殺敵人後原地字形消失，若干碎片飛散並淡出，無殘留節點（用Godot遠端場景樹檢查節點數不增長）
 
 **Day 3 End-of-day commit:**
 ```bash
@@ -611,27 +613,27 @@ git add -A && git commit -m "day3: enemy system, 4 AI behaviors, 20 enemy chars,
 
 ---
 
-## Day 4: 关卡设计（4关）
+## Day 4: 關卡設計（4關）
 
-### Task 4.1: TileMap关卡基础 — 水域关
+### Task 4.1: TileMap關卡基礎 — 水域關
 
-**Objective:** 用Godot TileMap搭建第一关地形，含存档点
+**Objective:** 用Godot TileMap搭建第一關地形，含存檔點
 
 **Files:**
 - Create: `game/scenes/levels/level_01_water.tscn`
 - Create: `game/scripts/checkpoint.gd`
-- Create: `game/assets/art/tileset_water.png`（从OpenGameArt/Kenney取水域主题tileset）
+- Create: `game/assets/art/tileset_water.png`（從OpenGameArt/Kenney取水域主題tileset）
 
-**Step 1:** 场景结构：
+**Step 1:** 場景結構：
 ```
 Level01 (Node2D)
-├── TileMap (水域主题地形)
-├── Background (Parallax2D，水域背景图)
+├── TileMap (水域主題地形)
+├── Background (Parallax2D，水域背景圖)
 ├── PlayerSpawn (Marker2D)
-├── EnemySpawners (Node2D, 多个EnemySpawner子节点，enemy_char设为河/海/湖/雨)
-├── Checkpoints (Node2D, 多个Area2D+checkpoint.gd)
-├── LevelExit (Area2D, 触发进入下一关)
-└── CameraBounds (Rect2定义)
+├── EnemySpawners (Node2D, 多個EnemySpawner子節點，enemy_char設為河/海/湖/雨)
+├── Checkpoints (Node2D, 多個Area2D+checkpoint.gd)
+├── LevelExit (Area2D, 觸發進入下一關)
+└── CameraBounds (Rect2定義)
 ```
 
 **Step 2:**
@@ -644,28 +646,28 @@ func _on_body_entered(body: Node) -> void:
         SaveSystem.set_checkpoint(get_path(), global_position)
 ```
 
-**Verify:** 玩家从PlayerSpawn开始，能走到LevelExit触发场景切换，中途经过Checkpoint触发存档
+**Verify:** 玩家從PlayerSpawn開始，能走到LevelExit觸發場景切換，中途經過Checkpoint觸發存檔
 
 ---
 
-### Task 4.2: 火山关 / 森林关 / 矿山关
+### Task 4.2: 火山關 / 森林關 / 礦山關
 
-**Objective:** 复制Task 4.1结构，替换tileset美术+enemy_char+背景音乐，共3关
+**Objective:** 複製Task 4.1結構，替換tileset美術+enemy_char+背景音樂，共3關
 
 **Files:**
 - Create: `game/scenes/levels/level_02_fire.tscn`
 - Create: `game/scenes/levels/level_03_wood.tscn`
 - Create: `game/scenes/levels/level_04_earth.tscn`
 
-**Step 1:** 每关的EnemySpawner全部指向对应五行的敌字（火山关全用fire系4个字，以此类推），保证"关卡主题=五行区块"贯彻到底
+**Step 1:** 每關的EnemySpawner全部指向對應五行的敵字（火山關全用fire系4個字，以此類推），保證"關卡主題=五行區塊"貫徹到底
 
-**Verify:** 依次通关4关，每关敌人元素与关卡主题一致，武器克制策略在对应关卡内明显生效（用克制武器一击伤害肉眼可辨高于非克制武器）
+**Verify:** 依次通關4關，每關敵人元素與關卡主題一致，武器剋制策略在對應關卡內明顯生效（用剋制武器一擊傷害肉眼可辨高於非剋制武器）
 
 ---
 
-### Task 4.3: 关卡管理器 LevelManager (autoload)
+### Task 4.3: 關卡管理器 LevelManager (autoload)
 
-**Objective:** 统一管理关卡切换、存档点复活、关卡间过渡动画
+**Objective:** 統一管理關卡切換、存檔點復活、關卡間過渡動畫
 
 **Files:**
 - Create: `game/scripts/level_manager.gd` (autoload)
@@ -693,7 +695,7 @@ func next_level() -> void:
         get_tree().change_scene_to_file("res://scenes/ui/victory_screen.tscn")
 ```
 
-**Verify:** LevelExit触发`LevelManager.next_level()`，4关顺序切换，最后一关后进入胜利画面
+**Verify:** LevelExit觸發`LevelManager.next_level()`，4關順序切換，最後一關後進入勝利畫面
 
 **Day 4 End-of-day commit:**
 ```bash
@@ -702,11 +704,11 @@ git add -A && git commit -m "day4: four themed levels, checkpoints, level manage
 
 ---
 
-## Day 5: Boss战（3只复合字Boss）
+## Day 5: Boss戰（3只複合字Boss）
 
-### Task 5.1: Boss基类 + 多阶段状态机
+### Task 5.1: Boss基類 + 多階段狀態機
 
-**Objective:** Boss不同于普通敌人——有阶段转换、拆解出子武器攻击玩家
+**Objective:** Boss不同於普通敵人——有階段轉換、拆解出子武器攻擊玩家
 
 **Files:**
 - Create: `game/scripts/boss.gd`
@@ -746,25 +748,25 @@ func take_damage(amount: int, attacker_element: String) -> void:
 
 func enter_phase(p: int) -> void:
     hanzi_label.flash_hit()
-    # 每阶段召唤对应部首子弹幕，攻击模式升级
+    # 每階段召喚對應部首子彈幕，攻擊模式升級
     spawn_sub_radical_attack(sub_radicals[p - 1] if p - 1 < sub_radicals.size() else sub_radicals[-1])
 
 func spawn_sub_radical_attack(radical: String) -> void:
-    pass  # Task 5.2实现具体弹幕模式
+    pass  # Task 5.2實現具體彈幕模式
 ```
 
-**Verify:** Boss血量降到2/3、1/3阈值时触发`enter_phase`，打印phase切换日志确认阈值正确
+**Verify:** Boss血量降到2/3、1/3閾值時觸發`enter_phase`，列印phase切換日誌確認閾值正確
 
 ---
 
-### Task 5.2: 三种Boss弹幕/攻击模式
+### Task 5.2: 三種Boss彈幕/攻擊模式
 
-**Objective:** 淼(水弹幕环形)、焱(火焰追踪弹)、森(藤蔓地刺)，各阶段强度递增
+**Objective:** 淼(水彈幕環形)、焱(火焰追蹤彈)、森(藤蔓地刺)，各階段強度遞增
 
 **Files:**
 - Create: `game/scripts/boss_attack_patterns.gd`
 
-**Step 1（示例：淼的环形水弹）:**
+**Step 1（示例：淼的環形水彈）:**
 ```gdscript
 func spawn_ring_attack(origin: Vector2, count: int, element: String) -> void:
     var bullet_scene = preload("res://scenes/projectiles/bullet_base.tscn")
@@ -775,13 +777,13 @@ func spawn_ring_attack(origin: Vector2, count: int, element: String) -> void:
         get_tree().current_scene.add_child(bullet)
 ```
 
-**Verify:** 每个Boss3个阶段攻击模式肉眼可辨不同，且阶段2/3伤害或弹幕密度高于阶段1
+**Verify:** 每個Boss3個階段攻擊模式肉眼可辨不同，且階段2/3傷害或彈幕密度高於階段1
 
 ---
 
-### Task 5.3: Boss战场景 + 屏幕震动/粒子
+### Task 5.3: Boss戰場景 + 螢幕震動/粒子
 
-**Objective:** 每个Boss关卡末尾场景，含入场动画、屏幕震动反馈
+**Objective:** 每個Boss關卡末尾場景，含入場動畫、螢幕震動反饋
 
 **Files:**
 - Create: `game/scenes/bosses/boss_arena_water.tscn`
@@ -789,7 +791,7 @@ func spawn_ring_attack(origin: Vector2, count: int, element: String) -> void:
 
 **Step 1:**
 ```gdscript
-# game/scripts/screen_shake.gd (挂在Camera2D上)
+# game/scripts/screen_shake.gd (掛在Camera2D上)
 extends Camera2D
 
 func shake(duration: float, strength: float) -> void:
@@ -802,7 +804,7 @@ func shake(duration: float, strength: float) -> void:
     offset = Vector2.ZERO
 ```
 
-**Verify:** Boss进入新阶段/死亡时屏幕震动明显，无卡顿或震动残留（战斗结束offset归零）
+**Verify:** Boss進入新階段/死亡時螢幕震動明顯，無卡頓或震動殘留（戰鬥結束offset歸零）
 
 **Day 5 End-of-day commit:**
 ```bash
@@ -811,9 +813,9 @@ git add -A && git commit -m "day5: boss base class, 3-phase state machine, 3 bos
 
 ---
 
-## Day 6: UI / 菜单 / 音频 / 存档
+## Day 6: UI / 選單 / 音訊 / 存檔
 
-### Task 6.1: 主菜单 + 暂停菜单
+### Task 6.1: 主選單 + 暫停選單
 
 **Files:**
 - Create: `game/scenes/ui/main_menu.tscn`
@@ -831,25 +833,25 @@ func _unhandled_input(event: InputEvent) -> void:
         visible = get_tree().paused
 ```
 
-**Verify:** ESC键暂停/恢复游戏，菜单UI正确显示/隐藏，暂停时敌人/子弹全部静止
+**Verify:** ESC鍵暫停/恢復遊戲，選單UI正確顯示/隱藏，暫停時敵人/子彈全部靜止
 
 ---
 
-### Task 6.2: 武器图鉴界面
+### Task 6.2: 武器圖鑑介面
 
-**Objective:** 展示已解锁的10个部首武器，含元素图标和描述
+**Objective:** 展示已解鎖的10個部首武器，含元素圖示和描述
 
 **Files:**
 - Create: `game/scenes/ui/weapon_codex.tscn`
 - Create: `game/scripts/weapon_codex.gd`
 
-**Verify:** 打开图鉴，10个武器条目全部按weapons.json数据渲染，元素颜色与Day2.4一致
+**Verify:** 開啟圖鑑，10個武器條目全部按weapons.json資料渲染，元素顏色與Day2.4一致
 
 ---
 
-### Task 6.3: 存档系统 (SaveSystem)
+### Task 6.3: 存檔系統 (SaveSystem)
 
-**Objective:** 记录当前关卡、存档点位置、已解锁武器
+**Objective:** 記錄當前關卡、存檔點位置、已解鎖武器
 
 **Files:**
 - Create: `game/scripts/save_system.gd` (autoload)
@@ -877,21 +879,21 @@ func set_checkpoint(node_path: String, pos: Vector2) -> void:
     save_game(data)
 ```
 
-**Verify:** 存档点触发后关闭游戏重开，从存档点位置+对应关卡恢复，而非从头开始
+**Verify:** 存檔點觸發後關閉遊戲重開，從存檔點位置+對應關卡恢復，而非從頭開始
 
 ---
 
 ### Task 6.4: 音效/BGM接入
 
-**Objective:** 接入免费素材库音效+配乐，4个关卡各配BGM，武器/受击/死亡音效
+**Objective:** 接入免費素材庫音效+配樂，4個關卡各配BGM，武器/受擊/死亡音效
 
 **Files:**
-- Modify: 各武器/敌人/关卡场景，添加`AudioStreamPlayer2D`节点
+- Modify: 各武器/敵人/關卡場景，新增`AudioStreamPlayer2D`節點
 - Download音效到 `game/assets/sfx/` 和 `game/assets/music/`
 
-**Step 1:** 从Kenney.nl / Sonniss GDC包下载并归类武器音效(10个)、受击音效(1-2个通用)、死亡碎裂音效(1个)、4个关卡BGM、Boss战BGM(1-3个可共用)
+**Step 1:** 從Kenney.nl / Sonniss GDC包下載並歸類武器音效(10個)、受擊音效(1-2個通用)、死亡碎裂音效(1個)、4個關卡BGM、Boss戰BGM(1-3個可共用)
 
-**Verify:** 每次开火/命中/死亡/切关都有对应音效，音量无爆音或明显失衡
+**Verify:** 每次開火/命中/死亡/切關都有對應音效，音量無爆音或明顯失衡
 
 **Day 6 End-of-day commit:**
 ```bash
@@ -902,13 +904,13 @@ git add -A && git commit -m "day6: main menu, pause, weapon codex, save system, 
 
 ## Day 7: 打磨 + Steamworks接入 + 打包
 
-### Task 7.1: GodotSteam插件接入
+### Task 7.1: GodotSteam外掛接入
 
-**Objective:** 接入Steamworks成就/云存档基础功能
+**Objective:** 接入Steamworks成就/雲存檔基礎功能
 
 **Files:**
-- Create: `game/addons/godotsteam/`（下载GodotSteam预编译插件）
-- Modify: `game/scripts/save_system.gd`（加云存档同步）
+- Create: `game/addons/godotsteam/`（下載GodotSteam預編譯外掛）
+- Modify: `game/scripts/save_system.gd`（加雲存檔同步）
 
 **Step 1:**
 ```bash
@@ -918,14 +920,14 @@ urllib.request.urlretrieve(
   'https://github.com/GodotSteam/GodotSteam/releases/latest/download/godotsteam-gdextension.zip',
   '/tmp/godotsteam.zip')
 "
-# 解压到 game/addons/godotsteam/
+# 解壓到 game/addons/godotsteam/
 ```
 
 **Step 2:**
 ```gdscript
 # 在project.godot autoload加入 Steam.gd
 extends Node
-var app_id: int = 480  # 占位测试ID，正式需替换为申请到的真实App ID
+var app_id: int = 480  # 佔位測試ID，正式需替換為申請到的真實App ID
 
 func _ready() -> void:
     Steam.steamInit()
@@ -933,14 +935,14 @@ func _ready() -> void:
         print("Steam connected: ", Steam.getPersonaName())
 ```
 
-**Verify:** 本地Steam客户端运行时，游戏启动打印出Steam用户名（用测试App ID 480验证集成通路，正式AppID需等Steamworks审核通过后替换）
+**Verify:** 本地Steam客戶端執行時，遊戲啟動列印出Steam使用者名稱（用測試App ID 480驗證整合通路，正式AppID需等Steamworks稽核透過後替換）
 
 ---
 
-### Task 7.2: 成就系统接入（可选，视时间）
+### Task 7.2: 成就係統接入（可選，視時間）
 
 **Files:**
-- Modify: Steam.gd，添加解锁成就调用
+- Modify: Steam.gd，新增解鎖成就呼叫
 
 **Step 1:**
 ```gdscript
@@ -949,34 +951,34 @@ func unlock_achievement(id: String) -> void:
     Steam.storeStats()
 ```
 
-**Verify:** 通关第一关后调用`unlock_achievement("LEVEL_1_CLEAR")`，Steam客户端成就面板显示解锁（需App ID已配置对应成就）
+**Verify:** 通關第一關後呼叫`unlock_achievement("LEVEL_1_CLEAR")`，Steam客戶端成就面板顯示解鎖（需App ID已配置對應成就）
 
 ---
 
-### Task 7.3: 全流程测试 + Bug修复
+### Task 7.3: 全流程測試 + Bug修復
 
-**Objective:** 从主菜单到通关4关+3Boss+胜利画面完整走一遍，记录并修复阻断性bug
+**Objective:** 從主選單到通關4關+3Boss+勝利畫面完整走一遍，記錄並修復阻斷性bug
 
-**Step 1:** 制作测试checklist：
+**Step 1:** 製作測試checklist：
 ```
-[ ] 主菜单→开始游戏→关卡1加载正常
-[ ] 4种武器切换、伤害克制倍率生效
-[ ] 20种敌人AI行为符合预期，无卡死/穿墙
-[ ] 4关全部可通关，存档点正常
-[ ] 3个Boss战全部可击败，3阶段转换正常
-[ ] 暂停菜单、武器图鉴正常打开关闭
-[ ] 音效/BGM无缺失或报错
-[ ] 存档读取在重启后正确恢复
-[ ] Steam连接状态正常（本地测试环境）
+[ ] 主選單→開始遊戲→關卡1載入正常
+[ ] 4種武器切換、傷害剋制倍率生效
+[ ] 20種敵人AI行為符合預期，無卡死/穿牆
+[ ] 4關全部可通關，存檔點正常
+[ ] 3個Boss戰全部可擊敗，3階段轉換正常
+[ ] 暫停選單、武器圖鑑正常開啟關閉
+[ ] 音效/BGM無缺失或報錯
+[ ] 存檔讀取在重啟後正確恢復
+[ ] Steam連線狀態正常（本地測試環境）
 ```
 
-**Verify:** checklist全部打勾，无Godot控制台报错（`godot4 --headless` 跑一遍场景加载检查stderr为空）
+**Verify:** checklist全部打勾，無Godot控制檯報錯（`godot4 --headless` 跑一遍場景載入檢查stderr為空）
 
 ---
 
-### Task 7.4: 导出Windows Build
+### Task 7.4: 匯出Windows Build
 
-**Objective:** 生成可提交Steamworks的可执行文件
+**Objective:** 生成可提交Steamworks的可執行檔案
 
 **Files:**
 - Create: `game/export_presets.cfg`
@@ -986,22 +988,22 @@ func unlock_achievement(id: String) -> void:
 godot4 --headless --export-release "Windows Desktop" builds/windows/hanzi-runner.exe
 ```
 
-**Verify:** 生成的`.exe`在Wine或Windows环境下能正常启动并进入主菜单
+**Verify:** 生成的`.exe`在Wine或Windows環境下能正常啟動並進入主選單
 
 ---
 
-### Task 7.5: Steam店铺素材准备（与开发并行，非阻断项）
+### Task 7.5: Steam店鋪素材準備（與開發並行，非阻斷項）
 
-**Objective:** 准备提交所需的最低素材集
+**Objective:** 準備提交所需的最低素材集
 
 **Files:**
-- Create: `docs/steam_assets/` 存放胶囊图、截图、预告片脚本
+- Create: `docs/steam_assets/` 存放膠囊圖、截圖、預告片指令碼
 
-**Step 1:** 录制Day7测试流程视频作为预告片素材基础，用免费工具剪辑30-60秒预告
-**Step 2:** 至少5张不同关卡/Boss战截图
-**Step 3:** 完成IARC分级问卷（Steamworks后台在线填写，几分钟完成）
+**Step 1:** 錄製Day7測試流程影片作為預告片素材基礎，用免費工具剪輯30-60秒預告
+**Step 2:** 至少5張不同關卡/Boss戰截圖
+**Step 3:** 完成IARC分級問卷（Steamworks後臺線上填寫，幾分鐘完成）
 
-**Verify:** Steamworks后台"店铺页面"checklist无红色缺失项，可提交审核队列
+**Verify:** Steamworks後臺"店鋪頁面"checklist無紅色缺失項，可提交稽核佇列
 
 **Day 7 End-of-day commit:**
 ```bash
@@ -1011,20 +1013,20 @@ git tag v0.1.0-week1-complete
 
 ---
 
-## 执行方式建议
+## 執行方式建議
 
-按 `subagent-driven-development` 模式逐Day执行：每个Day作为一个批次，Day内的Task可视依赖关系并行或串行分派给subagent，每个Task完成后做spec compliance检查（对照本计划的Verify标准）+ 场景实际运行验证。
+按 `subagent-driven-development` 模式逐Day執行：每個Day作為一個批次，Day內的Task可視依賴關係並行或序列分派給subagent，每個Task完成後做spec compliance檢查（對照本計劃的Verify標準）+ 場景實際執行驗證。
 
-**关键风险点（提前预警）：**
-1. Task 1.2 数据集裁剪 — 需要你确认最终敌字/Boss字清单是否都在Make Me a Hanzi覆盖范围内（待验证事项，见GDD.md第7节）
-2. Task 3.4 笔画崩解特效 — 视觉效果需要人工过目调整参数（飞散速度/碎片数量），不是纯代码能一次到位的
-3. Task 7.1 Steam App ID — 正式App ID需Steamworks审核通过后才能拿到，Day7只能用测试ID(480)验证集成通路，真正上线前需替换
-4. 音效/BGM筛选（Task 6.4）— 免费库素材质量参差，需要人工试听挑选，不能完全交给AI自动选择
+**關鍵風險點（提前預警）：**
+1. Task 1.2 資料集裁剪 — 需要你確認最終敵字/Boss字清單是否都在Make Me a Hanzi覆蓋範圍內（待驗證事項，見GDD.md第7節）
+2. Task 3.4 筆畫崩解特效 — 視覺效果需要人工過目調整引數（飛散速度/碎片數量），不是純程式碼能一次到位的
+3. Task 7.1 Steam App ID — 正式App ID需Steamworks稽核透過後才能拿到，Day7只能用測試ID(480)驗證整合通路，真正上線前需替換
+4. 音效/BGM篩選（Task 6.4）— 免費庫素材質量參差，需要人工試聽挑選，不能完全交給AI自動選擇
 
 ---
 
-## 变更记录
+## 變更記錄
 
-| 日期 | 变更 |
+| 日期 | 變更 |
 |---|---|
-| 2026-07-26 | 完成7天详细实施计划，共7天/26个Task，覆盖核心系统到Steam打包全流程 |
+| 2026-07-26 | 完成7天詳細實施計劃，共7天/26個Task，覆蓋核心系統到Steam打包全流程 |
