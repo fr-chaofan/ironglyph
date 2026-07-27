@@ -1,0 +1,22 @@
+[
+  {"char":"河","element":"water","ai":"patrol_ranged","hp":30,"damage":8,"speed":80},
+  {"char":"海","element":"water","ai":"chase_melee","hp":45,"damage":12,"speed":60},
+  {"char":"湖","element":"water","ai":"patrol_ranged","hp":25,"damage":6,"speed":90},
+  {"char":"雨","element":"water","ai":"stationary_aoe","hp":20,"damage":10,"speed":0},
+  {"char":"焰","element":"fire","ai":"chase_melee","hp":35,"damage":14,"speed":100},
+  {"char":"炎","element":"fire","ai":"patrol_ranged","hp":30,"damage":10,"speed":70},
+  {"char":"灶","element":"fire","ai":"stationary_aoe","hp":40,"damage":16,"speed":0},
+  {"char":"焚","element":"fire","ai":"chase_melee","hp":38,"damage":13,"speed":95},
+  {"char":"鋼","element":"metal","ai":"patrol_ranged","hp":50,"damage":15,"speed":50},
+  {"char":"針","element":"metal","ai":"chase_melee","hp":22,"damage":9,"speed":130},
+  {"char":"劍","element":"metal","ai":"chase_melee","hp":40,"damage":18,"speed":110},
+  {"char":"錘","element":"metal","ai":"stationary_aoe","hp":60,"damage":20,"speed":0},
+  {"char":"樹","element":"wood","ai":"stationary_aoe","hp":55,"damage":11,"speed":0},
+  {"char":"藤","element":"wood","ai":"patrol_ranged","hp":28,"damage":8,"speed":75},
+  {"char":"森","element":"wood","ai":"chase_melee","hp":48,"damage":14,"speed":65},
+  {"char":"林","element":"wood","ai":"patrol_ranged","hp":26,"damage":7,"speed":80},
+  {"char":"巖","element":"earth","ai":"stationary_aoe","hp":65,"damage":19,"speed":0},
+  {"char":"石","element":"earth","ai":"chase_melee","hp":30,"damage":12,"speed":55},
+  {"char":"山","element":"earth","ai":"patrol_ranged","hp":42,"damage":13,"speed":45},
+  {"char":"塵","element":"earth","ai":"chase_melee","hp":20,"damage":6,"speed":140}
+]

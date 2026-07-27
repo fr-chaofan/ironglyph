@@ -46,36 +46,7 @@ func take_damage(amount: int, attacker_element: String) -> void:
 	if is_instance_valid(hanzi_sprite):
 		hanzi_sprite.flash_hit()
 
-	_show_damage_popup(dealt, attacker_element)
-
-
-## 飄出傷害數字，並標示這一擊是優勢/劣勢/中性——
-## 這是唯一能用眼睛確認 1.5 / 0.6 倍率有沒有生效的方式。
-func _show_damage_popup(dealt: int, attacker_element: String) -> void:
-	var multiplier := get_element_multiplier(attacker_element, element)
-
-	var popup := Label.new()
-	popup.z_index = 10
-	popup.text = str(dealt)
-	popup.add_theme_font_size_override("font_size", 26)
-
-	if multiplier > 1.0:
-		popup.text += "  剋!"
-		popup.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
-	elif multiplier < 1.0:
-		popup.text += "  抗"
-		popup.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7))
-	else:
-		popup.add_theme_color_override("font_color", Color.WHITE)
-
-	popup.position = Vector2(-20, -70)
-	add_child(popup)
-
-	var tween := popup.create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(popup, "position:y", -120.0, 0.7)
-	tween.tween_property(popup, "modulate:a", 0.0, 0.7)
-	tween.chain().tween_callback(popup.queue_free)
+	DamagePopup.show_damage(self, dealt, get_element_multiplier(attacker_element, element))
 
 
 ## 假人不會真的消失，倒地後原地重生，方便反覆測試
