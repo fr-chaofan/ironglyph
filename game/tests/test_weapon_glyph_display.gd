@@ -216,3 +216,23 @@ func _effective_glyph_color() -> Color:
 
 func _multiply_rgb(a: Color, b: Color) -> Color:
 	return Color(a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a)
+
+
+func test_復活後字形能重新顯示() -> void:
+	# _owner_dead 一旦設起來就沒有東西會清掉它。階段四存檔點復活是第一個
+	# 會觸發的情境，屆時沒有 revive() 就會變成「復活後武器字形永遠不見」。
+	var player := PlayerScene.instantiate()
+	add_child_autofree(player)
+	await wait_physics_frames(2)
+
+	var display: WeaponGlyphDisplay = player.get_node(^"WeaponGlyphDisplay")
+	assert_true(display.visible, "初始應顯示")
+
+	player.died.emit()
+	await wait_physics_frames(1)
+	assert_false(display.visible, "死亡後應隱藏")
+
+	display.revive()
+	await wait_physics_frames(1)
+	assert_true(display.visible, "復活後應重新顯示")
+	assert_eq(display.get_node(^"Glyph").text, "氵", "應恢復成目前武器的部首")

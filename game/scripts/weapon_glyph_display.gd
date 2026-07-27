@@ -103,6 +103,17 @@ func _on_owner_died() -> void:
 	_clear_display()
 
 
+## 玩家復活時呼叫，讓字形能重新顯示。
+##
+## `_owner_dead` 一旦設起來就沒有東西會清掉它，玩家從存檔點復活後武器字形會
+## 永遠隱藏。階段四 Task 4.1 的存檔點是第一個會觸發復活的地方，在那之前這是
+## 摸不到的潛在問題，但屆時沒有這個方法就會變成真的bug。
+func revive() -> void:
+	_owner_dead = false
+	if _weapon_manager != null and is_instance_valid(_weapon_manager):
+		set_weapon(_weapon_manager.get_current_weapon())
+
+
 func _clear_display() -> void:
 	_kill_switch_tween()
 	scale = Vector2.ONE
