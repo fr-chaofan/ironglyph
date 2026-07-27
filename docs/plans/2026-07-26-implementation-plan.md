@@ -800,6 +800,10 @@ git add -A && git commit -m "phase2: radical weapon system, five-element damage 
 
 ## 階段三：敵字系統 + AI + 死亡特效
 
+> **✅ 階段三全部完成**（Task 3.1/3.2/3.3/3.4）。測試累計106項671個assert全過。
+>
+> 兩處結構性調整見 Task 3.2；Task 3.4 的筆畫崩解改用真實筆畫資料，見該Task說明。
+
 ### Task 3.1: 敵字資料表（20種）
 
 **Objective:** 定義敵人字、五行歸屬、AI型別、血量/傷害
@@ -840,6 +844,38 @@ git add -A && git commit -m "phase2: radical weapon system, five-element damage 
 ### Task 3.2: Enemy基類 + 三種AI行為樹（巡邏/追擊/遠程/定點AOE）
 
 **Objective:** 用狀態機實現4種AI行為，資料驅動生成不同敵人
+
+> **✅ 已完成，但改了兩處結構。**
+>
+> ### 1. AI 子節點不自己移動
+>
+> 原文的 `enemy_ai_patrol.gd` 在自己的 `_physics_process` 裡呼叫
+> `enemy.apply_gravity()` 與 `enemy.move_and_slide()`。一旦本體也移動（或日後掛第二個
+> AI 節點），同一幀就會被移動多次、互相打架。
+>
+> 改為：**AI 只負責決定速度**（實作 `decide_velocity(enemy, delta) -> float`），
+> 重力與 `move_and_slide()` 統一在 `enemy.gd` 呼叫一次。
+>
+> ### 2. `take_damage()` 不重複實作傷害公式
+>
+> 原文在 `enemy.gd` 裡把倍率計算、扣血、死亡判定整套重寫了一遍。這會漏掉基類已經
+> 處理好的東西（`hp` 夾在0、`hp_changed`/`died` 訊號、同幀多發子彈的死亡去重），
+> 而且日後改傷害公式要改兩個地方。
+>
+> 改為呼叫 `super()` 後再判斷 `hp > 0` 才閃紅——原文擔心的「死亡時 flash_hit 操作到
+> 正在銷毀的節點」問題，這個順序同樣能避免，而且不必複製公式。
+>
+> ### AI 實際行為
+>
+> | 型別 | 行為 |
+> |---|---|
+> | `patrol_ranged` | 起點左右巡邏；玩家進入水平射程且高度接近時**停下開火**。撞牆也會折返。各敵人首次開火時間隨機錯開，避免整排同時射 |
+> | `chase_melee` | 水平接近玩家，靠接觸傷害輸出（接觸判定用 `move_and_slide` 的碰撞結果，不必額外掛 Area2D）。高度差過大就放棄追擊——沒有跳躍能力，追了也上不去 |
+> | `stationary_aoe` | 完全不移動，週期性放範圍傷害。放招前有 0.5 秒**蓄力預兆**（字會脹大），玩家才有機會退出範圍 |
+>
+> ⚠️ **敵人子彈必須改碰撞層**：與玩家子彈共用 `bullet_base.tscn`，但要設成
+> `enemy_bullet` 層(16)、mask 打 `player`(2)。沿用玩家子彈的層會導致敵人互相誤傷
+> 且打不到玩家。速度也調慢為 320（玩家子彈 500），玩家才閃得掉。
 
 **Files:**
 - Create: `game/scripts/enemy.gd`
@@ -914,6 +950,10 @@ func _physics_process(delta: float) -> void:
 
 **Objective:** 關卡內按點位/波次生成敵人，從enemies.json按key取資料
 
+> **✅ 已完成。** 資料表改為**靜態快取**——原文每個生成器都會把 enemies.json 讀一遍，
+> 一關放20個生成器就讀20次。另加 `respawn_delay`（測試場景用來反覆驗證）與
+> `spawn_on_ready`（關閉後可由外部控制波次生成，供階段四關卡使用）。
+
 **Files:**
 - Create: `game/scripts/enemy_spawner.gd`
 - Create: `game/scenes/enemy_base.tscn`
@@ -947,6 +987,22 @@ func spawn() -> void:
 ### Task 3.4: 筆畫崩解死亡特效
 
 **Objective:** 敵人死亡時字形按筆畫拆散飛出，視覺爽感核心賣點
+
+> **✅ 已完成，但用的是真實筆畫而非原文的近似碎片。**
+>
+> 原文的做法是灑幾個 `"﹒"` 字元當碎片，跟「筆畫崩解」關係不大——字是什麼、幾筆，
+> 看起來都一樣。
+>
+> 改用 Task 1.2 存下來的 **`medians`（每筆的中軸點序列）**，一筆一條 `Line2D` 畫出來，
+> 所以「山」炸成3根、「巖」炸成23根，形狀就是那個字真正的筆畫。不需要解析 SVG path，
+> medians 本身就是現成的點序列——這也是當初 Task 1.2 多存這個欄位的原因。
+>
+> 每一筆朝**自己相對於字心的方向**飛出，整個字看起來是炸開而不是所有碎片往同一邊飄。
+>
+> 座標系：Make Me a Hanzi 用 1024 單位字身框且 y 軸朝上（與螢幕相反）。實作上不去猜它的
+> 基線慣例，改用「算出所有點的實際外框再置中」，對任何字都穩定。
+>
+> 沒有筆畫資料的字（UI用字、資料集未收錄）退回整字淡出，不會直接消失或報錯。
 
 **Files:**
 - Modify: `game/scripts/hanzi_sprite.gd`
@@ -1522,6 +1578,7 @@ git tag v0.1.0-milestone-complete
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
 | 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |
+| 2026-07-26 | 階段三完成（Task 3.1/3.2/3.3/3.4）。**Task 3.2 改了兩處結構**：①AI子節點原本自己呼叫 `apply_gravity`+`move_and_slide`，與本體重複移動，改為只回傳速度、由 `enemy.gd` 統一移動；②`take_damage()` 原本整套重寫傷害公式，會漏掉基類的 hp 夾值/訊號/死亡去重且要維護兩份，改為呼叫 `super()` 後判斷 `hp > 0` 才閃紅。**Task 3.4 的筆畫崩解改用真實筆畫**：原文灑通用碎片「﹒」，改用 Task 1.2 存的 medians 以 Line2D 逐筆畫出，「山」炸成3根、「巖」炸成23根。Task 3.3 資料表改靜態快取（原本每個生成器都重讀一次 JSON）。敵人子彈需改用 enemy_bullet 層且速度調慢，否則敵人互相誤傷且玩家閃不掉 |
 | 2026-07-26 | 階段二完成（Task 2.1/2.2/2.3/2.4）。**修正一個會讓整個戰鬥系統失效的錯誤**：Task 2.3 的子彈用 `area_entered` 偵測命中，但 `Character` 繼承 `CharacterBody2D`（PhysicsBody2D），Area2D 的 `area_entered` 對 PhysicsBody2D 永遠不會觸發——照抄的結果是子彈能生成能飛但傷害永不結算。改用 `body_entered` 並直接判斷 `body is Character`。另補：子彈加存活上限（原本打空後永不釋放，會無限累積節點）與打到地形消失；`cycle_weapon()` 擋掉空武器清單避免除以零；子彈父節點在 `current_scene` 為 null 時退回場景樹根。五行倍率 1.5/0.6 沿用原文數值，標註為**待playtest調校的初始值**。Task 2.4 的顏色已做，後坐力/開火動畫留給整合者在有display的機器上調 |
 | 2026-07-26 | 階段一完成（Task 1.3/1.3b/1.4/1.5/1.6）。**調整執行順序為 1.3b → 1.6 → 1.4 → 1.3 → 1.5**：1.3b自己標註為阻斷性前置依賴卻被排在依賴它的1.3之後，1.6同理（`player.tscn`要設`collision_layer`需先有層定義）。修正三處無效內容：①Task 1.4字型URL 404（目錄下的檔名是`NotoSansCJKtc-*`，改用5.6MB的`SubsetOTF/TC`繁中子集版）；②Task 1.3b的`Object(InputEventKey,...)`簡寫無法被解析，需列出完整屬性；③Task 1.3的`character.gd`直接呼叫尚未存在的`ElementSystem`與`WeaponManager`，改為執行期探測+中性倍率回退，階段二接上後自動生效。另新增`test_room.tscn`供Task 1.3的F5驗證，重力改讀ProjectSettings，補`hp_changed`/`died`訊號與死亡去重 |
 | 2026-07-26 | Task 1.2/1.2b完成：資料集覆蓋率23/23。原字表的「燄」查無（「焰」的異體字，資料集只收「焰」），依決策不做近似字替換而移除，補上同屬火的「焚」維持每屬性4隻敵人對稱；「焚」拆解為`⿱林火`，「林」同為木屬性敵字，部首武器多一個跨屬性互動。Task 5.1敵人表同步更新。實作上把一次性程式碼片段抽成可重跑的`tools/build_hanzi_data.py`（內建覆蓋率檢查與下載快取），並多存`radical`/`medians`兩欄位供部首武器與崩解特效使用 |

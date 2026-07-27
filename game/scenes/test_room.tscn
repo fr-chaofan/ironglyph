@@ -6,12 +6,13 @@
 ;    直接掛在 Node2D 根節點下的 Control 是**世界座標**，會跟著鏡頭一起捲動，
 ;    而且鏡頭跟隨玩家時會被推到畫面外看不見。CanvasLayer 底下才是螢幕座標。
 
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
 [ext_resource type="PackedScene" path="res://scenes/training_dummy.tscn" id="3_dummy"]
 [ext_resource type="Script" uid="uid://de4cdh6bamawn" path="res://scripts/debug_info_label.gd" id="4_info"]
+[ext_resource type="Script" uid="uid://dmnje6w5ovpmr" path="res://scripts/enemy_spawner.gd" id="5_spawner"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2400, 80)
@@ -64,17 +65,17 @@ position = Vector2(-40, 120)
 [node name="Dummies" type="Node2D" parent="."]
 
 [node name="DummyFire" parent="Dummies" instance=ExtResource("3_dummy")]
-position = Vector2(180, 240)
+position = Vector2(760, 240)
 element = "fire"
 display_char = "焰"
 
 [node name="DummyWood" parent="Dummies" instance=ExtResource("3_dummy")]
-position = Vector2(360, 240)
+position = Vector2(940, 240)
 element = "wood"
 display_char = "森"
 
 [node name="DummyWater" parent="Dummies" instance=ExtResource("3_dummy")]
-position = Vector2(540, 240)
+position = Vector2(1120, 240)
 element = "water"
 display_char = "河"
 
@@ -88,7 +89,7 @@ offset_bottom = 40.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 18
-text = "A/D 移動    Space 跳躍    J 開火    Q/E 切換武器"
+text = "A/D 移動    Space 跳躍(可二段)    J 開火    Q/E 切換武器"
 
 [node name="WeaponLabel" type="Label" parent="HUD"]
 offset_left = 16.0
@@ -117,3 +118,23 @@ theme_override_font_sizes/font_size = 18
 text = "（環境資訊）"
 horizontal_alignment = 2
 script = ExtResource("4_info")
+
+[node name="EnemySpawners" type="Node2D" parent="."]
+
+[node name="SpawnPatrol" type="Node2D" parent="EnemySpawners"]
+position = Vector2(200, 236)
+script = ExtResource("5_spawner")
+enemy_char = "河"
+respawn_delay = 3.0
+
+[node name="SpawnChase" type="Node2D" parent="EnemySpawners"]
+position = Vector2(420, 236)
+script = ExtResource("5_spawner")
+enemy_char = "焰"
+respawn_delay = 3.0
+
+[node name="SpawnStationary" type="Node2D" parent="EnemySpawners"]
+position = Vector2(620, 236)
+script = ExtResource("5_spawner")
+enemy_char = "樹"
+respawn_delay = 3.0

@@ -23,6 +23,12 @@ var facing_dir: float = 1.0
 var _jumps_used: int = 0
 
 
+func _ready() -> void:
+	super()
+	# 敵人AI 透過這個群組找玩家，不用寫死節點路徑——關卡場景結構改變時不會壞掉
+	add_to_group(&"player")
+
+
 func _physics_process(delta: float) -> void:
 	var was_on_floor := is_on_floor()
 	apply_gravity(delta)
