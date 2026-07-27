@@ -7,6 +7,8 @@ extends Node2D
 
 ## WeaponManager 相對於本節點的位置。
 @export var weapon_manager_path: NodePath = ^"../WeaponManager"
+## Task 2.6 的單槽裝備狀態；存在時優先於 legacy WeaponManager signal。
+@export var glyph_loadout_path: NodePath = ^"../GlyphLoadout"
 
 ## 面向右側時的顯示偏移；面向左側時只反轉 x。
 @export var side_offset: Vector2 = Vector2(56.0, -8.0)
@@ -17,6 +19,7 @@ extends Node2D
 @onready var _glyph: Label = get_node_or_null(^"Glyph") as Label
 
 var _weapon_manager: WeaponManager
+var _glyph_loadout: Node
 var _switch_tween: Tween
 var _owner_dead: bool = false
 
@@ -29,6 +32,21 @@ func _ready() -> void:
 	# 先清空，避免場景裡的 placeholder 在資料尚未載入時閃一下。
 	set_weapon({})
 
+	_glyph_loadout = get_node_or_null(glyph_loadout_path)
+	if (
+		_glyph_loadout != null
+		and _glyph_loadout.has_signal(&"loadout_changed")
+		and _glyph_loadout.has_method(&"get_snapshot")
+	):
+		var callback := Callable(self, "_on_loadout_changed")
+		if not _glyph_loadout.is_connected(&"loadout_changed", callback):
+			_glyph_loadout.connect(&"loadout_changed", callback)
+		# 不依賴節點 ready 順序：Loadout 若尚未 ready，預設 snapshot 也是安全的 CORE。
+		set_loadout_snapshot(_glyph_loadout.call(&"get_snapshot"))
+		return
+	_glyph_loadout = null
+
+	# 沒有 GlyphLoadout 的舊場景／元件測試才回退到 Task 2.5 行為。
 	_weapon_manager = get_node_or_null(weapon_manager_path) as WeaponManager
 	if _weapon_manager == null:
 		return
@@ -41,8 +59,8 @@ func _ready() -> void:
 	set_weapon(_weapon_manager.get_current_weapon())
 
 
-## 更新目前武器。display_glyph 是未來組字系統的顯示結果；
-## 尚未提供時回退到現有武器資料的 radical。
+## 更新外置武器顯示。Task 2.6 的融合完整字顯示在主 HanziSprite，
+## 此處的 display_glyph 僅表示 HELD 部件。
 func set_weapon(weapon: Dictionary) -> void:
 	if _glyph == null or _owner_dead or weapon.is_empty():
 		_clear_display()
@@ -98,6 +116,23 @@ func _on_weapon_changed(weapon: Dictionary, _index: int) -> void:
 	set_weapon(weapon)
 
 
+func _on_loadout_changed(snapshot: Dictionary) -> void:
+	set_loadout_snapshot(snapshot)
+
+
+func set_loadout_snapshot(snapshot: Dictionary) -> void:
+	if String(snapshot.get("mode", "core")) != "held":
+		set_weapon({})
+		return
+
+	var value: Variant = snapshot.get("external_weapon", {})
+	if typeof(value) != TYPE_DICTIONARY:
+		set_weapon({})
+		return
+	var external_weapon: Dictionary = value
+	set_weapon(external_weapon.duplicate(true))
+
+
 func _on_owner_died() -> void:
 	_owner_dead = true
 	_clear_display()
@@ -110,6 +145,9 @@ func _on_owner_died() -> void:
 ## 摸不到的潛在問題，但屆時沒有這個方法就會變成真的bug。
 func revive() -> void:
 	_owner_dead = false
+	if _glyph_loadout != null and is_instance_valid(_glyph_loadout):
+		set_loadout_snapshot(_glyph_loadout.call(&"get_snapshot"))
+		return
 	if _weapon_manager != null and is_instance_valid(_weapon_manager):
 		set_weapon(_weapon_manager.get_current_weapon())
 

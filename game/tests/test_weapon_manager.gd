@@ -3,6 +3,7 @@ extends GutTest
 
 var PlayerScene := preload("res://scenes/player.tscn")
 var BulletScene := preload("res://scenes/projectiles/bullet_base.tscn")
+const FusionResolverScript := preload("res://scripts/fusion_resolver.gd")
 
 var _player: Node
 var _wm: WeaponManager
@@ -16,7 +17,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
-	for action: StringName in [&"weapon_next", &"weapon_prev", &"fire"]:
+	for action: StringName in [&"interact", &"eject_component", &"fire"]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
 
@@ -57,55 +58,49 @@ func test_五行武器各有涵蓋() -> void:
 		assert_true(covered.has(element), "沒有任何 %s 屬性的武器" % element)
 
 
-# ---- Task 2.3 切換 ----
+# ---- Task 2.6 active attack executor ----
 
-func test_初始武器為第一把() -> void:
-	assert_eq(_wm.current_index, 0)
-	assert_eq(_wm.get_current_weapon()["id"], "shui")
-
-
-func test_往後切換() -> void:
-	_wm.cycle_weapon(1)
-	assert_eq(_wm.current_index, 1)
-	assert_eq(_wm.get_current_weapon()["id"], "huo")
+func test_CORE由GlyphLoadout指定中性基礎攻擊() -> void:
+	assert_eq(_wm.get_current_weapon().get("id", ""), "gong")
+	assert_eq(_wm.current_index, 5, "弓在catalog中的位置只供debug辨識，不是inventory slot")
 
 
-func test_往前切換會繞回最後一把() -> void:
-	_wm.cycle_weapon(-1)
-	assert_eq(_wm.current_index, 9, "從第0把往前應繞到第9把，而非變成 -1")
-	assert_eq(_wm.get_current_weapon()["id"], "shi")
-
-
-func test_切換一整圈回到原點() -> void:
-	for i in range(10):
-		_wm.cycle_weapon(1)
+func test_可按id選擇catalog中的攻擊profile() -> void:
+	assert_true(_wm.set_active_weapon_by_id("shui"))
+	assert_eq(_wm.get_current_weapon().get("id", ""), "shui")
 	assert_eq(_wm.current_index, 0)
 
 
-func test_切換時發出weapon_changed訊號() -> void:
+func test_未知攻擊id安全清空() -> void:
+	assert_false(_wm.set_active_weapon_by_id("missing"))
+	assert_eq(_wm.get_current_weapon(), {})
+	assert_eq(_wm.current_index, -1)
+	assert_false(_wm.can_fire())
+
+
+func test_設定active_attack時發出weapon_changed訊號() -> void:
 	watch_signals(_wm)
-	_wm.cycle_weapon(1)
+	_wm.set_active_weapon_by_id("shui")
 	assert_signal_emitted(_wm, "weapon_changed")
 
 
-func test_武器清單為空時切換不會除以零() -> void:
-	_wm.weapons = []
-	_wm.cycle_weapon(1)
-	assert_eq(_wm.current_index, 0, "空清單時應直接返回，不應取模除以零")
-	assert_eq(_wm.get_current_weapon(), {})
-
-
-func test_Q鍵E鍵觸發切換() -> void:
-	Input.action_press(&"weapon_next")
+func test_E與Q不再循環永久武器catalog() -> void:
+	var original_id: String = _wm.get_current_weapon().get("id", "")
+	Input.action_press(&"interact")
 	await wait_physics_frames(2)
-	Input.action_release(&"weapon_next")
+	Input.action_release(&"interact")
+	Input.action_press(&"eject_component")
 	await wait_physics_frames(2)
-	assert_eq(_wm.current_index, 1, "E 鍵應切到下一把")
+	Input.action_release(&"eject_component")
+	await wait_physics_frames(2)
+	assert_eq(_wm.get_current_weapon().get("id", ""), original_id,
+		"沒有拾取物／已裝備部件時，E/Q不可遍歷十把永久武器")
 
 
 # ---- Task 2.3 開火 ----
 
 func test_開火有冷卻() -> void:
+	_equip_water()
 	assert_true(_wm.can_fire(), "初始應可開火")
 	_wm.fire(1.0)
 	assert_false(_wm.can_fire(), "剛開火後應在冷卻中")
@@ -113,6 +108,7 @@ func test_開火有冷卻() -> void:
 
 
 func test_冷卻中重複開火不會生成第二發() -> void:
+	_equip_water()
 	var before := _count_bullets()
 	_wm.fire(1.0)
 	_wm.fire(1.0)
@@ -121,6 +117,7 @@ func test_冷卻中重複開火不會生成第二發() -> void:
 
 
 func test_開火生成子彈且帶對武器數值() -> void:
+	_equip_water()
 	_wm.fire(1.0)
 	var bullets := _get_bullets()
 	assert_gt(bullets.size(), 0, "應生成子彈")
@@ -131,6 +128,7 @@ func test_開火生成子彈且帶對武器數值() -> void:
 
 
 func test_子彈方向跟隨傳入的朝向() -> void:
+	_equip_water()
 	_wm.fire(-1.0)
 	var b: Bullet = _get_bullets()[-1]
 	assert_lt(b.direction.x, 0.0, "朝左開火，子彈應往左飛")
@@ -138,6 +136,7 @@ func test_子彈方向跟隨傳入的朝向() -> void:
 
 
 func test_子彈生成點在角色前方() -> void:
+	_equip_water()
 	_wm.fire(1.0)
 	var b: Bullet = _get_bullets()[-1]
 	assert_gt(b.global_position.x, _player.global_position.x,
@@ -146,11 +145,39 @@ func test_子彈生成點在角色前方() -> void:
 
 
 func test_子彈不掛在Player底下() -> void:
+	_equip_water()
 	# 掛在 Player 底下的話子彈會跟著角色移動，且角色死亡時會把空中的子彈一起帶走
 	_wm.fire(1.0)
 	var b: Bullet = _get_bullets()[-1]
 	assert_ne(b.get_parent(), _player, "子彈不應掛在 Player 底下")
 	b.queue_free()
+
+
+func test_歸零爆發生成八方向水屬子彈() -> void:
+	var recipe: Dictionary = FusionResolverScript.new().resolve("令", "rain")
+	var attack: Dictionary = recipe.get("attack", {})
+	assert_true(_wm.set_active_weapon(attack))
+
+	var before := _get_bullets()
+	_wm.fire(1.0)
+	var after := _get_bullets()
+	var spawned: Array = []
+	for bullet: Bullet in after:
+		if not before.has(bullet):
+			spawned.append(bullet)
+
+	assert_eq(spawned.size(), 8, "reset_burst 必須恰好生成8發")
+	var unique_directions := {}
+	for bullet: Bullet in spawned:
+		assert_eq(bullet.element, "water")
+		assert_eq(bullet.damage, 5)
+		assert_almost_eq(bullet.direction.length(), 1.0, 0.001)
+		unique_directions[Vector2(
+			snappedf(bullet.direction.x, 0.001),
+			snappedf(bullet.direction.y, 0.001)
+		)] = true
+		bullet.queue_free()
+	assert_eq(unique_directions.size(), 8, "8發必須沿不同方向均勻散開")
 
 
 # ---- Task 2.3 / 2.4 子彈 ----
@@ -263,3 +290,8 @@ func _collect_bullets(node: Node, found: Array) -> void:
 
 func _count_bullets() -> int:
 	return _get_bullets().size()
+
+
+func _equip_water() -> void:
+	assert_true(_wm.set_active_weapon_by_id("shui"))
+	_wm.cooldown = 0.0

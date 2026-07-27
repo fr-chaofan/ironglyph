@@ -1,6 +1,6 @@
 ## 玩家角色控制（Task 1.3）
 ##
-## 左右移動、跳躍、開火。角色本體是「我」字。
+## 左右移動、跳躍、開火。Task 2.6 起角色本體是聲符字核「令」。
 extends Character
 
 @onready var hanzi_sprite: HanziSprite = $HanziSprite

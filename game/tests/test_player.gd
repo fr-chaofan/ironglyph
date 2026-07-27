@@ -28,9 +28,9 @@ func test_場景節點齊全() -> void:
 	assert_not_null(_player.get_node_or_null(^"Camera2D"), "缺 Camera2D")
 
 
-func test_顯示的字是我() -> void:
+func test_開局顯示聲符字核令() -> void:
 	var sprite: HanziSprite = _player.get_node(^"HanziSprite")
-	assert_eq(sprite.text, "我")
+	assert_eq(sprite.text, "令")
 
 
 func test_碰撞層為player且不與自己的子彈碰撞() -> void:
@@ -52,7 +52,7 @@ func test_向左移動時只翻轉指示器不翻轉漢字() -> void:
 
 	assert_lt(_player.facing_dir, 0.0, "按左鍵後 facing_dir 應為負")
 	assert_lt(indicator.scale.x, 0.0, "朝向指示器應翻轉")
-	assert_gt(sprite.scale.x, 0.0, "⚠️ 漢字本體不可鏡像翻轉——「我」鏡像後不是「我」")
+	assert_gt(sprite.scale.x, 0.0, "⚠️ 漢字本體不可鏡像翻轉——「令」鏡像後不是「令」")
 
 
 func test_向右移動時指示器轉回正向() -> void:

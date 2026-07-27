@@ -1,18 +1,19 @@
 ; 階段一/二的手動驗證場景（不是正式關卡）。
-; 用途：F5 直接跑起來確認移動/跳躍/重力/鏡頭/漢字不翻轉/子彈與五行倍率。
+; 用途：F5 直接跑起來確認移動/跳躍/形聲合體/部件手持/子彈與五行倍率。
 ; 正式關卡由階段四 LevelManager + TileMap 產生，階段三敵人上線後這個場景可以刪掉。
 ;
 ; ⚠️ 所有UI標籤都必須放在 CanvasLayer 底下。
 ;    直接掛在 Node2D 根節點下的 Control 是**世界座標**，會跟著鏡頭一起捲動，
 ;    而且鏡頭跟隨玩家時會被推到畫面外看不見。CanvasLayer 底下才是螢幕座標。
 
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
 [ext_resource type="PackedScene" path="res://scenes/training_dummy.tscn" id="3_dummy"]
 [ext_resource type="Script" uid="uid://de4cdh6bamawn" path="res://scripts/debug_info_label.gd" id="4_info"]
 [ext_resource type="Script" uid="uid://dmnje6w5ovpmr" path="res://scripts/enemy_spawner.gd" id="5_spawner"]
+[ext_resource type="Script" path="res://scripts/component_dropper.gd" id="6_dropper"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2400, 80)
@@ -89,7 +90,7 @@ offset_bottom = 40.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 18
-text = "A/D 移動    Space 跳躍(可二段)    J 開火    Q/E 切換武器"
+text = "A/D 移動    Space 跳躍(可二段)    J 開火    E 吸收部件    Q 彈出部件"
 
 [node name="WeaponLabel" type="Label" parent="HUD"]
 offset_left = 16.0
@@ -120,20 +121,21 @@ horizontal_alignment = 2
 script = ExtResource("4_info")
 
 [node name="EnemySpawners" type="Node2D" parent="."]
+script = ExtResource("6_dropper")
 
-[node name="SpawnPatrol" type="Node2D" parent="EnemySpawners"]
+[node name="SpawnFusionRain" type="Node2D" parent="EnemySpawners"]
 position = Vector2(200, 236)
+script = ExtResource("5_spawner")
+enemy_char = "雨"
+respawn_delay = 3.0
+
+[node name="SpawnHeldWater" type="Node2D" parent="EnemySpawners"]
+position = Vector2(420, 236)
 script = ExtResource("5_spawner")
 enemy_char = "河"
 respawn_delay = 3.0
 
-[node name="SpawnChase" type="Node2D" parent="EnemySpawners"]
-position = Vector2(420, 236)
-script = ExtResource("5_spawner")
-enemy_char = "焰"
-respawn_delay = 3.0
-
-[node name="SpawnStationary" type="Node2D" parent="EnemySpawners"]
+[node name="SpawnHeldWood" type="Node2D" parent="EnemySpawners"]
 position = Vector2(620, 236)
 script = ExtResource("5_spawner")
 enemy_char = "樹"

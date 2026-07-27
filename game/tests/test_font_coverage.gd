@@ -8,6 +8,7 @@
 extends GutTest
 
 const FONT_PATH := "res://assets/fonts/NotoSansTC-Bold.otf"
+const FusionResolverScript := preload("res://scripts/fusion_resolver.gd")
 
 var _font: FontFile
 
@@ -20,7 +21,7 @@ func test_字型檔載入成功() -> void:
 	assert_not_null(_font, "應能載入 %s" % FONT_PATH)
 
 
-func test_全部敵字與主角字都有字形() -> void:
+func test_全部HanziData字都有字形() -> void:
 	for ch: String in HanziData.get_all_characters():
 		assert_true(_font.has_char(ch.unicode_at(0)), "字型缺「%s」的字形，會顯示成豆腐方框" % ch)
 
@@ -54,3 +55,23 @@ func test_部首不可為簡體字() -> void:
 			SIMPLIFIED_RADICALS, w.get("radical", ""),
 			"武器 %s 的部首是簡體字，違反 GDD 第0節語言規範" % w.get("id", "?")
 		)
+
+
+func test_全部部件display_glyph都有字形且不是簡體() -> void:
+	const SIMPLIFIED_RADICALS := ["钅", "讠", "饣", "纟", "贝", "车", "门", "马"]
+	var resolver := FusionResolverScript.new()
+
+	for component: Dictionary in resolver.get_all_components():
+		var component_id := String(component.get("id", "?"))
+		var display_glyph := String(component.get("display_glyph", ""))
+		assert_false(display_glyph.is_empty(), "部件 %s 缺少 display_glyph" % component_id)
+		for i in display_glyph.length():
+			assert_true(
+				_font.has_char(display_glyph.unicode_at(i)),
+				"部件 %s 的顯示字形「%s」不在字型裡" % [component_id, display_glyph]
+			)
+		for simplified: String in SIMPLIFIED_RADICALS:
+			assert_false(
+				display_glyph.contains(simplified),
+				"部件 %s 的 display_glyph 含簡體偏旁「%s」" % [component_id, simplified]
+			)

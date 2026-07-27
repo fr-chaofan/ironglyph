@@ -17,12 +17,12 @@ import os
 import sys
 import urllib.request
 
-# 從實施計劃 Task 2.1 / 3.1 / 5.1 的字表彙總
+# 從實施計劃 Task 2.1 / 3.1 / 5.1 與字形融合系統的字表彙總
 #
 # 「燄」原在此表，但Make Me a Hanzi查無此字（它是「焰」的異體字，資料集只收「焰」）。
 # 依專案決策不做近似字替換而是移除，並補上同為火屬性、資料集有收錄的「焚」以維持
 # 每屬性4隻敵人的對稱（⿱林火，其部首「林」同時也是木屬性敵字，部首武器機制可跨屬性互動）。
-NEEDED_CHARS = "我淼焱森河海湖雨焰炎灶焚鋼針劍錘樹藤林巖石山塵"
+NEEDED_CHARS = "我令零淼焱森河海湖雨焰炎灶焚鋼針劍錘樹藤林巖石山塵"
 
 DICT_URL = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt"
 GRAPHICS_URL = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/graphics.txt"

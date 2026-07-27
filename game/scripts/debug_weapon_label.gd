@@ -17,12 +17,11 @@ func _ready() -> void:
 	_on_weapon_changed(wm.get_current_weapon(), wm.current_index)
 
 
-func _on_weapon_changed(weapon: Dictionary, index: int) -> void:
+func _on_weapon_changed(weapon: Dictionary, _index: int) -> void:
 	if weapon.is_empty():
 		text = "（無武器）"
 		return
-	text = "[%d/10] %s %s　%s屬　傷害%d" % [
-		index + 1,
+	text = "%s %s　%s屬　傷害%d" % [
 		weapon.get("radical", ""),
 		weapon.get("name", ""),
 		weapon.get("element", ""),

@@ -1,0 +1,21 @@
+[
+  {
+    "core_glyph": "令",
+    "component_id": "rain",
+    "result_glyph": "零",
+    "layout": "top_bottom",
+    "ability_id": "reset_burst",
+    "attack": {
+      "id": "reset_burst",
+      "radical": "雨",
+      "name": "歸零爆發",
+      "element": "water",
+      "damage": 5,
+      "fire_rate": 0.9,
+      "projectile": "wave",
+      "range": "medium",
+      "pattern": "radial",
+      "projectile_count": 8
+    }
+  }
+]

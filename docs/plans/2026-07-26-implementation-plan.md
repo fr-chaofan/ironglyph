@@ -506,7 +506,9 @@ cd game && git init && git add -A && git commit -m "phase1: project skeleton, ha
 >
 > **✅ Task 2.5 是後續新增的顯示強化，現已完成實作。** 新增11項測試；
 > 全套測試目前為93項、512個assert全過。
-> Task 2.6 保留給「部件組字與武器進化」，不納入Task 2.5。
+> Task 2.6現已完成最小範圍設計：主角音核「令」與敵人掉落部件形成單槽
+> `CORE/FUSED/HELD`循環。它仍屬階段二功能擴充，但依賴階段三的敵人死亡signal，
+> 因此實際排在階段三完成、階段四開始前，作為「Phase 3.5 integration gate」。
 >
 > ⚠️ **Task 2.3 的子彈碰撞訊號接錯了**，照抄會導致「子彈能生成、能飛，但永遠打不到任何人」——
 > 詳見該Task下方說明。這正是原文Verify裡自己警告的那個坑，但原文給的解法本身是錯的。
@@ -868,10 +870,146 @@ Player
 
 ---
 
-### Task 2.6: 部件組字與武器進化（保留）
+### Task 2.6: 「令」× 部件合體與手持fallback（Phase 3.5 integration gate）
 
-> **尚未設計、尚未實作。** 此編號專門保留給「偏旁／部件組合成完整漢字並改變攻擊型態」。
-> 配方格式、敵人掉落schema、升級流程與平衡必須另行規劃，不得塞入Task 2.5。
+**Objective:** 把階段二「永久持有十把武器並循環切換」改為敵人掉落驅動的單槽玩法：
+主角以音核「令」開始；相容部件融合成完整字並取得專屬能力，不相容部件則在身旁手持，
+沿用既有五行武器。此Task依賴階段三已完成的`Enemy.defeated` /
+`EnemySpawner.enemy_defeated`，必須在階段四開始製作正式關卡前穩定介面。
+
+> **Vertical-slice範圍：** 首個PR只實作`雨＋令→零`。`釒＋令→鈴`、
+> `艹＋令→苓`、`冫＋令→冷`、`王＋令→玲`、`耳＋令→聆`以及其他配方全部deferred。
+> 不在本PR製作額外配方、狀態效果、音效、關卡、存檔、圖鑑或Boss掉落。
+
+**Files（預定）：**
+- Create: `game/data/components.json`
+- Create: `game/data/fusion_recipes.json`
+- Create: `game/scripts/fusion_resolver.gd`
+- Create: `game/scripts/glyph_loadout.gd`
+- Create: `game/scripts/component_pickup.gd`
+- Create: `game/scripts/component_dropper.gd`
+- Create/Modify: 對應GUT測試、`tools/build_hanzi_data.py`與產生出的漢字資料
+- Modify: `game/data/enemies.json`（只新增引用`components.json`的`drop_component_id`）
+- Modify: `game/scripts/weapon_manager.gd`
+- Modify: `game/scripts/weapon_glyph_display.gd`
+- Modify: `game/scripts/player.gd`
+- Integrator only: `game/scenes/player.tscn`
+- Integrator only: `game/scenes/component_pickup.tscn`
+- Integrator only: `game/scenes/test_room.tscn`
+- Integrator only: `game/project.godot`
+
+#### 單一狀態來源
+
+`GlyphLoadout`是唯一裝備狀態來源；`WeaponManager`退回「武器資料目錄＋攻擊執行器」角色，
+不可再讓`current_index`、`WeaponGlyphDisplay`或其他節點各自保存另一套有效裝備。
+
+| 狀態 | 主角字形 | `WeaponGlyphDisplay` | 攻擊 |
+|---|---|---|---|
+| `CORE` | 令 | 隱藏 | 中性基礎攻擊 |
+| `FUSED` | 配方的`result_glyph` | 隱藏 | 配方的`ability_id` |
+| `HELD` | 令 | 顯示部件的`display_glyph` | 部件的`fallback_weapon_id` |
+
+玩家只有一個部件槽：
+
+1. 每筆敵人資料以`drop_component_id`引用`components.json`；`ComponentDropper`監聽既有
+   `EnemySpawner.enemy_defeated`後生成**恰好一個**`ComponentPickup`，不修改或重寫
+   `Enemy.die()`。
+2. 玩家進入拾取範圍後按`E`（`interact`）取得部件。
+3. `FusionResolver`以`core_glyph + component_id`查詢人工校對的配方：
+   - 查到配方：進入`FUSED`
+   - 查無配方：進入`HELD`
+4. 已有部件時拾取新部件，舊部件先彈出成世界拾取物；任何時刻只允許一個有效部件。
+5. 按`Q`（`eject_component`）彈出目前部件並回到`CORE`。
+6. 彈出的拾取物需有短暫防重拾機制，避免同一幀立即被原玩家撿回。
+
+Task 2.5原本的Q/E永久武器循環在此Task後停止作為正式玩法；它的測試與debug提示必須更新為
+「E拾取／Q彈出」。`WeaponGlyphDisplay`仍遵守世界座標、元素配色與永不鏡像的既有規則。
+
+#### Curated data contract
+
+配方以穩定的`component_id`為key，不直接用顯示字形當ID。這能處理`釒`資料來源與`金`
+fallback顯示之間的正規化，也避免位置變體或字型缺字影響配方判定。
+
+`components.json`以目前敵字可能掉落的部首建立catalog；下方是starter recipe使用的`rain`條目。
+其他條目只提供`HELD` fallback，不得在本PR增加第二條融合配方：
+
+```json
+[
+  {
+    "id": "rain",
+    "source_radicals": ["雨"],
+    "display_glyph": "雨",
+    "element": "water",
+    "fallback_weapon_id": "shui"
+  }
+]
+```
+
+`fusion_recipes.json`在本PR中只能有一條：
+
+```json
+[
+  {
+    "core_glyph": "令",
+    "component_id": "rain",
+    "result_glyph": "零",
+    "layout": "top_bottom",
+    "ability_id": "reset_burst",
+    "attack": {
+      "id": "reset_burst",
+      "radical": "雨",
+      "name": "歸零爆發",
+      "element": "water",
+      "damage": 5,
+      "fire_rate": 0.9,
+      "projectile": "wave",
+      "range": "medium",
+      "pattern": "radial",
+      "projectile_count": 8
+    }
+  }
+]
+```
+
+不可把`core_glyph`與`display_glyph`做字串串接，也不可從Unicode、IDS或讀音自動猜測結果字；
+未列入配方表的一律走`HELD`。
+
+#### 「零」的starter ability
+
+`reset_burst`從玩家中心等角發射8發水屬性子彈，沿用既有`Bullet`碰撞、生命週期、五行倍率與
+元素顏色。傷害／冷卻可由資料調整，但行為必須與`HELD`狀態的普通水波彈肉眼可區分；
+不得為了此能力另外複製一套傷害或碰撞公式。
+
+#### Definition of Done
+
+- 玩家開局字形是「令」，狀態為`CORE`，身旁無部件，並有可用的中性基礎攻擊
+- 擊敗「雨」只生成一個`rain`拾取物；按E後主角變成「零」並隱藏外置部件
+- 「零」開火產生8方向水屬性環形彈幕，仍使用既有五行傷害與子彈碰撞
+- 拾取不相容部件後主角回到「令」，外置顯示該部件，攻擊使用正確的fallback武器
+- 按Q或替換部件會彈出舊部件並回到正確狀態，不重複掉落、不立即自動撿回
+- `GlyphLoadout`是唯一有效裝備狀態；正式玩法不再能Q/E循環全部十把武器
+- 「令」「零」均有Make Me a Hanzi筆畫資料與Noto Sans TC字形；玩家／融合字死亡特效不退化
+- 玩家死亡時不留下懸浮部件；新Player實例從`CORE`開始
+- 不修改任何Phase 4正式關卡、checkpoint/save、圖鑑、Boss或額外融合配方
+
+**Automated Verify:**
+- `components.json`的ID唯一、欄位完整、元素合法，所有`fallback_weapon_id`都存在
+- `fusion_recipes.json`只有`令 + rain → 零`，所有component／ability引用有效
+- Resolver對starter recipe回傳「零」，對未知component穩定回傳無配方
+- `CORE → FUSED → HELD → CORE`與替換／彈出狀態轉換皆正確，每次只發出一次狀態變更
+- 每次敵人死亡恰好生成一個拾取物；死亡signal重複或同幀傷害不會複製掉落
+- `FUSED`隱藏外置字形；`HELD`顯示正確部件與元素色，面向左右時文字不變且`scale.x > 0`
+- `reset_burst`恰好生成8發方向不同的水屬性Bullet，且不會打到玩家自己
+- 載入Player場景時字形為「令」；HanziData與font coverage包含「令」「零」
+- 原有GUT全套、JSON解析與Godot headless場景載入全部通過
+
+**Manual Verify:** 在`test_room.tscn`放置至少「雨」與一種不相容敵字：
+
+1. F6/F5啟動後確認主角是「令」，身旁沒有預設的「氵」
+2. 擊敗「雨」，靠近掉落物按E，確認「令」變「零」
+3. 按J確認8方向水彈清楚可辨，且不傷到玩家
+4. 拾取不相容部件，確認變回「令」、部件顯示在面向側且不鏡像，J使用fallback攻擊
+5. 按Q確認部件彈出並回到`CORE`；再次拾取、快速替換、死亡後均無殘影或控制台錯誤
 
 **原階段二完成後提交（Task 2.1-2.4 milestone commit，已完成）：**
 ```bash
@@ -1657,6 +1795,7 @@ git tag v0.1.0-milestone-complete
 
 | 日期 | 變更 |
 |---|---|
+| 2026-07-26 | 完成Task 2.6最小範圍設計：階段二功能擴充排在Phase 3與4之間；主角音核「令」使用單槽`CORE/FUSED/HELD`，starter recipe只收`雨＋令→零`與8方向水屬環形彈幕，其餘配方延後 |
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 完成Task 2.5場景內武器字形顯示：使用世界座標元件監聽既有武器切換signal，按朝向換側但不鏡像，沿用元素配色並加入可取消的切換動畫；Task 2.6編號保留給部件組字與武器進化，避免顯示功能與玩法資料schema混在同一Task |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |

@@ -9,9 +9,9 @@ func test_singleton_已載入資料() -> void:
 	assert_gt(HanziData.data.size(), 0, "應載入至少一個字")
 
 
-func test_收錄字數為23() -> void:
-	# 字表共23字，全部在Make Me a Hanzi中找到（見 tools/build_hanzi_data.py）
-	assert_eq(HanziData.data.size(), 23, "應收錄23字")
+func test_收錄字數為25() -> void:
+	# 原有23字加上Task 2.6的字核「令」與融合字「零」
+	assert_eq(HanziData.data.size(), 25, "應收錄25字")
 
 
 func test_焚已取代查無的燄() -> void:
@@ -33,6 +33,20 @@ func test_get_decomposition_回傳IDS字串() -> void:
 	# 實際值來自資料集，不是人工編造
 	assert_eq(HanziData.get_decomposition("河"), "⿰氵可")
 	assert_eq(HanziData.get_decomposition("淼"), "⿱水⿰水水")
+
+
+func test_令與零的拆解部首和筆畫資料() -> void:
+	assert_true(HanziData.has_character("令"))
+	assert_eq(HanziData.get_decomposition("令"), "⿱人？")
+	assert_eq(HanziData.get_radical("令"), "人")
+	assert_eq(HanziData.get_strokes("令").size(), 5)
+	assert_eq(HanziData.get_medians("令").size(), 5)
+
+	assert_true(HanziData.has_character("零"))
+	assert_eq(HanziData.get_decomposition("零"), "⿱雨令")
+	assert_eq(HanziData.get_radical("零"), "雨")
+	assert_eq(HanziData.get_strokes("零").size(), 13)
+	assert_eq(HanziData.get_medians("零").size(), 13)
 
 
 func test_decomposition_不含自我循環() -> void:

@@ -1,6 +1,7 @@
 ## 武器管理器（Task 2.3）
 ##
-## 掛在 Player 底下。讀 weapons.json，Q/E 切換，開火時生成子彈。
+## 掛在 Player 底下。weapons.json 是攻擊 profile catalog；
+## Task 2.6 起由 GlyphLoadout 指定唯一的 active_weapon，不再讓玩家 Q/E 輪換整個 catalog。
 class_name WeaponManager
 extends Node
 
@@ -13,7 +14,9 @@ const BULLET_SCENE := preload("res://scenes/projectiles/bullet_base.tscn")
 @export var muzzle_offset: Vector2 = Vector2(36, 0)
 
 var weapons: Array = []
-var current_index: int = 0
+## 僅保留給舊 debug UI／測試辨識 catalog 位置；它不再代表玩家持有十格 inventory。
+var current_index: int = -1
+var active_weapon: Dictionary = {}
 var cooldown: float = 0.0
 
 
@@ -34,36 +37,57 @@ func load_weapons() -> void:
 		push_error("WeaponManager: %s 解析失敗，應為陣列" % DATA_PATH)
 		return
 
-	weapons = parsed
-	if not weapons.is_empty():
+	weapons = parsed.duplicate(true)
+
+	# CORE 必須有能力打倒第一隻敵人取得部件；現有中性「弓」作為基礎攻擊。
+	if active_weapon.is_empty():
+		set_active_weapon_by_id("gong")
+	else:
+		current_index = _find_weapon_index(String(active_weapon.get("id", "")))
 		weapon_changed.emit(get_current_weapon(), current_index)
 
 
 func _process(delta: float) -> void:
 	cooldown = maxf(0.0, cooldown - delta)
 
-	if Input.is_action_just_pressed(&"weapon_next"):
-		cycle_weapon(1)
-	if Input.is_action_just_pressed(&"weapon_prev"):
-		cycle_weapon(-1)
 
-
-## 循環切換武器。step 為正往後、為負往前。
+## 舊的程式化 debug API 保留相容性，但 gameplay input 不再呼叫它。
 func cycle_weapon(step: int) -> void:
 	if weapons.is_empty():
 		return  # 沒有武器時取模會除以零
-	current_index = posmod(current_index + step, weapons.size())
-	weapon_changed.emit(get_current_weapon(), current_index)
+	var start_index := current_index if current_index >= 0 else 0
+	var next_index := posmod(start_index + step, weapons.size())
+	set_active_weapon(weapons[next_index])
 
 
 func get_current_weapon() -> Dictionary:
-	if weapons.is_empty():
+	return active_weapon.duplicate(true)
+
+
+func get_weapon_by_id(weapon_id: String) -> Dictionary:
+	var index := _find_weapon_index(weapon_id)
+	if index < 0:
 		return {}
-	return weapons[current_index]
+	return (weapons[index] as Dictionary).duplicate(true)
+
+
+func set_active_weapon(weapon: Dictionary) -> bool:
+	active_weapon = weapon.duplicate(true)
+	current_index = _find_weapon_index(String(active_weapon.get("id", "")))
+	weapon_changed.emit(get_current_weapon(), current_index)
+	return not active_weapon.is_empty()
+
+
+func set_active_weapon_by_id(weapon_id: String) -> bool:
+	var weapon := get_weapon_by_id(weapon_id)
+	if weapon.is_empty():
+		set_active_weapon({})
+		return false
+	return set_active_weapon(weapon)
 
 
 func can_fire() -> bool:
-	return cooldown <= 0.0 and not weapons.is_empty()
+	return cooldown <= 0.0 and not active_weapon.is_empty()
 
 
 ## direction 由呼叫方傳入（Player 的 facing_dir），不從節點 scale 推導——
@@ -78,18 +102,46 @@ func fire(direction: float = 1.0) -> void:
 	var dir := Vector2(signf(direction) if not is_zero_approx(direction) else 1.0, 0.0)
 	# 本身是 Node（沒有 global_position），生成點取自父節點的角色
 	var origin: Node2D = get_parent() as Node2D
-	var spawn_pos: Vector2 = Vector2.ZERO if origin == null else origin.global_position
-	spawn_pos += Vector2(muzzle_offset.x * dir.x, muzzle_offset.y)
+	var center: Vector2 = Vector2.ZERO if origin == null else origin.global_position
 
+	if String(weapon.get("pattern", "single")) == "radial":
+		var projectile_count := clampi(int(weapon.get("projectile_count", 1)), 1, 64)
+		for index in projectile_count:
+			var radial_dir := Vector2.RIGHT.rotated(TAU * float(index) / float(projectile_count))
+			_spawn_bullet(weapon, center, radial_dir)
+		return
+
+	var spawn_pos := center + Vector2(muzzle_offset.x * dir.x, muzzle_offset.y)
+	_spawn_bullet(weapon, spawn_pos, dir)
+
+
+func _spawn_bullet(weapon: Dictionary, spawn_pos: Vector2, direction: Vector2) -> Bullet:
 	var bullet: Bullet = BULLET_SCENE.instantiate()
-	bullet.setup(int(weapon.get("damage", 0)), String(weapon.get("element", "neutral")), spawn_pos, dir)
 
 	# 掛在關卡根節點而非 Player 底下——掛在 Player 底下的話，子彈會跟著角色移動，
 	# 且角色死亡 queue_free 時會把空中的子彈一起帶走。
 	_get_projectile_parent().add_child(bullet)
+	bullet.setup(
+		int(weapon.get("damage", 0)),
+		String(weapon.get("element", "neutral")),
+		spawn_pos,
+		direction
+	)
+	return bullet
 
 
 func _get_projectile_parent() -> Node:
 	# current_scene 在單元測試環境可能是 null，退回場景樹根節點
 	var scene := get_tree().current_scene
 	return scene if scene != null else get_tree().root
+
+
+func _find_weapon_index(weapon_id: String) -> int:
+	var normalized_id := weapon_id.strip_edges()
+	if normalized_id.is_empty():
+		return -1
+	for index in weapons.size():
+		var weapon: Dictionary = weapons[index]
+		if String(weapon.get("id", "")).strip_edges() == normalized_id:
+			return index
+	return -1
