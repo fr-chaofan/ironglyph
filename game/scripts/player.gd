@@ -7,6 +7,8 @@ extends Character
 @onready var direction_indicator: Node2D = $DirectionIndicator
 ## WeaponManager 於階段二 Task 2.2 建立，階段一時此節點不存在，取到 null 是正常的
 @onready var weapon_manager: Node = get_node_or_null(^"WeaponManager")
+## Task 2.5：世界空間的武器字形顯示。只移動持握側，不鏡像漢字。
+@onready var weapon_glyph_display: WeaponGlyphDisplay = get_node_or_null(^"WeaponGlyphDisplay")
 
 ## 面向：1 = 右、-1 = 左。開火方向與朝向指示器都看這個值。
 var facing_dir: float = 1.0
@@ -50,6 +52,8 @@ func _physics_process(delta: float) -> void:
 		facing_dir = signf(dir)
 		# ⚠️ 只翻轉指示器，不翻轉 HanziSprite——漢字鏡像後會變成無法辨識的反字
 		direction_indicator.scale.x = absf(direction_indicator.scale.x) * facing_dir
+		if weapon_glyph_display != null:
+			weapon_glyph_display.set_facing(facing_dir)
 
 	if Input.is_action_pressed(&"fire"):
 		_try_fire()
