@@ -78,12 +78,34 @@ func _spawn_pickup(
 		return null
 
 	var pickup := instance as Node2D
-	add_child(pickup)
-	pickup.global_position = world_position
-	pickup.call(&"setup", component.duplicate(true))
+	# 敵人通常在 Bullet.body_entered 的 physics callback 內死亡。此時直接把
+	# 帶 CollisionShape2D 的 Area2D 加進場景樹，會在 physics server 正在
+	# flushing queries 時改變 monitoring state。整個 attach/configuration 延到
+	# deferred phase，讓敵人掉落與玩家彈出共用同一條安全路徑。
+	call_deferred(
+		&"_attach_pickup",
+		pickup,
+		component.duplicate(true),
+		world_position,
+		lock_on_spawn
+	)
+	return pickup
+
+
+func _attach_pickup(
+	pickup: Node2D,
+	component: Dictionary,
+	world_position: Vector2,
+	lock_on_spawn: bool
+) -> void:
+	if pickup == null or not is_instance_valid(pickup) or pickup.get_parent() != null:
+		return
+
+	pickup.call(&"setup", component)
 	if lock_on_spawn and pickup.has_method(&"arm_exchange_lock"):
 		pickup.call(&"arm_exchange_lock")
-	return pickup
+	add_child(pickup)
+	pickup.global_position = world_position
 
 
 func _find_player_loadout() -> Node:

@@ -23,6 +23,9 @@ var facing_dir: float = 1.0
 @export var air_jump_multiplier: float = 0.9
 
 var _jumps_used: int = 0
+## 死亡後保留 Player 節點，讓筆畫崩解與未來的關卡 controller 能完成收尾；
+## 但此狀態是 terminal，不可再移動、跳躍、開火或參與碰撞。
+var is_dead: bool = false
 
 
 func _ready() -> void:
@@ -32,6 +35,9 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_dead:
+		return
+
 	var was_on_floor := is_on_floor()
 	apply_gravity(delta)
 
@@ -62,6 +68,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _try_fire() -> void:
+	if is_dead:
+		return
 	# 階段一還沒有 WeaponManager，靜默略過；階段二 Task 2.2 接上後自動生效
 	if weapon_manager != null and weapon_manager.has_method(&"fire"):
 		weapon_manager.fire(facing_dir)
@@ -74,6 +82,33 @@ func take_damage(amount: int, attacker_element: String) -> void:
 
 
 func die() -> void:
-	# 玩家死亡走筆畫崩解特效（階段三 Task 3.4 實作細節），不直接 queue_free
+	if is_dead:
+		return
+
+	is_dead = true
+	velocity = Vector2.ZERO
+	set_physics_process(false)
+	set_process(false)
+	set_process_input(false)
+	set_process_unhandled_input(false)
+	remove_from_group(&"player")
+	if direction_indicator != null:
+		direction_indicator.hide()
+
+	# 死亡可能發生在 Area2D 的 body_entered callback；物理查詢 flush 期間不可同步
+	# 修改碰撞狀態，因此統一 deferred。移除 player group 與停用 physics 已先同步完成。
+	set_deferred(&"collision_layer", 0)
+	set_deferred(&"collision_mask", 0)
+	var collision_shape := get_node_or_null(^"CollisionShape2D") as CollisionShape2D
+	if collision_shape != null:
+		collision_shape.set_deferred(&"disabled", true)
+
 	died.emit()
-	hanzi_sprite.shatter_and_die()
+	# 玩家死亡走筆畫崩解特效（階段三 Task 3.4 實作細節），不直接 queue_free；
+	# Player 本體暫留給關卡 controller 決定何時重生或切換場景。
+	if hanzi_sprite != null and is_instance_valid(hanzi_sprite):
+		hanzi_sprite.shatter_and_die()
+
+	# died listeners 與 shatter 必須先同步完成；之後停用整個 subtree，避免
+	# GlyphLoadout 等子節點仍在 _process() 接收 Q／其他 gameplay input。
+	process_mode = Node.PROCESS_MODE_DISABLED

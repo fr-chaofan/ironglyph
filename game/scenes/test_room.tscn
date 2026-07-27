@@ -6,7 +6,7 @@
 ;    直接掛在 Node2D 根節點下的 Control 是**世界座標**，會跟著鏡頭一起捲動，
 ;    而且鏡頭跟隨玩家時會被推到畫面外看不見。CanvasLayer 底下才是螢幕座標。
 
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" uid="uid://de4cdh6bamawn" path="res://scripts/debug_info_label.gd" id="4_info"]
 [ext_resource type="Script" uid="uid://dmnje6w5ovpmr" path="res://scripts/enemy_spawner.gd" id="5_spawner"]
 [ext_resource type="Script" path="res://scripts/component_dropper.gd" id="6_dropper"]
+[ext_resource type="Script" uid="uid://b0impobsbtvvl" path="res://scripts/test_room_controller.gd" id="7_controller"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2400, 80)
@@ -22,6 +23,7 @@ size = Vector2(2400, 80)
 size = Vector2(240, 32)
 
 [node name="TestRoom" type="Node2D"]
+script = ExtResource("7_controller")
 
 [node name="Background" type="ColorRect" parent="."]
 offset_left = -1400.0

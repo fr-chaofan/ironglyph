@@ -16,7 +16,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
-	for action: StringName in [&"move_left", &"move_right", &"jump", &"fire"]:
+	for action: StringName in [&"move_left", &"move_right", &"jump", &"fire", &"eject_component"]:
 		if Input.is_action_pressed(action):
 			Input.action_release(action)
 
@@ -158,6 +158,76 @@ func test_受擊時漢字閃紅() -> void:
 	assert_ne(sprite.modulate, Color.WHITE, "受擊後應處於閃紅過程中")
 
 
+func test_致死後進入terminal狀態且只發出一次died() -> void:
+	var collision_shape := _player.get_node(^"CollisionShape2D") as CollisionShape2D
+	var hanzi_sprite := _player.get_node(^"HanziSprite") as HanziSprite
+	_player.velocity = Vector2(180.0, -240.0)
+	watch_signals(_player)
+
+	_player.take_damage(_player.max_hp, "neutral")
+
+	assert_true(is_instance_valid(_player), "Player 本體應暫留給筆畫崩解與關卡 controller")
+	assert_true(_player.is_dead, "致死後必須進入明確的 terminal dead state")
+	assert_eq(_player.velocity, Vector2.ZERO, "死亡當下必須停止移動")
+	assert_false(_player.is_physics_processing(), "死亡後不可再處理移動／跳躍／開火")
+	assert_eq(
+		_player.process_mode,
+		Node.PROCESS_MODE_DISABLED,
+		"死亡 signal 與 shatter 啟動後必須停用整個 Player subtree"
+	)
+	assert_false(_player.is_in_group(&"player"), "敵人 AI 不可繼續鎖定死亡 Player")
+	assert_false(
+		_player.direction_indicator.visible,
+		"死亡當幀必須隱藏方向指示器，不可留下會被誤認為角色的空殼"
+	)
+	assert_signal_emit_count(_player, "died", 1, "首次致死必須恰好發出一次 died")
+	assert_true(hanzi_sprite.is_queued_for_deletion(), "terminal state 仍必須啟動筆畫崩解死亡特效")
+
+	# die() 可能在物理 query flush 期間被呼叫，碰撞停用刻意 deferred。
+	await wait_process_frames(2)
+	assert_true(is_instance_valid(_player), "收尾期間 Player 本體仍應有效")
+	assert_true(collision_shape.disabled, "死亡 Player 的 CollisionShape 必須停用")
+	assert_eq(_player.collision_layer, 0, "死亡 Player 不可再被其他碰撞 mask 命中")
+	assert_eq(_player.collision_mask, 0, "死亡 Player 不可再主動碰撞地形或敵人")
+
+	_player.die()
+	_player.take_damage(9999, "fire")
+	assert_signal_emit_count(_player, "died", 1, "重複死亡呼叫不可再次發出 died")
+
+
+func test_死亡後無論直接呼叫或按住fire都不能生成子彈() -> void:
+	var before := _count_bullets()
+	_player.take_damage(_player.max_hp, "neutral")
+
+	# 直接呼叫守住未來 controller／debug code；按鍵路徑守住 physics 已停用。
+	_player.weapon_manager.cooldown = 0.0
+	_player._try_fire()
+	Input.action_press(&"fire")
+	await wait_physics_frames(2)
+	Input.action_release(&"fire")
+
+	assert_eq(_count_bullets(), before, "terminal dead state 不可再生成任何子彈")
+
+
+func test_死亡後GlyphLoadout不再接收Q彈出部件() -> void:
+	var loadout := _player.get_node(^"GlyphLoadout")
+	loadout.equip_component_id("water")
+	watch_signals(loadout)
+
+	_player.take_damage(_player.max_hp, "neutral")
+	Input.action_press(&"eject_component")
+	await wait_process_frames(2)
+	Input.action_release(&"eject_component")
+
+	assert_false(loadout.can_process(), "死亡後 GlyphLoadout 不可繼續處理 gameplay input")
+	assert_signal_emit_count(loadout, "component_ejected", 0, "死亡後按 Q 不可彈出部件")
+	assert_eq(
+		(loadout.get_snapshot().get("component", {}) as Dictionary).get("id", ""),
+		"water",
+		"死亡收尾期間裝備狀態應保持不變"
+	)
+
+
 func test_camera有平滑跟隨() -> void:
 	var cam: CameraBounds = _player.get_node(^"Camera2D")
 	assert_true(cam.position_smoothing_enabled, "鏡頭應啟用平滑跟隨")
@@ -172,3 +242,14 @@ func test_set_level_bounds套用限制() -> void:
 	assert_eq(cam.limit_right, 500)
 	assert_eq(cam.limit_bottom, 300)
 	assert_true(cam.has_bounds)
+
+
+func _count_bullets() -> int:
+	return _count_bullets_below(get_tree().root)
+
+
+func _count_bullets_below(node: Node) -> int:
+	var count := 1 if node is Bullet else 0
+	for child: Node in node.get_children():
+		count += _count_bullets_below(child)
+	return count

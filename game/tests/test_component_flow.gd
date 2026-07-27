@@ -5,6 +5,7 @@
 extends GutTest
 
 const TestRoomScene := preload("res://scenes/test_room.tscn")
+const BulletScene := preload("res://scenes/projectiles/bullet_base.tscn")
 const FusionResolverScript := preload("res://scripts/fusion_resolver.gd")
 const ComponentPickupScript := preload("res://scripts/component_pickup.gd")
 
@@ -62,6 +63,7 @@ func test_每個EnemySpawner死亡只掉一個且重複通知或傷害不加倍(
 		# Character 的死亡去重應擋掉重複傷害；Dropper meta 應擋掉重送callback。
 		enemy.take_damage(99999, "neutral")
 		_dropper._on_enemy_defeated(enemy)
+		await wait_process_frames(1)
 
 		var pickups := _get_pickups()
 		assert_eq(
@@ -76,7 +78,7 @@ func test_每個EnemySpawner死亡只掉一個且重複通知或傷害不加倍(
 
 
 func test_rain拾取物顯示令加雨融合成零的預覽() -> void:
-	var pickup: Variant = _defeat_and_get_pickup(&"SpawnFusionRain")
+	var pickup: Variant = await _defeat_and_get_pickup(&"SpawnFusionRain")
 	assert_not_null(pickup)
 	if pickup == null:
 		return
@@ -96,7 +98,7 @@ func test_rain拾取物顯示令加雨融合成零的預覽() -> void:
 
 
 func test_body_entered加try_collect可模擬E並把rain融合成零() -> void:
-	var pickup: Variant = _defeat_and_get_pickup(&"SpawnFusionRain")
+	var pickup: Variant = await _defeat_and_get_pickup(&"SpawnFusionRain")
 	assert_not_null(pickup)
 	if pickup == null:
 		return
@@ -116,7 +118,7 @@ func test_body_entered加try_collect可模擬E並把rain融合成零() -> void:
 
 
 func test_E輸入會吸收範圍內的rain() -> void:
-	var pickup: Variant = _defeat_and_get_pickup(&"SpawnFusionRain")
+	var pickup: Variant = await _defeat_and_get_pickup(&"SpawnFusionRain")
 	assert_not_null(pickup)
 	if pickup == null:
 		return
@@ -134,7 +136,7 @@ func test_E輸入會吸收範圍內的rain() -> void:
 
 func test_替換時同一pickup變成舊rain而不增加節點() -> void:
 	_loadout.equip_component_id("rain")
-	var pickup: Variant = _spawn_pickup("water", Vector2(80, 120))
+	var pickup: Variant = await _spawn_pickup("water", Vector2(80, 120))
 	assert_not_null(pickup)
 	if pickup == null:
 		return
@@ -160,9 +162,11 @@ func test_eject_signal由dropper轉成恰好一個世界pickup() -> void:
 	_loadout.equip_component_id("water")
 	var before := _get_pickups().size()
 	var ejected: Dictionary = _loadout.eject_component()
+	var eject_position := _player.global_position
 
 	# 等價於GlyphLoadout收到Q後送出的signal；直接emit避免鍵盤frame時序脆弱。
-	_loadout.component_ejected.emit(ejected.duplicate(true), _player.global_position)
+	_loadout.component_ejected.emit(ejected.duplicate(true), eject_position)
+	await wait_process_frames(1)
 
 	var pickups := _get_pickups()
 	assert_eq(pickups.size(), before + 1)
@@ -172,7 +176,7 @@ func test_eject_signal由dropper轉成恰好一個世界pickup() -> void:
 	var pickup: Variant = pickups[-1]
 	var component: Dictionary = pickup.get("component")
 	assert_eq(component.get("id", ""), "water")
-	assert_eq(pickup.global_position, _player.global_position)
+	assert_eq(pickup.global_position, eject_position)
 	assert_eq(_loadout.get_snapshot().get("mode", ""), "core")
 
 
@@ -206,7 +210,7 @@ func test_Q輸入會彈出目前部件並回到CORE() -> void:
 
 
 func test_pickup主字與外置字永遠保持正向scale() -> void:
-	var pickup: Variant = _spawn_pickup("water", Vector2(80, 120))
+	var pickup: Variant = await _spawn_pickup("water", Vector2(80, 120))
 	assert_not_null(pickup)
 	if pickup == null:
 		return
@@ -232,6 +236,35 @@ func test_pickup主字與外置字永遠保持正向scale() -> void:
 	assert_gt(external_glyph.scale.x, 0.0, "外置部件字不可鏡像")
 
 
+func test_真實子彈碰撞擊殺延後掉落且沒有physics_flush錯誤() -> void:
+	var spawner := _dropper.get_node(^"SpawnFusionRain") as EnemySpawner
+	var enemy := spawner.current_enemy
+	var before := _get_pickups().size()
+
+	assert_not_null(enemy, "rain spawner 應已有敵人")
+	if enemy == null:
+		return
+
+	# 不能直接呼叫 take_damage：bug 只會在 Area2D.body_entered 的 physics
+	# query callback 內同步 add_child(Area2D) 時發生。
+	var bullet := BulletScene.instantiate() as Bullet
+	_room.add_child(bullet)
+	bullet.setup(99999, "neutral", enemy.global_position, Vector2.ZERO)
+	await wait_physics_frames(3)
+	await wait_process_frames(1)
+
+	var pickups := _get_pickups()
+	assert_eq(pickups.size(), before + 1, "真實碰撞死亡也只能生成一個部件")
+	if pickups.size() > before:
+		var component: Dictionary = pickups[-1].get("component")
+		assert_eq(component.get("id", ""), "rain")
+	assert_engine_error(0, "掉落 Area2D 不得在 flushing physics queries 時啟用碰撞")
+
+	# HanziSprite 把死亡碎片掛在 current_scene，而不是 TestRoom 子樹；
+	# 等待這次真實擊殺的動畫自行清乾淨，避免污染後續以全局碎片數驗證的 enemy tests。
+	await wait_seconds(0.8)
+
+
 func _defeat_and_get_pickup(spawner_name: StringName):
 	var before := _get_pickups().size()
 	var spawner := _dropper.get_node_or_null(NodePath(String(spawner_name))) as EnemySpawner
@@ -239,6 +272,7 @@ func _defeat_and_get_pickup(spawner_name: StringName):
 		return null
 
 	spawner.current_enemy.take_damage(99999, "neutral")
+	await wait_process_frames(1)
 	var pickups := _get_pickups()
 	if pickups.size() != before + 1:
 		return null
@@ -250,7 +284,9 @@ func _spawn_pickup(component_id: String, world_position: Vector2):
 	var component: Dictionary = resolver.get_component(component_id)
 	if component.is_empty():
 		return null
-	return _dropper.call(&"_spawn_pickup", component, world_position)
+	var pickup: Variant = _dropper.call(&"_spawn_pickup", component, world_position)
+	await wait_process_frames(1)
+	return pickup
 
 
 func _get_pickups() -> Array:
