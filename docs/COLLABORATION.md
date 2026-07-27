@@ -38,7 +38,7 @@
 | 模組 | 對應階段 | 負責檔案 | 依賴 |
 |---|---|---|---|
 | **核心角色系統** | 一 | `scripts/character.gd`, `scripts/player.gd`, `scripts/hanzi_sprite.gd`, `scripts/hanzi_data.gd`, `scripts/camera_bounds.gd` | 無（最先開工，其他模組依賴它） |
-| **武器與五行系統** | 二 | `scripts/element_system.gd`, `scripts/weapon_manager.gd`, `scripts/bullet.gd`, `data/weapons.json`, `data/elements.json` | 依賴核心角色系統的`Character`基類 |
+| **武器與五行系統** | 二 | `scripts/element_system.gd`, `scripts/weapon_manager.gd`, `scripts/bullet.gd`, `scripts/weapon_glyph_display.gd`, `data/weapons.json`, `data/elements.json` | 依賴核心角色系統的`Character`基類 |
 | **敵人與AI** | 三 | `scripts/enemy.gd`, `scripts/enemy_ai_*.gd`, `scripts/enemy_spawner.gd`, `data/enemies.json` | 依賴核心角色系統 + 武器系統（`take_damage`介面） |
 | **關卡系統** | 四 | `scripts/level_manager.gd`, `scripts/checkpoint.gd`, `data/`關卡相關設定 | 依賴敵人系統（放置EnemySpawner） |
 | **Boss系統** | 五 | `scripts/boss.gd`, `scripts/boss_attack_patterns.gd`, `data/bosses.json` | 依賴敵人系統（Boss繼承Enemy） |
@@ -58,6 +58,7 @@
 ```
 feat/character-core       — 核心角色系統
 feat/weapon-elemental     — 武器與五行系統
+feat/weapon-glyph-display — Task 2.5 場景內武器字形顯示
 feat/enemy-ai             — 敵人與AI
 feat/level-system         — 關卡系統
 feat/boss-system          — Boss系統
@@ -150,6 +151,7 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 |---|---|---|
 | `Character` | `scripts/character.gd` | 核心角色系統 |
 | `HanziSprite` | `scripts/hanzi_sprite.gd` | 核心角色系統 |
+| `WeaponGlyphDisplay` | `scripts/weapon_glyph_display.gd` | 武器與五行系統 |
 | `Enemy` | `scripts/enemy.gd` | 敵人與AI |
 | `Boss` | `scripts/boss.gd` | Boss系統 |
 | `BossAttackPatterns` | `scripts/boss_attack_patterns.gd` | Boss系統 |
@@ -162,4 +164,5 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 
 | 日期 | 變更 |
 |---|---|
+| 2026-07-26 | 加入Task 2.5協作邊界：`weapon_glyph_display.gd`歸武器模組、使用`feat/weapon-glyph-display`分支，並登記`WeaponGlyphDisplay`全域類別名稱；`player.tscn`仍僅能由整合者修改 |
 | 2026-07-26 | 初版：定義整合者/邏輯實作者/資料維護者/審查者四種角色，模組所有權劃分，Git分支與PR流程，任務分派機制，衝突預防清單 |

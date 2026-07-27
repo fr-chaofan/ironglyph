@@ -502,7 +502,11 @@ cd game && git init && git add -A && git commit -m "phase1: project skeleton, ha
 
 ## 階段二：部首武器系統 + 五行相剋
 
-> **✅ 階段二全部完成**（Task 2.1/2.2/2.3/2.4）。測試累計66項311個assert全過。
+> **✅ 原定階段二內容已完成**（Task 2.1/2.2/2.3/2.4）。測試累計66項311個assert全過。
+>
+> **✅ Task 2.5 是後續新增的顯示強化，現已完成實作。** 新增11項測試；
+> 全套測試目前為93項、512個assert全過。
+> Task 2.6 保留給「部件組字與武器進化」，不納入Task 2.5。
 >
 > ⚠️ **Task 2.3 的子彈碰撞訊號接錯了**，照抄會導致「子彈能生成、能飛，但永遠打不到任何人」——
 > 詳見該Task下方說明。這正是原文Verify裡自己警告的那個坑，但原文給的解法本身是錯的。
@@ -791,7 +795,76 @@ const ELEMENT_COLORS = {
 
 **Verify:** 10種武器子彈顏色區分明顯，肉眼可辨認元素歸屬
 
-**階段二完成後提交（milestone commit）：**
+---
+
+### Task 2.5: 場景內武器字形顯示（✅ 已完成）
+
+**Objective:** 在玩家身旁以世界座標顯示目前裝備的部首字形；切換武器與改變朝向時即時更新，同時保持漢字可辨識、元素配色一致
+
+> **範圍界線：** 此Task只負責「目前武器是什麼」的場景內視覺回饋。
+> 不修改傷害、射速、彈種、掉落或組字配方；部件組合成完整漢字的升級系統保留給Task 2.6。
+
+**Files:**
+- Create: `game/scripts/weapon_glyph_display.gd`
+- Create: `game/tests/test_weapon_glyph_display.gd`
+- Modify: `game/scripts/player.gd`（只轉送既有`facing_dir`）
+- Modify: `game/scenes/player.tscn`（僅限整合者）
+
+不修改`weapon_manager.gd`、`weapons.json`、`hanzi_sprite.gd`、`test_room.tscn`、`project.godot`或字型資產。
+
+**Scene結構（整合者）：**
+```text
+Player
+├── HanziSprite
+├── DirectionIndicator
+├── WeaponManager
+└── WeaponGlyphDisplay (Node2D, weapon_glyph_display.gd)
+    └── Glyph (Label, NotoSansTC-Bold.otf)
+```
+
+`WeaponGlyphDisplay`必須是Player的世界座標子節點，不可放在HUD的`CanvasLayer`內；
+也不可掛在會以負`scale.x`翻轉的`DirectionIndicator`底下，否則部首會變成鏡像反字。
+
+**Behaviour contract:**
+
+1. 監聽既有`WeaponManager.weapon_changed(weapon, index)`，不為此新增另一套切換狀態。
+   連接signal後還要主動呼叫一次`get_current_weapon()`；無論兩個兄弟節點的`_ready()`先後順序如何，
+   初始武器都必須顯示。
+2. 顯示文字優先讀取可選的`display_glyph`；欄位不存在或為空時退回既有`radical`。
+   目前`weapons.json`不必新增欄位：
+   ```gdscript
+   var glyph_text := String(weapon.get("display_glyph", ""))
+   if glyph_text.is_empty():
+       glyph_text = String(weapon.get("radical", ""))
+   ```
+3. 顏色按`weapon.element`取用既有`Bullet.ELEMENT_COLORS`，確保手持字形、子彈與未來圖鑑使用同一套辨識色。
+4. `set_facing(direction)`只把整個`Node2D`移到玩家左側或右側，永遠不可用負`scale.x`鏡像Label。
+   `player.gd`只在既有朝向改變分支呼叫此方法；不要新增會漏掉`super()`的Player `_ready()`。
+5. Q/E切換時播放短促的淡入＋等比縮放Tween。快速連續切換前必須kill並重設舊Tween，
+   避免動畫堆疊後卡在透明、錯色或異常縮放狀態。
+6. 使用普通runtime腳本，不加`@tool`；場景可用預設文字提供editor preview。
+   Player發出`died`時隱藏顯示，避免目前死亡placeholder只移除HanziSprite後留下懸浮武器。
+
+**Automated Verify:**
+- Player場景包含世界座標`WeaponGlyphDisplay`，且Label使用專案繁中字型
+- 初始顯示`氵`；切到下一把立即顯示`灬`並套用火屬色
+- 10把武器皆能顯示；未提供`display_glyph`時正確fallback到`radical`
+- 面向左右時字形位於對應側、文字不變且`scale.x`始終大於0
+- 快速連續切換後Tween能收斂到正確文字、顏色與正常縮放
+- WeaponManager缺失時不崩潰；Player死亡後字形隱藏
+
+**Manual Verify:** 在`test_room.tscn`移動、跳躍並連按Q/E：
+字形跟隨玩家、移到面向側但不鏡像；切換動畫清楚且不遮住「我」；
+元素顏色與實際射出的子彈一致，原有左上角debug label仍正常更新。
+
+---
+
+### Task 2.6: 部件組字與武器進化（保留）
+
+> **尚未設計、尚未實作。** 此編號專門保留給「偏旁／部件組合成完整漢字並改變攻擊型態」。
+> 配方格式、敵人掉落schema、升級流程與平衡必須另行規劃，不得塞入Task 2.5。
+
+**原階段二完成後提交（Task 2.1-2.4 milestone commit，已完成）：**
 ```bash
 git add -A && git commit -m "phase2: radical weapon system, five-element damage calc, weapon switching"
 ```
@@ -1520,6 +1593,7 @@ git tag v0.1.0-milestone-complete
 | 日期 | 變更 |
 |---|---|
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
+| 2026-07-26 | 完成Task 2.5場景內武器字形顯示：使用世界座標元件監聽既有武器切換signal，按朝向換側但不鏡像，沿用元素配色並加入可取消的切換動畫；Task 2.6編號保留給部件組字與武器進化，避免顯示功能與玩法資料schema混在同一Task |
 | 2026-07-26 | 修復邏輯bug：補上HanziData單例、資料集雙檔案欄位澄清、漢字不可鏡像翻轉設計修正、Input Map缺失、GUT安裝步驟、Enemy死亡競態條件、Boss階段公式、bullet訊號連接、Steam export templates/steam_appid.txt；移除「天」為單位的時間框架，改為流程階段劃分 |
 | 2026-07-26 | Self-review後二次修復：`[autoload]`小節改為分階段追加註冊（原本一次性寫入尚未建立的`LevelManager`/`SaveSystem`會導致階段一`--check-only`失敗），移除"淼"字decomposition的錯誤示例資料（含自我循環定義），修正Task總數表述（28→33） |
 | 2026-07-26 | 階段二完成（Task 2.1/2.2/2.3/2.4）。**修正一個會讓整個戰鬥系統失效的錯誤**：Task 2.3 的子彈用 `area_entered` 偵測命中，但 `Character` 繼承 `CharacterBody2D`（PhysicsBody2D），Area2D 的 `area_entered` 對 PhysicsBody2D 永遠不會觸發——照抄的結果是子彈能生成能飛但傷害永不結算。改用 `body_entered` 並直接判斷 `body is Character`。另補：子彈加存活上限（原本打空後永不釋放，會無限累積節點）與打到地形消失；`cycle_weapon()` 擋掉空武器清單避免除以零；子彈父節點在 `current_scene` 為 null 時退回場景樹根。五行倍率 1.5/0.6 沿用原文數值，標註為**待playtest調校的初始值**。Task 2.4 的顏色已做，後坐力/開火動畫留給整合者在有display的機器上調 |
