@@ -18,6 +18,8 @@
 - [`docs/plans/2026-07-26-implementation-plan.md`](docs/plans/2026-07-26-implementation-plan.md) — 詳細實施計劃，8個階段、33個任務，含完整程式碼示例
 - [`docs/COLLABORATION.md`](docs/COLLABORATION.md) — 多AI協作規範：分支策略、任務分派、模組所有權、程式碼審查流程
 - [`docs/SETUP-WINDOWS.md`](docs/SETUP-WINDOWS.md) — Windows GPU開發機設置指南（WSL2 + 原生Windows雙環境，供整合者角色使用）
+- [`docs/STORY.md`](docs/STORY.md) — 劇情設計文件：世界觀、主角「令」的角色弧光、章節流程表
+- [`docs/BOSS-仁.md`](docs/BOSS-仁.md) — 終極Boss「仁」完整設計：起源設定、三階段戰鬥機制、簽名招式、結局演出
 
 ## 核心玩法
 
