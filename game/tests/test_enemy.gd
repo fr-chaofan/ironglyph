@@ -3,6 +3,29 @@ extends GutTest
 
 const EnemyScene := preload("res://scenes/enemy_base.tscn")
 const PlayerScene := preload("res://scenes/player.tscn")
+const FusionResolverScript := preload("res://scripts/fusion_resolver.gd")
+const EXPECTED_DROP_COMPONENTS := {
+	"河": "water",
+	"海": "water",
+	"湖": "water",
+	"雨": "rain",
+	"焰": "fire",
+	"炎": "fire",
+	"灶": "fire",
+	"焚": "fire",
+	"鋼": "metal",
+	"針": "metal",
+	"劍": "blade",
+	"錘": "metal",
+	"樹": "wood",
+	"藤": "grass",
+	"森": "wood",
+	"林": "wood",
+	"巖": "mountain",
+	"石": "stone",
+	"山": "mountain",
+	"塵": "earth",
+}
 
 
 func _spawn_enemy(character: String) -> Enemy:
@@ -31,11 +54,30 @@ func test_每個屬性各4種() -> void:
 
 func test_每筆欄位齊全且數值合理() -> void:
 	for data: Dictionary in EnemySpawner.get_all_enemy_data():
-		for key: String in ["char", "element", "ai", "hp", "damage", "speed"]:
+		for key: String in ["char", "element", "ai", "hp", "damage", "speed", "drop_component_id"]:
 			assert_true(data.has(key), "敵人 %s 缺欄位 %s" % [data.get("char", "?"), key])
 		assert_gt(int(data["hp"]), 0, "%s 的 hp 應為正" % data["char"])
 		assert_gt(int(data["damage"]), 0, "%s 的 damage 應為正" % data["char"])
 		assert_gte(float(data["speed"]), 0.0, "%s 的 speed 不應為負" % data["char"])
+
+
+func test_每種敵人都掉落合法且指定的部件() -> void:
+	var resolver := FusionResolverScript.new()
+	var all_enemy_data: Array = EnemySpawner.get_all_enemy_data()
+	assert_eq(all_enemy_data.size(), EXPECTED_DROP_COMPONENTS.size())
+
+	for data: Dictionary in all_enemy_data:
+		var character := String(data.get("char", ""))
+		var component_id := String(data.get("drop_component_id", ""))
+		assert_eq(
+			component_id,
+			EXPECTED_DROP_COMPONENTS.get(character, ""),
+			"敵字「%s」的掉落部件不符合策展表" % character
+		)
+		assert_false(
+			resolver.get_component(component_id).is_empty(),
+			"敵字「%s」引用不存在的 component_id「%s」" % [character, component_id]
+		)
 
 
 func test_敵字都有筆畫資料() -> void:

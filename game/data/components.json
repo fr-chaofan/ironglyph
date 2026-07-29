@@ -1,0 +1,72 @@
+[
+  {
+    "id": "water",
+    "source_radicals": ["氵"],
+    "display_glyph": "氵",
+    "element": "water",
+    "fallback_weapon_id": "shui"
+  },
+  {
+    "id": "rain",
+    "source_radicals": ["雨"],
+    "display_glyph": "雨",
+    "element": "water",
+    "fallback_weapon_id": "shui"
+  },
+  {
+    "id": "fire",
+    "source_radicals": ["火"],
+    "display_glyph": "火",
+    "element": "fire",
+    "fallback_weapon_id": "huo"
+  },
+  {
+    "id": "metal",
+    "source_radicals": ["釒", "金"],
+    "display_glyph": "金",
+    "element": "metal",
+    "fallback_weapon_id": "jin"
+  },
+  {
+    "id": "blade",
+    "source_radicals": ["刂"],
+    "display_glyph": "刂",
+    "element": "neutral",
+    "fallback_weapon_id": "dao"
+  },
+  {
+    "id": "wood",
+    "source_radicals": ["木"],
+    "display_glyph": "木",
+    "element": "wood",
+    "fallback_weapon_id": "mu"
+  },
+  {
+    "id": "grass",
+    "source_radicals": ["艹"],
+    "display_glyph": "艹",
+    "element": "wood",
+    "fallback_weapon_id": "mu"
+  },
+  {
+    "id": "earth",
+    "source_radicals": ["土"],
+    "display_glyph": "土",
+    "element": "earth",
+    "fallback_weapon_id": "tu"
+  },
+  {
+    "id": "mountain",
+    "source_radicals": ["山"],
+    "display_glyph": "山",
+    "element": "earth",
+    "fallback_weapon_id": "tu"
+  },
+  {
+    "id": "stone",
+    "source_radicals": ["石"],
+    "display_glyph": "石",
+    "element": "earth",
+    "fallback_weapon_id": "shi"
+  }
+]

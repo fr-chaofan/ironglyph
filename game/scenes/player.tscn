@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" uid="uid://lo6aiv5brjnk" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" uid="uid://dwrdgxfkig3ny" path="res://scripts/hanzi_sprite.gd" id="2_hanzi"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://dcsw85x37yxfy" path="res://scripts/camera_bounds.gd" id="4_camera"]
 [ext_resource type="Script" uid="uid://c11swsunc1rkh" path="res://scripts/weapon_manager.gd" id="5_weapon"]
 [ext_resource type="Script" uid="uid://yvct3t80i0f6" path="res://scripts/weapon_glyph_display.gd" id="6_weapon_glyph"]
+[ext_resource type="Script" path="res://scripts/glyph_loadout.gd" id="7_loadout"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(52, 64)
@@ -27,11 +28,11 @@ theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.1, 1)
 theme_override_constants/outline_size = 8
 theme_override_font_sizes/font_size = 64
 theme_override_fonts/font = ExtResource("3_font")
-text = "我"
+text = "令"
 horizontal_alignment = 1
 vertical_alignment = 1
 script = ExtResource("2_hanzi")
-character_text = "我"
+character_text = "令"
 
 [node name="DirectionIndicator" type="Polygon2D" parent="."]
 position = Vector2(0, 40)
@@ -59,6 +60,9 @@ theme_override_fonts/font = ExtResource("3_font")
 text = "氵"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="GlyphLoadout" type="Node" parent="."]
+script = ExtResource("7_loadout")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("4_camera")

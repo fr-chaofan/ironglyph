@@ -39,6 +39,7 @@
 |---|---|---|---|
 | **核心角色系統** | 一 | `scripts/character.gd`, `scripts/player.gd`, `scripts/hanzi_sprite.gd`, `scripts/hanzi_data.gd`, `scripts/camera_bounds.gd` | 無（最先開工，其他模組依賴它） |
 | **武器與五行系統** | 二 | `scripts/element_system.gd`, `scripts/weapon_manager.gd`, `scripts/bullet.gd`, `scripts/weapon_glyph_display.gd`, `data/weapons.json`, `data/elements.json` | 依賴核心角色系統的`Character`基類 |
+| **音核合體與部件掉落** | 二（Task 2.6；Phase 3.5 gate） | `scripts/fusion_resolver.gd`, `scripts/glyph_loadout.gd`, `scripts/component_pickup.gd`, `scripts/component_dropper.gd`, `data/components.json`, `data/fusion_recipes.json`；在`data/enemies.json`只新增`drop_component_id` | 依賴武器系統 + 階段三的敵人死亡signal；必須在階段四前整合 |
 | **敵人與AI** | 三 | `scripts/enemy.gd`, `scripts/enemy_ai_*.gd`, `scripts/enemy_spawner.gd`, `data/enemies.json` | 依賴核心角色系統 + 武器系統（`take_damage`介面） |
 | **關卡系統** | 四 | `scripts/level_manager.gd`, `scripts/checkpoint.gd`, `data/`關卡相關設定 | 依賴敵人系統（放置EnemySpawner） |
 | **Boss系統** | 五 | `scripts/boss.gd`, `scripts/boss_attack_patterns.gd`, `data/bosses.json` | 依賴敵人系統（Boss繼承Enemy） |
@@ -46,6 +47,22 @@
 | **Steam整合與打包** | 七、八 | `scripts/steam.gd`, `export_presets.cfg`, `steam_appid.txt` | 依賴全部模組（最後整合） |
 
 **並行策略：** 「核心角色系統」必須第一個完成（其他所有模組都繼承`Character`或依賴`HanziData`/`ElementSystem`兩個autoload）。完成後，「武器系統」「敵人與AI」「UI與存檔」三個模組**互相獨立、可以完全並行**（它們互不依賴彼此的具體實作，只依賴核心角色系統暴露的介面）。「關卡系統」「Boss系統」需等敵人系統的`Enemy`基類穩定後才能開工。
+
+### 2.1 Task 2.6本PR的Integrator邊界
+
+Task 2.6會同時接上Player、武器、敵人死亡signal與測試場景，因此本PR指定**root agent為唯一
+Integrator**。只有root可修改以下整合檔：
+
+- `game/scenes/player.tscn`
+- `game/scenes/component_pickup.tscn`
+- `game/scenes/test_room.tscn`
+- `game/project.godot`
+
+Logic Worker只能修改自己被分派的`.gd`與測試，不能碰上述整合檔；本PR的JSON與產生器只由
+被指定的單一Data Worker修改，文件維護者只改`docs/`。本PR完成前不得並行開始Phase 4的
+場景／`LevelManager`整合，因為Phase 4也會依賴`Player`、`EnemySpawner`並修改
+`project.godot`。第3.4節「不修改`.tscn` / `project.godot`」的自查項目適用於Logic/Data
+Worker；Integrator在明確列出並獨占上述檔案時，可於同一整合PR完成掛載與Input Map修改。
 
 ---
 
@@ -59,6 +76,7 @@
 feat/character-core       — 核心角色系統
 feat/weapon-elemental     — 武器與五行系統
 feat/weapon-glyph-display — Task 2.5 場景內武器字形顯示
+feat/task-2.6-glyph-fusion — Task 2.6「令」× 部件vertical slice
 feat/enemy-ai             — 敵人與AI
 feat/level-system         — 關卡系統
 feat/boss-system          — Boss系統
@@ -152,6 +170,10 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 | `Character` | `scripts/character.gd` | 核心角色系統 |
 | `HanziSprite` | `scripts/hanzi_sprite.gd` | 核心角色系統 |
 | `WeaponGlyphDisplay` | `scripts/weapon_glyph_display.gd` | 武器與五行系統 |
+| `FusionResolver` | `scripts/fusion_resolver.gd` | 音核合體與部件掉落 |
+| `GlyphLoadout` | `scripts/glyph_loadout.gd` | 音核合體與部件掉落 |
+| `ComponentPickup` | `scripts/component_pickup.gd` | 音核合體與部件掉落 |
+| `ComponentDropper` | `scripts/component_dropper.gd` | 音核合體與部件掉落 |
 | `Enemy` | `scripts/enemy.gd` | 敵人與AI |
 | `Boss` | `scripts/boss.gd` | Boss系統 |
 | `BossAttackPatterns` | `scripts/boss_attack_patterns.gd` | Boss系統 |
@@ -164,5 +186,6 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 
 | 日期 | 變更 |
 |---|---|
+| 2026-07-26 | 加入Task 2.6協作邊界：新增音核合體／部件掉落模組與四個`class_name`；本PR由root擔任唯一Integrator並獨占`player.tscn`、`component_pickup.tscn`、`test_room.tscn`與`project.godot` |
 | 2026-07-26 | 加入Task 2.5協作邊界：`weapon_glyph_display.gd`歸武器模組、使用`feat/weapon-glyph-display`分支，並登記`WeaponGlyphDisplay`全域類別名稱；`player.tscn`仍僅能由整合者修改 |
 | 2026-07-26 | 初版：定義整合者/邏輯實作者/資料維護者/審查者四種角色，模組所有權劃分，Git分支與PR流程，任務分派機制，衝突預防清單 |
