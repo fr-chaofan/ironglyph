@@ -42,8 +42,9 @@
 | **音核合體與部件掉落** | 二（Task 2.6；Phase 3.5 gate） | `scripts/fusion_resolver.gd`, `scripts/glyph_loadout.gd`, `scripts/component_pickup.gd`, `scripts/component_dropper.gd`, `data/components.json`, `data/fusion_recipes.json`；在`data/enemies.json`只新增`drop_component_id` | 依賴武器系統 + 階段三的敵人死亡signal；必須在階段四前整合 |
 | **敵人與AI** | 三 | `scripts/enemy.gd`, `scripts/enemy_ai_*.gd`, `scripts/enemy_spawner.gd`, `data/enemies.json` | 依賴核心角色系統 + 武器系統（`take_damage`介面） |
 | **關卡系統** | 四 | `scripts/level_manager.gd`, `scripts/checkpoint.gd`, `data/`關卡相關設定 | 依賴敵人系統（放置EnemySpawner） |
-| **Boss系統** | 五 | `scripts/boss.gd`, `scripts/boss_attack_patterns.gd`, `data/bosses.json` | 依賴敵人系統（Boss繼承Enemy） |
-| **UI與存檔** | 六 | `scripts/pause_menu.gd`, `scripts/weapon_codex.gd`, `scripts/save_system.gd` | 依賴武器系統（圖鑑讀取weapons.json） |
+| **Boss系統** | 五 | `scripts/boss.gd`, `scripts/boss_attack_patterns.gd`, `data/bosses.json`；終Boss「仁」額外負責 `scripts/boss_ren.gd`（Phase 2.1「命」機制、賜俸招式判定） | 依賴敵人系統（Boss繼承Enemy）+ 對話/演出框架（開場白、賜俸台詞、Phase 2.1選擇UI） |
+| **對話／演出框架** | 四（序章／終章）+ 五（Boss台詞） | `scripts/dialogue_box.gd`, `scripts/cutscene_player.gd`, `data/dialogue/*.json`（各關卡/Boss台詞資料表，繁體中文） | 依賴核心角色系統（暫停玩家輸入時的介面）；序章教程NPC、仁的開場白／賜俸／Phase 2.1三選一、終章「主」降臨訓誡，共用同一套對話演出元件 |
+| **UI與存檔** | 六 | `scripts/pause_menu.gd`, `scripts/weapon_codex.gd`, `scripts/save_system.gd`（含`has_ever_hoarded`隱藏結局旗標） | 依賴武器系統（圖鑑讀取weapons.json）|
 | **Steam整合與打包** | 七、八 | `scripts/steam.gd`, `export_presets.cfg`, `steam_appid.txt` | 依賴全部模組（最後整合） |
 
 **並行策略：** 「核心角色系統」必須第一個完成（其他所有模組都繼承`Character`或依賴`HanziData`/`ElementSystem`兩個autoload）。完成後，「武器系統」「敵人與AI」「UI與存檔」三個模組**互相獨立、可以完全並行**（它們互不依賴彼此的具體實作，只依賴核心角色系統暴露的介面）。「關卡系統」「Boss系統」需等敵人系統的`Enemy`基類穩定後才能開工。
@@ -177,6 +178,9 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 | `Enemy` | `scripts/enemy.gd` | 敵人與AI |
 | `Boss` | `scripts/boss.gd` | Boss系統 |
 | `BossAttackPatterns` | `scripts/boss_attack_patterns.gd` | Boss系統 |
+| `BossRen` | `scripts/boss_ren.gd` | Boss系統（終Boss「仁」，繼承`Boss`） |
+| `DialogueBox` | `scripts/dialogue_box.gd` | 對話／演出框架 |
+| `CutscenePlayer` | `scripts/cutscene_player.gd` | 對話／演出框架 |
 
 （新增`.gd`檔案含`class_name`時，先搜尋此表確認不重名，再補登記）
 
@@ -186,6 +190,7 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 
 | 日期 | 變更 |
 |---|---|
+| 2026-07-30 | 新增「對話／演出框架」模組（序章教程NPC、終Boss「仁」開場白/賜俸/Phase 2.1三選一、終章「主」降臨訓誡共用同一套元件），登記`DialogueBox`/`CutscenePlayer`/`BossRen`三個`class_name`；Boss系統模組職責擴充納入終Boss「仁」專屬腳本；UI與存檔模組補充`has_ever_hoarded`隱藏結局旗標職責 |
 | 2026-07-26 | 加入Task 2.6協作邊界：新增音核合體／部件掉落模組與四個`class_name`；本PR由root擔任唯一Integrator並獨占`player.tscn`、`component_pickup.tscn`、`test_room.tscn`與`project.godot` |
 | 2026-07-26 | 加入Task 2.5協作邊界：`weapon_glyph_display.gd`歸武器模組、使用`feat/weapon-glyph-display`分支，並登記`WeaponGlyphDisplay`全域類別名稱；`player.tscn`仍僅能由整合者修改 |
 | 2026-07-26 | 初版：定義整合者/邏輯實作者/資料維護者/審查者四種角色，模組所有權劃分，Git分支與PR流程，任務分派機制，衝突預防清單 |

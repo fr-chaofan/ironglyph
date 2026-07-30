@@ -4,7 +4,7 @@
 
 > **For Hermes:** 用 subagent-driven-development 配合本計劃逐任務執行；遊戲開發驗證方式為"在Godot編輯器/匯出build中執行並目視確認"，而非pytest單元測試（除純邏輯模組如傷害計算外）。
 
-**Goal:** 用 Godot 4 + GodotSteam，做出一個完整可玩、可提交Steam稽核的橫版闖關遊戲：主角/敵人為渲染漢字，武器基於部首拆解，五行相剋為核心平衡機制。
+**Goal:** 用 Godot 4 + GodotSteam，做出一個完整可玩、可提交Steam稽核的橫版闖關遊戲：主角/敵人為渲染漢字，武器基於部首拆解，五行相剋為核心平衡機制，並完整實作主線劇情（序章教程→水域/火山/森林/礦山四關→終章終極Boss「仁」，含隱藏真結局「命」）。主線劇情細節見 `docs/STORY.md`、`docs/PROTAGONIST-令.md`、`docs/BOSS-仁.md`。
 
 **Architecture:** 場景樹驅動的2D平臺/射擊架構。`Player`/`Enemy`共用基類`Character.gd`（繼承`CharacterBody2D`），漢字透過`Label`節點+自定義字型渲染而非Sprite2D精靈。武器/五行資料全部外接為`.tres`資源(Resource)或JSON，方便後續批次擴充而不改程式碼。關卡用Godot自帶`TileMap`+手擺場景。傷害計算走純函式（無節點依賴），可單元測試。
 
@@ -1253,7 +1253,152 @@ git add -A && git commit -m "phase3: enemy system, 4 AI behaviors, 20 enemy char
 
 ---
 
-## 階段四：關卡設計（4關）
+## 階段四：關卡設計（序章 + 4關 + 終章）
+
+> **⚠️ 範圍更新（隨主線劇情定版同步修改）：** 原計劃只有「4關」，未涵蓋`docs/STORY.md`第4節章節流程表定案的**序章「字界殘頁」**（教程關）與**終章「崩筆祭壇」**（終Boss「仁」戰鬥關）。本階段新增Task 4.0（對話/演出框架，序章與終章共同依賴的阻斷性前置任務）、Task 4.1a（序章關卡）、Task 4.4（終章關卡）。執行順序：**4.0 → 4.1a → 4.1 → 4.2 → 4.3 → 4.4**（4.0必須最先完成，序章/終章都要用到對話框；4.4需等Task 4.3的LevelManager與階段五Task 5.4的Boss「仁」都就緒才能整合，實際上是「Phase 5.4 integration gate」，見階段五說明）。
+
+### Task 4.0: 對話／演出框架（阻斷性前置依賴）
+
+**Objective:** 建立一套可供序章教程NPC、Boss開場白、「賜俸」三選一、終章「主」降臨訓誡共用的最小對話/過場系統。這是純UI+資料驅動元件，不含關卡/Boss邏輯本身。
+
+**為什麼是阻斷性前置依賴：** 序章教程需要NPC對話框，終Boss「仁」的開場五連頭銜白、Phase 2.1「命」的接住/放手二選一、「賜俸」貪/爭/棄三選一、終章「主」的訓誡台詞，全部要用同一套元件，不應該讓每個Task各自兜一套簡陋的Label顯示邏輯。
+
+**Files:**
+- Create: `game/scripts/dialogue_box.gd` (`class_name DialogueBox`)
+- Create: `game/scenes/ui/dialogue_box.tscn`
+- Create: `game/scripts/cutscene_player.gd` (`class_name CutscenePlayer`)
+- Create: `game/data/dialogue/` 目錄（各關卡/Boss台詞JSON，繁體中文，見下方schema）
+
+**Step 1:** 台詞資料schema（純JSON，逐行辨識度高，方便多人協作編輯不衝突）：
+```json
+{
+  "id": "boss_ren_intro",
+  "lines": [
+    {"speaker": "仁", "text": "「住口！站在你面前的是——」"},
+    {"speaker": "仁", "text": "「六書正統的嫡傳嫡出，」"},
+    {"speaker": "仁", "text": "「部首萬象盟的欽定准入者；」"},
+    {"speaker": "仁", "text": "「水域、火山、森林三域的『征服者』，」"},
+    {"speaker": "仁", "text": "「『天下共主』之相與『人字旁』太古神器的唯一持有者……」"},
+    {"speaker": "仁", "text": "「……仁！」"},
+    {"speaker": "仁", "text": "「跪下，見證朕的完整。」"}
+  ]
+}
+```
+
+**Step 2:** `DialogueBox`（顯示一句、支援打字機效果、等待玩家按鍵推進，暫停時凍結戰鬥）：
+```gdscript
+# game/scripts/dialogue_box.gd
+extends CanvasLayer
+class_name DialogueBox
+
+signal dialogue_finished
+
+@onready var label: Label = $Panel/Label
+@onready var speaker_label: Label = $Panel/SpeakerLabel
+
+var lines: Array = []
+var current_index: int = 0
+
+func play(dialogue_id: String) -> void:
+    var f = FileAccess.open("res://data/dialogue/%s.json" % dialogue_id, FileAccess.READ)
+    if not f:
+        push_warning("dialogue not found: " + dialogue_id)
+        dialogue_finished.emit()
+        return
+    var data = JSON.parse_string(f.get_as_text())
+    lines = data.get("lines", [])
+    current_index = 0
+    visible = true
+    get_tree().paused = true
+    _show_line()
+
+func _show_line() -> void:
+    if current_index >= lines.size():
+        _finish()
+        return
+    var line = lines[current_index]
+    speaker_label.text = line.get("speaker", "")
+    label.text = line.get("text", "")
+
+func advance() -> void:
+    current_index += 1
+    _show_line()
+
+func _finish() -> void:
+    visible = false
+    get_tree().paused = false
+    dialogue_finished.emit()
+
+func _unhandled_input(event: InputEvent) -> void:
+    if visible and event.is_action_pressed("fire"):  # 沿用開火鍵推進對話，不新增按鍵
+        advance()
+```
+
+**Step 3:** `CutscenePlayer`（給無互動的純演出過場用，如終章「主」降臨；跟`DialogueBox`是組合關係，過場本身可以插入對話）：
+```gdscript
+# game/scripts/cutscene_player.gd
+extends Node
+class_name CutscenePlayer
+
+signal cutscene_finished
+
+func play_ending_zhu_descent() -> void:
+    # 具體演出實作見Task 4.4/5.4：純白光效+筆畫崩解特效反向播放+DialogueBox播放「主」訓誡台詞
+    pass
+```
+
+**Step 4:** 選擇型對話（供「賜俸」貪/爭/棄與Phase 2.1接住/放手使用，是`DialogueBox`的擴充變體，不是新元件）：
+```gdscript
+# 在dialogue_box.gd追加
+signal choice_made(choice_id: String)
+
+func play_choice(dialogue_id: String, choices: Array) -> void:
+    # choices範例: [{"id":"greed","label":"貪（拾取）"}, {"id":"fight","label":"爭（格擋彈反）"}, {"id":"release","label":"棄（不碰）"}]
+    # 具體UI呈現（按鍵選單或QTE式操作）留給整合者在Task 5.4實作時決定，本函式只負責資料流：
+    # 選擇後emit choice_made(choice_id)，呼叫端（BossRen）自行處理增益/減益邏輯
+    pass
+```
+
+**Verify:** 用一個假的`test_dialogue.json`（3句話）在測試場景播放，按開火鍵能逐句推進，播放期間`get_tree().paused`為true且玩家無法移動，播完後自動恢復
+
+---
+
+### Task 4.1a: 序章「字界殘頁」（教程關）
+
+**Objective:** 玩家第一次接觸操作的關卡，帶出令甦醒、發現殘缺、遇到引路者NPC的開場劇情（見`docs/STORY.md`第4節章節流程表）
+
+**Files:**
+- Create: `game/scenes/levels/level_00_prologue.tscn`
+- Create: `game/scripts/guide_npc.gd`
+- Create: `game/data/dialogue/prologue_awakening.json`、`game/data/dialogue/prologue_guide_tutorial.json`
+
+**Step 1:** 場景結構（比照Task 4.1但更短、無存檔點壓力，純教程動線）：
+```
+LevelPrologue (Node2D)
+├── TileMap (簡化的「殘頁」主題地形，不需要正式tileset，可用中性灰階素材頂上，日後美術可替換)
+├── PlayerSpawn (Marker2D)
+├── GuideNPC (Area2D + guide_npc.gd，觸發`prologue_awakening`對話：令甦醒、發現殘缺卩）
+├── TutorialTriggers (Node2D，多個Area2D依序觸發移動/跳躍/開火/E拾取/Q彈出教學提示，各自對應`docs/PROTAGONIST-令.md`第1節「可是我會」的自我認知橋段)
+├── FirstComponentDrop (手動放置一個部件掉落物，供玩家練習E/Q循環，不依賴敵人死亡signal)
+└── LevelExit (Area2D，觸發`LevelManager.next_level()`進入水域關)
+```
+
+**Step 2:** 引路者NPC：
+```gdscript
+# game/scripts/guide_npc.gd
+extends Area2D
+
+@export var dialogue_id: String = "prologue_awakening"
+@onready var dialogue_box: DialogueBox = get_tree().current_scene.get_node("DialogueBox")
+
+func _on_body_entered(body: Node) -> void:
+    if body is Player:
+        dialogue_box.play(dialogue_id)
+```
+
+**Verify:** 從PlayerSpawn開始，觸發引路者對話後能依序完成移動/跳躍/開火/E/Q教學，走到LevelExit進入水域關
+
+---
 
 ### Task 4.1: TileMap關卡基礎 — 水域關
 
@@ -1292,22 +1437,29 @@ func _on_body_entered(body: Node) -> void:
 
 ### Task 4.2: 火山關 / 森林關 / 礦山關
 
-**Objective:** 複製Task 4.1結構，替換tileset美術+enemy_char+背景音樂，共3關
+**Objective:** 複製Task 4.1結構，替換tileset美術+enemy_char+背景音樂，共3關；**礦山關為無Boss過渡關**（見`docs/STORY.md`第4節章節流程表），不放置Boss戰場景，改為稀有部件掉率提升
 
 **Files:**
 - Create: `game/scenes/levels/level_02_fire.tscn`
 - Create: `game/scenes/levels/level_03_wood.tscn`
 - Create: `game/scenes/levels/level_04_earth.tscn`
 
-**Step 1:** 每關的EnemySpawner全部指向對應五行的敵字（火山關全用fire系4個字，以此類推），保證"關卡主題=五行區塊"貫徹到底
+**Step 1:** 每關的EnemySpawner全部指向對應五行的敵字（火山關全用fire系4個字，以此類推），保證「關卡主題=五行區塊」貫徹到底
 
-**Verify:** 依次通關4關，每關敵人元素與關卡主題一致，武器剋制策略在對應關卡內明顯生效（用剋制武器一擊傷害肉眼可辨高於非剋制武器）
+**Step 2（礦山關差異化）：** 礦山關（`level_04_earth.tscn`）的`EnemySpawner`額外設定`drop_rate_multiplier`（沿用Task 2.6/`component_dropper.gd`既有的部件掉落機制，只加一個倍率參數，不新增掉落系統）：
+```gdscript
+# 在礦山關的EnemySpawner Inspector面板設定，或於場景腳本內：
+enemy_spawner.drop_rate_multiplier = 2.0  # 稀有部件掉率提升為其他關卡的2倍，呼應「為終局囤配方」的關卡定位
+```
+`component_dropper.gd`需要新增讀取此倍率的邏輯（`drop_chance *= spawner.drop_rate_multiplier if spawner else 1.0`），其餘3關維持預設倍率1.0不受影響。**礦山關不建立Boss戰場景**，`LevelExit`直接觸發`LevelManager.next_level()`進入終章，不經過Task 5.3的Boss arena流程。
+
+**Verify:** 依次通關3關，每關敵人元素與關卡主題一致，武器剋制策略在對應關卡內明顯生效（用剋制武器一擊傷害肉眼可辨高於非剋制武器）；額外驗證礦山關部件掉落頻率肉眼可辨高於其他關卡，且關卡末尾無Boss戰觸發
 
 ---
 
 ### Task 4.3: 關卡管理器 LevelManager (autoload)
 
-**Objective:** 統一管理關卡切換、存檔點復活、關卡間過渡動畫
+**Objective:** 統一管理關卡切換、存檔點復活、關卡間過渡動畫，**範圍擴充為序章+4關+終章共6個場景**
 
 **Files:**
 - Create: `game/scripts/level_manager.gd` (autoload)
@@ -1317,10 +1469,12 @@ func _on_body_entered(body: Node) -> void:
 extends Node
 
 var levels: Array = [
+    "res://scenes/levels/level_00_prologue.tscn",
     "res://scenes/levels/level_01_water.tscn",
     "res://scenes/levels/level_02_fire.tscn",
     "res://scenes/levels/level_03_wood.tscn",
-    "res://scenes/levels/level_04_earth.tscn"
+    "res://scenes/levels/level_04_earth.tscn",
+    "res://scenes/levels/level_05_final_altar.tscn"
 ]
 var current_level_index: int = 0
 
@@ -1335,6 +1489,8 @@ func next_level() -> void:
         get_tree().change_scene_to_file("res://scenes/ui/victory_screen.tscn")
 ```
 
+**⚠️ 注意：** 終章（`level_05_final_altar.tscn`）走完後不是簡單`next_level()`到victory_screen——它本身結束時會依`has_ever_hoarded`旗標與Phase 2.1選擇結果，先播放Task 5.4的結局過場（主降臨/隱藏真結局二選一），過場結束後才由`Boss「仁」`死亡流程手動呼叫`get_tree().change_scene_to_file("res://scenes/ui/victory_screen.tscn")`，不透過`next_level()`（因為結局分支需要在切場景前完成，`next_level()`的線性流程不夠用）。
+
 **Step 2：** 在`project.godot`的`[autoload]`小節**追加**一行（不要覆寫先前已註冊的`HanziData`/`ElementSystem`）：
 ```ini
 [autoload]
@@ -1343,16 +1499,47 @@ ElementSystem="*res://scripts/element_system.gd"
 LevelManager="*res://scripts/level_manager.gd"
 ```
 
-**Verify:** LevelExit觸發`LevelManager.next_level()`，4關順序切換，最後一關後進入勝利畫面
+**Verify:** LevelExit觸發`LevelManager.next_level()`，序章→4關依序切換；礦山關（第5個場景索引）走完直接進終章而非Boss arena；終章擊敗「仁」後走結局分支流程（非`next_level()`）最終進入勝利畫面
 
 **階段四完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "phase4: four themed levels, checkpoints, level manager"
+git add -A && git commit -m "phase4: prologue + four themed levels + final altar, checkpoints, level manager, dialogue framework"
 ```
 
 ---
 
-## 階段五：Boss戰（3隻複合字Boss）
+### Task 4.4: 終章「崩筆祭壇」關卡
+
+**Objective:** 搭建終章關卡場景骨架，串接終Boss「仁」的完整戰鬥流程（詳見階段五Task 5.4）
+
+**前置依賴：** Task 4.0（對話框架）+ Task 4.3（LevelManager）+ 階段五Task 5.4（Boss「仁」邏輯本體）。**本Task只負責關卡場景骨架與整合掛載，Boss本身的戰鬥/台詞/選擇邏輯屬於Task 5.4範圍**，兩者實際上是同一個「Phase 5.4 integration gate」的一體兩面，建議由同一位整合者連續完成，避免場景掛載和Boss邏輯出現介面不對齊的問題。
+
+**Files:**
+- Create: `game/scenes/levels/level_05_final_altar.tscn`
+
+**Step 1:** 場景結構：
+```
+LevelFinalAltar (Node2D)
+├── TileMap (祭壇主題地形，無五行歸屬的中性色調，呼應「僭越五行體系之外」的美術定位)
+├── PlayerSpawn (Marker2D)
+├── BossRen (Boss場景實例，script=boss_ren.gd，見Task 5.4)
+├── DialogueBox (CanvasLayer，供開場白/賜俸/Phase 2.1/結局訓誡共用)
+├── CutscenePlayer (Node，播放「主」降臨結局)
+└── (無LevelExit——終章結束由Task 5.4的結局流程手動觸發victory_screen，不透過一般的關卡出口)
+```
+
+**Verify:** 從PlayerSpawn開始，進場觸發「仁」開場五連頭銜白（見Task 5.4），戰鬥流程正常運作，擊敗後正確進入結局過場而非卡在原地
+
+**階段四完成後提交（milestone commit）：**
+```bash
+git add -A && git commit -m "phase4: prologue + four themed levels + final altar, checkpoints, level manager, dialogue framework"
+```
+
+---
+
+## 階段五：Boss戰（4隻Boss——淼/焱/森 + 終極Boss「仁」）
+
+> **⚠️ 範圍更新（隨主線劇情定版同步修改）：** 原計劃只有3隻一般Boss，未涵蓋終極Boss「仁」（`docs/BOSS-仁.md`完整設計）。新增Task 5.4，是本階段份量最重的任務——涉及雙元素三階段狀態機、開場演出、「賜俸」三選一、Phase 2.1「命」中途顯現、「主」降臨結局，建議獨立分派、預留比其他Boss Task更多的實作與playtest時間。
 
 ### Task 5.1: Boss基類 + 多階段狀態機
 
@@ -1370,6 +1557,8 @@ git add -A && git commit -m "phase4: four themed levels, checkpoints, level mana
   {"char":"森","element":"wood","hp":400,"phases":3,"sub_radicals":["木","木","木"],"level":3}
 ]
 ```
+
+**⚠️ 注意：終極Boss「仁」不放進本檔案。** `bosses.json`統一給「單一部首 × 3階段強度遞增」這種一般Boss用；「仁」是雙元素/階段（Phase 1水+火、Phase 2金+木、Phase 3土+覺醒態全五行）且戰鬥流程含開場白/賜俸/Phase 2.1三個非純數值的敘事節點，硬塞進同一份資料表只會讓`sub_radicals`欄位語意分裂。「仁」的資料獨立放在`game/data/boss_ren.json`，見Task 5.4。
 
 **Step 2:**
 ```gdscript
@@ -1495,10 +1684,140 @@ func shake(duration: float, strength: float) -> void:
 
 **Verify:** Boss進入新階段/死亡時螢幕震動明顯，無卡頓或震動殘留（戰鬥結束offset歸零）
 
-**階段五完成後提交（milestone commit）：**
+**階段五（一般Boss部分）完成後提交（milestone commit）：**
 ```bash
-git add -A && git commit -m "phase5: boss base class, 3-phase state machine, 3 bosses with unique attacks, screen shake"
+git add -A && git commit -m "phase5a: boss base class, 3-phase state machine, 3 bosses with unique attacks, screen shake"
 ```
+
+---
+
+### Task 5.4: 終極Boss「仁」——雙元素三階段 + 敘事節點（本階段份量最重的Task）
+
+**Objective:** 實作`docs/BOSS-仁.md`定義的完整終Boss戰：開場五連頭銜白 → Phase 1（水+火）→ Phase 2（金+木）→ **Phase 2.1「命」中途顯現（條件觸發）** → Phase 3（土+覺醒態，全五行）→ 「賜俸」簽名招式（Phase 1→2、Phase 2→3轉場各觸發一次）→ 擊敗後「主」降臨結局演出
+
+**前置依賴：** Task 4.0（對話框架，開場白/賜俸/Phase 2.1都要用）+ Task 5.1（Boss基類）+ Task 5.2（攻擊模式，仁需要同時複用全部五種）+ `docs/PROTAGONIST-令.md`第5-6節（`has_ever_hoarded`判定邏輯）。**不依賴**Task 5.3的screen_shake（可選複用，非必要）。
+
+**Files:**
+- Create: `game/scripts/boss_ren.gd` (`class_name BossRen`, `extends Boss`)
+- Create: `game/data/boss_ren.json`
+- Create: `game/data/dialogue/boss_ren_intro.json`（開場五連頭銜白，見Task 4.0 Step 1範例）
+- Create: `game/data/dialogue/boss_ren_shangfeng.json`（「賜俸」台詞）
+- Create: `game/data/dialogue/boss_ren_phase21_ming.json`（Phase 2.1「命」顯現台詞）
+- Create: `game/data/dialogue/ending_zhu_descent.json`（「主」降臨結局，儒家典籍訓誡台詞）
+- Modify: `game/scripts/save_system.gd`（新增`has_ever_hoarded`欄位讀寫，見Task 6.3）
+
+**Step 1:** `boss_ren.json`資料結構（雙元素/階段，`sub_radicals`改為每階段一組陣列）：
+```json
+{
+  "char": "仁",
+  "hp": 600,
+  "phases": 3,
+  "phase_radicals": [
+    ["水", "火"],
+    ["金", "木"],
+    ["土", "水", "火", "金", "木"]
+  ],
+  "shangfeng_trigger_phases": [1, 2]
+}
+```
+
+**Step 2:** `BossRen`繼承`Boss`，覆寫`enter_phase()`同時召喚雙元素攻擊，並插入「賜俸」與Phase 2.1的觸發點：
+```gdscript
+# game/scripts/boss_ren.gd
+extends Boss
+class_name BossRen
+
+@onready var dialogue_box: DialogueBox = get_tree().current_scene.get_node("DialogueBox")
+
+var phase_radicals: Array = []
+var shangfeng_done_phases: Array = []  # 記錄已觸發過賜俸的phase轉場，避免重複觸發
+
+func setup_boss_ren(data: Dictionary) -> void:
+    setup_boss(data)
+    phase_radicals = data["phase_radicals"]
+
+func _ready() -> void:
+    super._ready()
+    dialogue_box.play("boss_ren_intro")  # 開場五連頭銜白播完後才啟動Phase 1彈幕
+    dialogue_box.dialogue_finished.connect(_on_intro_finished, CONNECT_ONE_SHOT)
+
+func _on_intro_finished() -> void:
+    enter_phase(1)
+
+func enter_phase(p: int) -> void:
+    hanzi_label.flash_hit()
+    var radicals = phase_radicals[p - 1] if p - 1 < phase_radicals.size() else phase_radicals[-1]
+    for radical in radicals:
+        # 「仁」的判定框刻意做「錯位」——色彩偏移+判定框比視覺框小10-15%，
+        # 呼應docs/BOSS-仁.md第3節「名不副實」的視覺定位。具體shader參數由整合者調
+        attack_patterns.spawn_phase_attack(p, radical, element, global_position)
+
+    # Phase 1→2、Phase 2→3轉場各觸發一次「賜俸」，用phase-1索引避免重複
+    if p - 1 in [1, 2] and not (p - 1) in shangfeng_done_phases:
+        shangfeng_done_phases.append(p - 1)
+        call_deferred("_trigger_shangfeng")
+
+    # Phase 2.1「命」中途顯現，只在進入Phase 2、且玩家尚未攥緊過的情況下觸發一次
+    if p == 2 and not GameState.has_ever_hoarded:
+        call_deferred("_trigger_ming_appearance")
+
+func _trigger_shangfeng() -> void:
+    dialogue_box.play_choice("boss_ren_shangfeng", [
+        {"id": "greed", "label": "貪（拾取）"},
+        {"id": "fight", "label": "爭（格擋彈反）"},
+        {"id": "release", "label": "棄（不碰）"}
+    ])
+    dialogue_box.choice_made.connect(_on_shangfeng_choice, CONNECT_ONE_SHOT)
+
+func _on_shangfeng_choice(choice_id: String) -> void:
+    match choice_id:
+        "greed":
+            GameState.has_ever_hoarded = true
+            # 立即增益 + 3秒後「人情壓頂」減益，具體buff/debuff數值見docs/BOSS-仁.md「實作備註」
+        "fight":
+            pass  # 精準彈反觸發仁長硬直，傷害倍率提升——具體判定交給bullet.gd的彈反視窗
+        "release":
+            pass  # 純走位閃避，計入「風格分」
+
+func _trigger_ming_appearance() -> void:
+    dialogue_box.play_choice("boss_ren_phase21_ming", [
+        {"id": "catch", "label": "接住"},
+        {"id": "release", "label": "放手"}
+    ])
+    dialogue_box.choice_made.connect(_on_ming_choice, CONNECT_ONE_SHOT)
+
+func _on_ming_choice(choice_id: String) -> void:
+    if choice_id == "catch":
+        GameState.has_ever_hoarded = true
+        # Phase 2剩餘時間傷害+30%/攻速+20%，Phase 3開場自動消散並解除，見docs/BOSS-仁.md「實作備註」
+    # "release"：不做任何事，has_ever_hoarded維持false
+
+func die() -> void:
+    # 覆寫死亡流程：不走Enemy.die()的筆畫崩解特效，改播結局過場
+    var cutscene: CutscenePlayer = get_tree().current_scene.get_node("CutscenePlayer")
+    cutscene.play_ending_zhu_descent()
+    cutscene.cutscene_finished.connect(_on_ending_finished, CONNECT_ONE_SHOT)
+
+func _on_ending_finished() -> void:
+    get_tree().change_scene_to_file("res://scenes/ui/victory_screen.tscn")
+```
+
+**⚠️ 注意：** 上方`GameState.has_ever_hoarded`是一個新的全域旗標讀寫點，需要`GameState`這個autoload存在（可以是擴充既有`SaveSystem`的欄位，也可以是新的極簡autoload，兩種做法都行，但**只能選一種**並在整合時明確記錄選了哪個，避免兩處各自維護一份導致不同步）。本計劃預設走「擴充`SaveSystem`」路線，見Task 6.3的Step 2。
+
+**Step 3:** Boss場景節點結構（`level_05_final_altar.tscn`內的`BossRen`實例）：
+```
+BossRen (CharacterBody2D, script=boss_ren.gd, extends Boss)
+├── HanziLabel (Label, text="仁")
+├── BossAttackPatterns (Node, script=boss_attack_patterns.gd)
+└── CollisionShape2D
+```
+
+**Verify:**
+1. 進場自動播放開場五連頭銜白，播完後Phase 1（水+火雙元素彈幕）自動開始
+2. Phase 1→2轉場觸發「賜俸」三選一，三種選擇分支邏輯正確（貪：增益後3秒減益；爭：彈反後Boss長硬直；棄：無事發生但風格分加成）
+3. 若`has_ever_hoarded`仍為false，進入Phase 2後觸發「命」中途顯現二選一；選「接住」立即強化但鎖定`has_ever_hoarded=true`且Phase 3開場強化消失；選「放手」無變化
+4. Phase 2→3轉場再次觸發「賜俸」
+5. Phase 3為全五行覺醒態，血量歸零後不播放一般的筆畫崩解特效，改為`CutscenePlayer`播放「主」降臨結局過場，過場結束才跳轉victory_screen
 
 ---
 
@@ -1540,7 +1859,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ### Task 6.3: 存檔系統 (SaveSystem)
 
-**Objective:** 記錄當前關卡、存檔點位置、已解鎖武器
+**Objective:** 記錄當前關卡、存檔點位置、已解鎖武器，**以及`has_ever_hoarded`隱藏結局判定旗標**
 
 **Files:**
 - Create: `game/scripts/save_system.gd` (autoload)
@@ -1551,7 +1870,13 @@ extends Node
 
 const SAVE_PATH = "user://savegame.json"
 
+var has_ever_hoarded: bool = false  # 見docs/PROTAGONIST-令.md第5-6節：一旦在「賜俸」選貪/爭，或Boss戰
+                                     # Phase 2.1「命」中途顯現選「接住」，永久標記為true，
+                                     # 隱藏真結局資格自此鎖死；本場作用域內是記憶體變數，
+                                     # 但必須隨save_game()一併寫入存檔，避免中途離線後重開遺失判定
+
 func save_game(data: Dictionary) -> void:
+    data["has_ever_hoarded"] = has_ever_hoarded
     var f = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
     f.store_string(JSON.stringify(data))
 
@@ -1559,14 +1884,22 @@ func load_game() -> Dictionary:
     if not FileAccess.file_exists(SAVE_PATH):
         return {}
     var f = FileAccess.open(SAVE_PATH, FileAccess.READ)
-    return JSON.parse_string(f.get_as_text())
+    var data = JSON.parse_string(f.get_as_text())
+    has_ever_hoarded = data.get("has_ever_hoarded", false)
+    return data
 
 func set_checkpoint(node_path: String, pos: Vector2) -> void:
     var data = load_game()
     data["checkpoint"] = {"path": node_path, "x": pos.x, "y": pos.y}
     data["level"] = LevelManager.current_level_index
     save_game(data)
+
+func mark_hoarded() -> void:
+    has_ever_hoarded = true
+    save_game(load_game())  # 立即持久化，Task 5.4的BossRen在「賜俸」/Phase 2.1選擇後直接呼叫本函式
 ```
+
+**⚠️ 注意：** Task 5.4的`boss_ren.gd`範例程式碼裡寫的是`GameState.has_ever_hoarded = true`，實際整合時請改為`SaveSystem.has_ever_hoarded = true`（或呼叫上面新增的`mark_hoarded()`），本計劃統一走擴充`SaveSystem`這條路線，不新增獨立的`GameState`autoload——`Task 5.4`的程式碼片段是先寫的示意版本，整合時需要對齊成`SaveSystem`。
 
 **Step 2：** 在`project.godot`的`[autoload]`小節**追加**一行（不要覆寫先前已註冊的三項）：
 ```ini
@@ -1577,7 +1910,7 @@ LevelManager="*res://scripts/level_manager.gd"
 SaveSystem="*res://scripts/save_system.gd"
 ```
 
-**Verify:** 存檔點觸發後關閉遊戲重開，從存檔點位置+對應關卡恢復，而非從頭開始
+**Verify:** 存檔點觸發後關閉遊戲重開，從存檔點位置+對應關卡恢復，而非從頭開始；在「賜俸」選擇「貪」後存檔重開，`SaveSystem.has_ever_hoarded`仍為`true`（驗證持久化，不是只在記憶體內生效）
 
 ---
 
@@ -1739,14 +2072,16 @@ git add -A && git commit -m "phase7: steamworks integration, export templates, w
 
 **Step 1:** 製作測試checklist：
 ```
-[ ] 主選單→開始遊戲→關卡1載入正常
+[ ] 主選單→開始遊戲→序章「字界殘頁」載入正常，引路者NPC對話與教學觸發正確
 [ ] 10種武器切換、傷害剋制倍率生效（包含五行剋制的「剋」與「被剋」兩個方向都要試）
 [ ] 20種敵人AI行為符合預期，無卡死/穿牆
-[ ] 4關全部可通關，存檔點正常
-[ ] 3個Boss戰全部可擊敗，3階段轉換正常，血量邊界值不會跳過或重複觸發階段
+[ ] 序章+4關全部可通關，存檔點正常；礦山關部件掉率提升肉眼可辨且無Boss戰觸發
+[ ] 3個一般Boss戰（淼/焱/森）全部可擊敗，3階段轉換正常，血量邊界值不會跳過或重複觸發階段
+[ ] 終極Boss「仁」完整流程：開場五連頭銜白→Phase 1（水+火）→「賜俸」三選一（貪/爭/棄三種分支各測一次）→Phase 2（金+木）→Phase 2.1「命」中途顯現二選一（「接住」與「放手」各測一次，驗證`has_ever_hoarded`旗標正確寫入）→「賜俸」第二次→Phase 3（全五行覺醒態）→擊敗後「主」降臨結局過場正確播放並跳轉victory_screen
+[ ] 隱藏真結局路徑：全程「賜俸」選棄＋Phase 2.1選放手，通關`has_ever_hoarded`應仍為false
 [ ] 暫停選單、武器圖鑑正常開啟關閉
 [ ] 音效/BGM無缺失或報錯
-[ ] 存檔讀取在重啟後正確恢復
+[ ] 存檔讀取在重啟後正確恢復（含`has_ever_hoarded`旗標持久化）
 [ ] Steam連線狀態正常（本地測試環境，steam_appid.txt存在）
 [ ] 子彈命中判定正常（bullet的area_entered訊號已連接，見Task 2.3）
 ```
@@ -1788,6 +2123,8 @@ git tag v0.1.0-milestone-complete
 2. Task 3.4 筆畫崩解特效 — 視覺效果需要人工過目調整引數（飛散速度/碎片數量），不是純程式碼能一次到位的
 3. Task 7.1 Steam App ID — 正式App ID需Steamworks稽核透過後才能拿到，階段七只能用測試ID(480)驗證整合通路，真正上線前需替換
 4. 音效/BGM篩選（Task 6.4）— 免費庫素材質量參差，需要人工試聽挑選，不能完全交給AI自動選擇
+5. **Task 5.4終極Boss「仁」— 本計劃份量最重的單一Task**，涉及對話框架（Task 4.0）、雙元素狀態機、三個敘事分支節點（賜俸x2+Phase 2.1）與結局過場，建議拆成「戰鬥數值/狀態機」「對話資料表」「結局演出」三個可並行的子任務分派給不同subagent，最後由整合者統一組裝，避免單一agent context塞爆
+6. **Task 4.0對話框架是序章與終章共同的阻斷性前置依賴**，若延後開工會連帶卡住序章（Task 4.1a）與終章（Task 4.4/5.4）兩條線，建議在階段四一開工就優先排期
 
 ---
 
@@ -1795,6 +2132,7 @@ git tag v0.1.0-milestone-complete
 
 | 日期 | 變更 |
 |---|---|
+| 2026-07-30 | **隨主線劇情定版（`docs/STORY.md`/`docs/BOSS-仁.md`/`docs/PROTAGONIST-令.md`）同步更新開發計劃**：①階段四新增Task 4.0（對話/演出框架，阻斷性前置依賴）、Task 4.1a（序章「字界殘頁」教程關）、Task 4.4（終章「崩筆祭壇」關卡骨架）；Task 4.2礦山關明確定調為無Boss過渡關，改為稀有部件掉率提升；Task 4.3的LevelManager場景清單擴充為序章+4關+終章共6個場景，並補充終章結局分支不走一般`next_level()`流程的說明。②階段五新增Task 5.4（終極Boss「仁」完整實作：雙元素三階段、開場五連頭銜白、「賜俸」三選一x2、Phase 2.1「命」中途顯現、「主」降臨結局），標註為本計劃份量最重的單一Task；`bosses.json`與「仁」的資料表明確分離，避免schema混用。③Task 6.3的SaveSystem新增`has_ever_hoarded`隱藏結局判定旗標的讀寫與持久化，並註明與Task 5.4範例程式碼的`GameState`命名需在整合時對齊。④Task 8.1測試checklist新增序章教學、礦山關掉率、終Boss「仁」完整流程與隱藏結局路徑的驗收項。⑤執行方式建議新增兩項關鍵風險點（Task 5.4建議拆分並行、Task 4.0是雙向阻斷依賴需優先排期） |
 | 2026-07-26 | 完成Task 2.6最小範圍設計：階段二功能擴充排在Phase 3與4之間；主角音核「令」使用單槽`CORE/FUSED/HELD`，starter recipe只收`雨＋令→零`與8方向水屬環形彈幕，其餘配方延後 |
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
 | 2026-07-26 | 完成Task 2.5場景內武器字形顯示：使用世界座標元件監聽既有武器切換signal，按朝向換側但不鏡像，沿用元素配色並加入可取消的切換動畫；Task 2.6編號保留給部件組字與武器進化，避免顯示功能與玩法資料schema混在同一Task |
