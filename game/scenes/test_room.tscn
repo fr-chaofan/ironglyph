@@ -6,7 +6,7 @@
 ;    直接掛在 Node2D 根節點下的 Control 是**世界座標**，會跟著鏡頭一起捲動，
 ;    而且鏡頭跟隨玩家時會被推到畫面外看不見。CanvasLayer 底下才是螢幕座標。
 
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
@@ -15,6 +15,8 @@
 [ext_resource type="Script" uid="uid://dmnje6w5ovpmr" path="res://scripts/enemy_spawner.gd" id="5_spawner"]
 [ext_resource type="Script" path="res://scripts/component_dropper.gd" id="6_dropper"]
 [ext_resource type="Script" uid="uid://b0impobsbtvvl" path="res://scripts/test_room_controller.gd" id="7_controller"]
+[ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="8_dialogue"]
+[ext_resource type="Script" uid="uid://tpryqay3iiyc" path="res://scripts/cutscene_player.gd" id="9_cutscene"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2400, 80)
@@ -92,7 +94,7 @@ offset_bottom = 40.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 18
-text = "A/D 移動    Space 跳躍(可二段)    J 開火    E 吸收部件    Q 彈出部件"
+text = "A/D 移動  Space 跳躍(可二段)  J 開火  E 吸收部件  Q 彈出部件  ｜ T 對話  Y 三選一  U 終章過場"
 
 [node name="WeaponLabel" type="Label" parent="HUD"]
 offset_left = 16.0
@@ -121,6 +123,12 @@ theme_override_font_sizes/font_size = 18
 text = "（環境資訊）"
 horizontal_alignment = 2
 script = ExtResource("4_info")
+
+[node name="DialogueBox" parent="." instance=ExtResource("8_dialogue")]
+
+[node name="CutscenePlayer" type="Node" parent="."]
+script = ExtResource("9_cutscene")
+dialogue_box_path = NodePath("../DialogueBox")
 
 [node name="EnemySpawners" type="Node2D" parent="."]
 script = ExtResource("6_dropper")
