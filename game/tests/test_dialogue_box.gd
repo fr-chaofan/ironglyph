@@ -32,6 +32,25 @@ func after_each() -> void:
 	get_tree().paused = false
 
 
+## 直接餵事件給 handle_input_event()，不經 Viewport 派送——對話期間整棵樹是暫停的，
+## 等真正的輸入事件走完一輪需要 await 影格，那在暫停狀態下會卡死。
+func _physical_keycode(action: StringName) -> Key:
+	if not InputMap.has_action(action):
+		return KEY_NONE
+	for event: InputEvent in InputMap.action_get_events(action):
+		var key_event := event as InputEventKey
+		if key_event != null:
+			return key_event.physical_keycode
+	return KEY_NONE
+
+
+func _action_event(action: StringName) -> InputEventAction:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	return event
+
+
 func test_三句台詞逐句推進到最後結束() -> void:
 	watch_signals(_box)
 	_box.play("test_dialogue")
@@ -181,6 +200,63 @@ func test_選擇型對話播完台詞才出現選項並送出choice_made() -> vo
 	assert_signal_emitted_with_parameters(_box, "choice_made", ["fight"])
 	assert_signal_emit_count(_box, "dialogue_finished", 1, "選完才算整段結束")
 	assert_false(get_tree().paused)
+
+
+func test_menu_up與menu_down確實綁在W與S() -> void:
+	# `project.godot` 的 [input] 小節是手寫的，事件字串打錯會安靜地變成
+	# 「action 存在但沒綁任何按鍵」——遊戲不報錯，只是按 W/S 沒反應。
+	assert_true(InputMap.has_action(&"menu_up"), "缺少 menu_up action")
+	assert_true(InputMap.has_action(&"menu_down"), "缺少 menu_down action")
+	assert_eq(_physical_keycode(&"menu_up"), KEY_W, "menu_up 應綁在 W")
+	assert_eq(_physical_keycode(&"menu_down"), KEY_S, "menu_down 應綁在 S")
+
+
+func test_W與S移動選項游標() -> void:
+	# 選項是直向清單，主綁定是上下而不是左右。
+	_box.play_lines_with_choice([{"speaker": "", "text": "要接住嗎？"}], CHOICES)
+
+	assert_true(_box.handle_input_event(_action_event(&"menu_down")), "S 應該被對話框吃掉")
+	assert_eq(_box.get_selected_choice_id(), "fight")
+
+	_box.handle_input_event(_action_event(&"menu_down"))
+	assert_eq(_box.get_selected_choice_id(), "release")
+
+	_box.handle_input_event(_action_event(&"menu_up"))
+	assert_eq(_box.get_selected_choice_id(), "fight")
+
+
+func test_A與D仍可移動選項游標() -> void:
+	_box.play_lines_with_choice([{"speaker": "", "text": "要接住嗎？"}], CHOICES)
+
+	_box.handle_input_event(_action_event(&"move_right"))
+	assert_eq(_box.get_selected_choice_id(), "fight")
+
+	_box.handle_input_event(_action_event(&"move_left"))
+	assert_eq(_box.get_selected_choice_id(), "greed")
+
+
+func test_開火鍵在選項狀態下是確認而不是移動() -> void:
+	watch_signals(_box)
+	_box.play_lines_with_choice([{"speaker": "", "text": "要接住嗎？"}], CHOICES)
+
+	_box.handle_input_event(_action_event(&"menu_down"))
+	assert_true(_box.handle_input_event(_action_event(&"fire")))
+
+	assert_signal_emitted_with_parameters(_box, "choice_made", ["fight"])
+	assert_false(_box.is_active())
+
+
+func test_沒有選項時上下鍵不被吃掉() -> void:
+	# 純敘事對話期間 W/S 不該被對話框攔下來，讓未來的其他UI還能用。
+	_box.play("test_dialogue")
+
+	assert_false(_box.handle_input_event(_action_event(&"menu_down")))
+	assert_eq(_box.current_index, 0, "上下鍵不可以推進對話")
+
+
+func test_未播放時輸入完全不處理() -> void:
+	assert_false(_box.handle_input_event(_action_event(&"fire")))
+	assert_false(_box.handle_input_event(_action_event(&"menu_down")))
 
 
 func test_選項游標在頭尾繞回() -> void:

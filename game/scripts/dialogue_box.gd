@@ -35,9 +35,12 @@ const DIALOGUE_DIR := "res://data/dialogue"
 
 ## 推進／確認選項用的 action。沿用開火鍵，不新增按鍵。
 @export var advance_action: StringName = &"fire"
-## 選項左右移動用的 action，同樣沿用既有移動鍵。
-@export var prev_choice_action: StringName = &"move_left"
-@export var next_choice_action: StringName = &"move_right"
+
+## 選項游標往前／往後移動的 action。選項是直向清單，因此主綁定是 W/S
+## （`menu_up`/`menu_down`）；A/D 一併保留，兩種按法都能動。
+## 陣列裡不存在的 action 會被忽略，元件在沒有完整 Input Map 的測試場景也不會報錯。
+@export var prev_choice_actions: Array[StringName] = [&"menu_up", &"move_left"]
+@export var next_choice_actions: Array[StringName] = [&"menu_down", &"move_right"]
 
 @onready var _panel: Control = get_node_or_null(^"Panel") as Control
 @onready var _label: Label = get_node_or_null(^"Panel/Label") as Label
@@ -182,26 +185,39 @@ func get_selected_choice_id() -> String:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _playing:
+	if not handle_input_event(event):
 		return
+	# 對話期間吃掉的按鍵不可以再往下傳——推進鍵同時是開火鍵，最後一句按下去
+	# 會在解除暫停的同一幀打出一發子彈。
+	get_viewport().set_input_as_handled()
+
+
+## 處理一個輸入事件，回傳是否吃掉了它。
+## 抽成公開方法讓測試能直接餵事件，不必經過 Viewport 的事件派送。
+func handle_input_event(event: InputEvent) -> bool:
+	if not _playing:
+		return false
 
 	if not choices.is_empty():
-		if event.is_action_pressed(prev_choice_action):
+		if _is_action_pressed(event, prev_choice_actions):
 			move_choice_cursor(-1)
-			get_viewport().set_input_as_handled()
-			return
-		if event.is_action_pressed(next_choice_action):
+			return true
+		if _is_action_pressed(event, next_choice_actions):
 			move_choice_cursor(1)
-			get_viewport().set_input_as_handled()
-			return
+			return true
 
-	if not event.is_action_pressed(advance_action):
-		return
+	if not _is_action_pressed(event, [advance_action]):
+		return false
 
 	advance()
-	# 對話期間的推進鍵不可以同時觸發開火——最後一句按下去會在解除暫停的
-	# 同一幀打出一發子彈。
-	get_viewport().set_input_as_handled()
+	return true
+
+
+func _is_action_pressed(event: InputEvent, actions: Array[StringName]) -> bool:
+	for action: StringName in actions:
+		if InputMap.has_action(action) and event.is_action_pressed(action):
+			return true
+	return false
 
 
 func _show_next_line() -> void:
@@ -318,7 +334,7 @@ func _update_advance_prompt() -> void:
 	if _advance_prompt == null:
 		return
 	if not choices.is_empty():
-		_advance_prompt.text = "A/D 選擇　　J 確認"
+		_advance_prompt.text = "W/S 選擇　　J 確認"
 	elif _is_last_line() and _pending_choices.is_empty():
 		_advance_prompt.text = "J 結束"
 	else:
