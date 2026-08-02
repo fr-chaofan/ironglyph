@@ -1,0 +1,115 @@
+; 對話框 UI（Task 4.0）。序章教程、Boss開場白、賜俸三選一、終章訓誡共用這一個場景。
+;
+; ⚠️ 根節點是 CanvasLayer：對話框是螢幕座標的 UI，不可以掛成關卡 Node2D 的子節點，
+;    否則會跟著鏡頭捲動。layer 設得比 HUD 高，對話期間必須蓋在血條/提示上面。
+;
+; 節點路徑（Panel/Label、Panel/SpeakerLabel、Panel/ChoiceContainer、Panel/AdvancePrompt）
+; 是 dialogue_box.gd 的 @onready 依賴，改名前先改腳本。
+
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" uid="uid://bkv1ieav1xgnv" path="res://scripts/dialogue_box.gd" id="1_dialogue"]
+[ext_resource type="FontFile" uid="uid://bnwal14xj06d8" path="res://assets/fonts/NotoSansTC-Bold.otf" id="2_font"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 24.0
+content_margin_top = 16.0
+content_margin_right = 24.0
+content_margin_bottom = 16.0
+bg_color = Color(0.06, 0.06, 0.1, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.78, 0.5, 0.8)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="DialogueBox" type="CanvasLayer"]
+layer = 20
+visible = false
+script = ExtResource("1_dialogue")
+
+[node name="Panel" type="Panel" parent="."]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 48.0
+offset_top = -232.0
+offset_right = -48.0
+offset_bottom = -32.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="SpeakerLabel" type="Label" parent="Panel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 10.0
+offset_right = 424.0
+offset_bottom = 52.0
+theme_override_colors/font_color = Color(1, 0.87, 0.45, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.1, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
+theme_override_fonts/font = ExtResource("2_font")
+text = "（說話者）"
+vertical_alignment = 1
+
+[node name="Label" type="Label" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 60.0
+offset_right = -24.0
+offset_bottom = -48.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.1, 1)
+theme_override_constants/line_spacing = 8
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 26
+theme_override_fonts/font = ExtResource("2_font")
+text = "（台詞）"
+autowrap_mode = 3
+
+[node name="ChoiceContainer" type="VBoxContainer" parent="Panel"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 64.0
+offset_top = 100.0
+offset_right = -24.0
+offset_bottom = -48.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="AdvancePrompt" type="Label" parent="Panel"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -44.0
+offset_right = -24.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+modulate = Color(1, 1, 1, 0.7)
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.1, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 18
+theme_override_fonts/font = ExtResource("2_font")
+text = "J 繼續　▼"
+horizontal_alignment = 2
+vertical_alignment = 1

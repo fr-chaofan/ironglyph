@@ -1,0 +1,8 @@
+{
+  "id": "test_dialogue",
+  "lines": [
+    {"speaker": "甲", "text": "第一句"},
+    {"speaker": "乙", "text": "第二句"},
+    {"speaker": "甲", "text": "第三句"}
+  ]
+}

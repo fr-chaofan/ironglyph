@@ -65,6 +65,27 @@ Logic Worker只能修改自己被分派的`.gd`與測試，不能碰上述整合
 `project.godot`。第3.4節「不修改`.tscn` / `project.godot`」的自查項目適用於Logic/Data
 Worker；Integrator在明確列出並獨占上述檔案時，可於同一整合PR完成掛載與Input Map修改。
 
+### 2.2 Task 4.0本PR的Integrator邊界
+
+Task 4.0 產出的是一個**新的**場景檔 `game/scenes/ui/dialogue_box.tscn`（不是修改既有場景），
+新檔案沒有第0節說的合併地獄風險。但本PR同時要把對話框掛進測試場景才有辦法實機驗證，
+因此一樣指定**root agent為唯一Integrator**，獨占以下整合檔：
+
+- `game/scenes/ui/dialogue_box.tscn`（新增）
+- `game/scenes/test_room.tscn`（掛載 DialogueBox / CutscenePlayer、更新HUD提示）
+- `game/project.godot`（**只在 `[input]` 小節追加** `menu_up`(W) / `menu_down`(S) 兩個 action）
+
+`[input]` 是第6節列出最容易互相覆蓋的小節，因此改動範圍刻意壓到最小：
+
+- 對話推進／選項確認沿用既有的 `fire`，選項游標除了新增的 W/S 之外也接受既有的
+  `move_left`/`move_right`，沒有為對話框另外發明一套按鍵。
+- 測試場景的三個除錯捷徑（T/Y/U）用原始 keycode 而非 Input Action——臨時驗證用的按鍵
+  不值得佔用全域 action 命名空間。
+- 追加時只加這兩行，不整段覆寫。
+
+後續 Task 4.1a／4.4／5.4 若需要在正式關卡掛對話框，`dialogue_box.tscn` 直接 instance 即可，
+不需要再改 `project.godot` 或本PR的任何檔案。
+
 ---
 
 ## 3. Git分支與PR流程
@@ -78,6 +99,7 @@ feat/character-core       — 核心角色系統
 feat/weapon-elemental     — 武器與五行系統
 feat/weapon-glyph-display — Task 2.5 場景內武器字形顯示
 feat/task-2.6-glyph-fusion — Task 2.6「令」× 部件vertical slice
+feat/dialogue-framework   — Task 4.0 對話／演出框架
 feat/enemy-ai             — 敵人與AI
 feat/level-system         — 關卡系統
 feat/boss-system          — Boss系統
@@ -190,6 +212,7 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 
 | 日期 | 變更 |
 |---|---|
+| 2026-08-01 | 加入Task 4.0協作邊界（第2.2節）：對話框場景是新增檔案而非修改既有場景，但掛進`test_room.tscn`仍由root獨占；`project.godot`只在`[input]`追加`menu_up`(W)/`menu_down`(S)供直向選項清單使用，其餘推進／選項沿用既有action，測試場景的除錯捷徑改用原始keycode |
 | 2026-07-30 | 新增「對話／演出框架」模組（序章教程NPC、終Boss「仁」開場白/賜俸/Phase 2.1三選一、終章「主」降臨訓誡共用同一套元件），登記`DialogueBox`/`CutscenePlayer`/`BossRen`三個`class_name`；Boss系統模組職責擴充納入終Boss「仁」專屬腳本；UI與存檔模組補充`has_ever_hoarded`隱藏結局旗標職責 |
 | 2026-07-26 | 加入Task 2.6協作邊界：新增音核合體／部件掉落模組與四個`class_name`；本PR由root擔任唯一Integrator並獨占`player.tscn`、`component_pickup.tscn`、`test_room.tscn`與`project.godot` |
 | 2026-07-26 | 加入Task 2.5協作邊界：`weapon_glyph_display.gd`歸武器模組、使用`feat/weapon-glyph-display`分支，並登記`WeaponGlyphDisplay`全域類別名稱；`player.tscn`仍僅能由整合者修改 |

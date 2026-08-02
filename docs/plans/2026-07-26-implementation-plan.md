@@ -1259,6 +1259,45 @@ git add -A && git commit -m "phase3: enemy system, 4 AI behaviors, 20 enemy char
 
 ### Task 4.0: 對話／演出框架（阻斷性前置依賴）
 
+> **✅ 已完成。** 新增29項測試（`test_dialogue_box.gd` / `test_cutscene_player.gd` / `test_dialogue_data.gd`），
+> 全專案累計172項2187個assert全過。實作與下方草稿有六點差異，前兩點是照抄會直接壞掉的：
+>
+> 1. **`DialogueBox` 必須設 `process_mode = PROCESS_MODE_ALWAYS`。** 草稿在 `play()` 裡設
+>    `get_tree().paused = true`，但沒把自己排除在暫停之外——對話框本身跟著停住後，
+>    `_unhandled_input` 收不到推進鍵、打字機也不會跑，遊戲會**永久卡死在第一句對話**，
+>    只能關掉重開。這是照抄草稿必踩的第一個坑。
+> 2. **結束時還原成播放前的暫停狀態，而不是無條件 `paused = false`。** 階段六的暫停選單
+>    若在暫停中觸發對話（例如選單裡看圖鑑說明），草稿的寫法會把暫停選單一起解除。
+> 3. **補上草稿 Step 2 文字有寫、程式碼卻沒實作的打字機**，並定義「打字未完成時按推進鍵
+>    只補完整句、不換句」的兩段式行為。推進時會 `set_input_as_handled()`——否則最後一句
+>    按下去會在解除暫停的同一幀順便開一槍。
+> 4. **選項UI做成可直接用的最小版本**（W/S 移游標、J 確認）。草稿把選項UI整個留給Task 5.4
+>    決定，但資料流沒有可執行的參考實作等於還是得重寫一次；這裡先做出來，Task 5.4 只需要改視覺。
+>    ⚠️ 選項是**直向清單**，實機驗證後確認上下鍵才是直覺綁定，因此在 `project.godot` 的
+>    `[input]` 新增了 `menu_up`(W) / `menu_down`(S) 兩個 action——這是本PR唯一改動
+>    `project.godot` 的地方，見 `COLLABORATION.md` 第2.2節。原本的 A/D（`move_left`/
+>    `move_right`）一併保留，兩種按法都能動。推進／確認仍沿用 `fire`，不另外綁鍵。
+>    `[input]` 是手寫的，事件字串打錯會安靜地變成「action存在但沒綁任何按鍵」，
+>    因此 `test_dialogue_box.gd` 直接斷言 `menu_up`/`menu_down` 的 physical keycode 是 W/S。
+> 5. **`CutscenePlayer` 改成「步驟資料 + cue signal」而不是一堆 `play_xxx()` 硬編函式。**
+>    過場用 `[{"type":"dialogue"},{"type":"wait"},{"type":"signal"}]` 描述時序，特效由關卡端
+>    接 `cue` 掛上——演出框架不認得任何特效，Task 4.4/5.4 的白光與筆畫反向崩解才不會反過來
+>    寫死在框架裡。`play_ending_zhu_descent()` 保留為這套步驟資料的一個組合。
+>    ⚠️ 對話缺檔時 `dialogue_finished` 是**同步**送出的，過場若無條件 `await` 那個 signal 會
+>    永遠等下去，因此 await 前一律先問 `is_active()`。
+> 6. **台詞資料表加了CI檢查**（`test_dialogue_data.gd`）：schema、id與檔名一致、字型字形涵蓋、
+>    簡體字偵測。台詞是純資料且多人並行編輯，缺字形只會安靜地顯示成豆腐方框、簡體字則完全
+>    不會報錯（GDD第0節語言規範），這兩種錯不在CI擋就只能等實機肉眼抓。
+>
+> **手動驗證入口：** `test_room.tscn` 已掛上 `DialogueBox` + `CutscenePlayer`，F5後按
+> **T**（播「仁」的開場七句）、**Y**（同一段台詞＋貪/爭/棄三選一，選擇結果會印在左上HUD）、
+> **U**（終章「主」降臨過場：降光cue → 1秒停頓 → 訓誡台詞 → 收尾cue）。
+> 這三個是測試場景的除錯捷徑，用原始keycode而非Input Action，正式觸發點在Task 4.1a與5.4。
+>
+> **本Task的台詞資料只放了 `boss_ren_intro.json` 與 `ending_zhu_descent.json`**（草稿Step 1
+> 的範例本身就是仁的開場白）；序章的 `prologue_awakening` / `prologue_guide_tutorial` 屬於
+> Task 4.1a的檔案清單，不在這裡預先建立。
+
 **Objective:** 建立一套可供序章教程NPC、Boss開場白、「賜俸」三選一、終章「主」降臨訓誡共用的最小對話/過場系統。這是純UI+資料驅動元件，不含關卡/Boss邏輯本身。
 
 **為什麼是阻斷性前置依賴：** 序章教程需要NPC對話框，終Boss「仁」的開場五連頭銜白、Phase 2.1「命」的接住/放手二選一、「賜俸」貪/爭/棄三選一、終章「主」的訓誡台詞，全部要用同一套元件，不應該讓每個Task各自兜一套簡陋的Label顯示邏輯。
@@ -2132,6 +2171,7 @@ git tag v0.1.0-milestone-complete
 
 | 日期 | 變更 |
 |---|---|
+| 2026-08-01 | Task 4.0（對話／演出框架）完成。**草稿的 `DialogueBox` 有一個會讓遊戲永久卡死的錯誤**：`play()` 暫停整棵樹卻沒把對話框自己設成 `PROCESS_MODE_ALWAYS`，推進鍵與打字機跟著停擺，第一句話之後就再也動不了；另補上「結束時還原原本的暫停狀態」避免解除階段六的暫停選單。實作上補齊草稿只寫在文字裡的打字機（含「先補完整句、再換句」兩段式推進）、做出可直接用的選項UI（W/S移游標、J確認；選項是直向清單，實機驗證後新增`menu_up`/`menu_down`兩個action，A/D一併保留），並把 `CutscenePlayer` 從硬編函式改為「步驟資料＋cue signal」——特效由關卡端接cue，Task 4.4/5.4的白光與筆畫反向崩解不會反過來寫死進框架。新增 `test_dialogue_data.gd` 把台詞的schema／字型字形涵蓋／簡體字擋在CI（缺字形只會安靜顯示成豆腐方框，簡體字完全不報錯）。`test_room.tscn` 加上 T/Y/U 三個除錯捷徑供實機驗證 |
 | 2026-07-30 | **隨主線劇情定版（`docs/STORY.md`/`docs/BOSS-仁.md`/`docs/PROTAGONIST-令.md`）同步更新開發計劃**：①階段四新增Task 4.0（對話/演出框架，阻斷性前置依賴）、Task 4.1a（序章「字界殘頁」教程關）、Task 4.4（終章「崩筆祭壇」關卡骨架）；Task 4.2礦山關明確定調為無Boss過渡關，改為稀有部件掉率提升；Task 4.3的LevelManager場景清單擴充為序章+4關+終章共6個場景，並補充終章結局分支不走一般`next_level()`流程的說明。②階段五新增Task 5.4（終極Boss「仁」完整實作：雙元素三階段、開場五連頭銜白、「賜俸」三選一x2、Phase 2.1「命」中途顯現、「主」降臨結局），標註為本計劃份量最重的單一Task；`bosses.json`與「仁」的資料表明確分離，避免schema混用。③Task 6.3的SaveSystem新增`has_ever_hoarded`隱藏結局判定旗標的讀寫與持久化，並註明與Task 5.4範例程式碼的`GameState`命名需在整合時對齊。④Task 8.1測試checklist新增序章教學、礦山關掉率、終Boss「仁」完整流程與隱藏結局路徑的驗收項。⑤執行方式建議新增兩項關鍵風險點（Task 5.4建議拆分並行、Task 4.0是雙向阻斷依賴需優先排期） |
 | 2026-07-26 | 完成Task 2.6最小範圍設計：階段二功能擴充排在Phase 3與4之間；主角音核「令」使用單槽`CORE/FUSED/HELD`，starter recipe只收`雨＋令→零`與8方向水屬環形彈幕，其餘配方延後 |
 | 2026-07-26 | 完成詳細實施計劃，共8個階段/33個Task，覆蓋核心系統到Steam打包全流程 |
