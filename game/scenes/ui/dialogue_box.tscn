@@ -9,7 +9,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" uid="uid://bkv1ieav1xgnv" path="res://scripts/dialogue_box.gd" id="1_dialogue"]
-[ext_resource type="FontFile" uid="uid://bnwal14xj06d8" path="res://assets/fonts/NotoSansTC-Bold.otf" id="2_font"]
+[ext_resource type="FontFile" uid="uid://147hwlqef2e7" path="res://assets/fonts/LXGWWenKaiTC-Regular.ttf" id="2_font"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 content_margin_left = 24.0

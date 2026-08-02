@@ -1,13 +1,16 @@
 ## 字型字形涵蓋檢查
 ##
-## 專案用的是 Noto Sans TC 的**繁中子集版**（5.6MB，非17MB全CJK版）。
-## 子集版少了一些罕用字符——例如金部的偏旁形「釒」(U+91D2)就不在裡面。
-## 缺字形時 Godot 不會報錯，只會畫出一個空的豆腐方框，很容易到了實機才發現。
+## 專案用的是**霞鶩文楷 TC**（LXGW WenKai TC，SIL OFL，可商用）——楷書筆形，
+## 為了水墨風格從 Noto Sans TC（黑體）換過來。
+##
+## 換字型是零缺字風險最高的一種改動：缺字形時 Godot **不會報錯**，
+## 只會畫出一個空的豆腐方框，很容易到了實機才發現。舊字型就曾經因為是繁中子集版，
+## 少了金部的偏旁形「釒」(U+91D2)。這支測試就是為了讓這種問題在 CI 就擋下來。
 ##
 ## 這裡把所有會被顯示出來的字都掃一遍，讓缺字形在CI就擋下來。
 extends GutTest
 
-const FONT_PATH := "res://assets/fonts/NotoSansTC-Bold.otf"
+const FONT_PATH := "res://assets/fonts/LXGWWenKaiTC-Regular.ttf"
 const FusionResolverScript := preload("res://scripts/fusion_resolver.gd")
 
 var _font: FontFile

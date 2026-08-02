@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cm3jrbidhek4r" path="res://scripts/training_dummy.gd" id="1_dummy"]
 [ext_resource type="Script" uid="uid://dwrdgxfkig3ny" path="res://scripts/hanzi_sprite.gd" id="2_hanzi"]
-[ext_resource type="FontFile" uid="uid://bnwal14xj06d8" path="res://assets/fonts/NotoSansTC-Bold.otf" id="3_font"]
+[ext_resource type="FontFile" uid="uid://147hwlqef2e7" path="res://assets/fonts/LXGWWenKaiTC-Regular.ttf" id="3_font"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dummy"]
 size = Vector2(52, 64)
@@ -22,7 +22,7 @@ offset_top = -38.0
 offset_right = 32.0
 offset_bottom = 38.0
 theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.1, 1)
-theme_override_constants/outline_size = 8
+theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 64
 theme_override_fonts/font = ExtResource("3_font")
 text = "焰"

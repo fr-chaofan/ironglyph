@@ -8,7 +8,7 @@
 extends GutTest
 
 const DIALOGUE_DIR := "res://data/dialogue"
-const FONT_PATH := "res://assets/fonts/NotoSansTC-Bold.otf"
+const FONT_PATH := "res://assets/fonts/LXGWWenKaiTC-Regular.ttf"
 
 ## 只列**簡體專有**的字形（繁體正字另有寫法），共用字不列，避免誤判。
 const SIMPLIFIED_CHARS := [
