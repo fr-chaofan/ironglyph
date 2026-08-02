@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" uid="uid://cyliks7w27tii" path="res://scripts/enemy.gd" id="1_enemy"]
 [ext_resource type="Script" uid="uid://dwrdgxfkig3ny" path="res://scripts/hanzi_sprite.gd" id="2_hanzi"]
 [ext_resource type="FontFile" uid="uid://bnwal14xj06d8" path="res://assets/fonts/NotoSansTC-Bold.otf" id="3_font"]
+[ext_resource type="Script" uid="uid://dmjhw3k3007xg" path="res://scripts/melee_attack.gd" id="4_melee"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_enemy"]
 size = Vector2(52, 64)
@@ -29,3 +30,10 @@ horizontal_alignment = 1
 vertical_alignment = 1
 script = ExtResource("2_hanzi")
 character_text = "敵"
+
+[node name="MeleeAttack" type="Node2D" parent="."]
+script = ExtResource("4_melee")
+target_mask = 2
+block_mask = 0
+can_interrupt = false
+marks_melee_hits = false

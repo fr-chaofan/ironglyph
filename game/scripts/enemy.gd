@@ -12,6 +12,9 @@ extends Character
 signal defeated(enemy: Enemy)
 
 @onready var hanzi_sprite: HanziSprite = $HanziSprite
+## Task 2.7d：敵人的近戰揮擊。與玩家共用同一個 MeleeAttack 元件，
+## 只有 mask 與 profile 不同（敵人不消彈、不打斷）。
+@onready var melee_attack: MeleeAttack = get_node_or_null(^"MeleeAttack") as MeleeAttack
 
 @export var ai_type: String = "patrol_ranged"
 @export var char_data: Dictionary = {}
@@ -19,12 +22,21 @@ signal defeated(enemy: Enemy)
 ## 接觸傷害的冷卻（秒），避免貼身時每一物理幀都扣血
 @export var touch_damage_cooldown: float = 0.8
 
+## 前搖時字形往攻擊方向傾斜的角度（弧度）
+const TELEGRAPH_TILT := 0.32
+## 前搖的染色。與 stationary_aoe 的蓄力色一致，玩家只要學一次「橙色＝要出招了」。
+const TELEGRAPH_COLOR := Color(1.0, 0.45, 0.25)
+
 var _touch_cooldown_left: float = 0.0
 var _ai: Node = null
+var _telegraph_tween: Tween
 
 
 func _ready() -> void:
 	super()
+	if melee_attack != null:
+		melee_attack.swing_started.connect(_on_swing_started)
+		melee_attack.swing_finished.connect(_on_swing_finished)
 	if not char_data.is_empty():
 		_apply_data()
 
@@ -88,6 +100,11 @@ func _physics_process(delta: float) -> void:
 ## 貼到玩家身上就造成傷害。用 move_and_slide 的碰撞結果判定，
 ## 不必額外掛 Area2D。
 func _check_touch_damage() -> void:
+	# 有自己揮擊的敵人不再造成接觸傷害（Task 2.7d）。
+	# 既然預兆可讀，接觸傷害只會變成「讀對了預兆卻還是被蹭到血」的噪音。
+	# patrol_ranged 與 stationary_aoe 保留接觸傷害，作為玩家貼臉貼太久的反制。
+	if has_own_melee():
+		return
 	if _touch_cooldown_left > 0.0:
 		return
 	for i in get_slide_collision_count():
@@ -100,6 +117,50 @@ func _check_touch_damage() -> void:
 
 func get_contact_damage() -> int:
 	return int(char_data.get("damage", 5))
+
+
+## 這隻敵人是否有自己的揮擊（而不是靠接觸傷害）。
+func has_own_melee() -> bool:
+	if melee_attack == null or not is_instance_valid(melee_attack):
+		return false
+	return typeof(char_data.get("melee", null)) == TYPE_DICTIONARY
+
+
+## 揮擊前搖的視覺預兆：字形往攻擊方向**傾斜**並染色。
+##
+## ⚠️ 用 rotation 而不是負的 scale.x。漢字水平鏡像後會變成無法辨識的反字，
+## 這是全專案的鐵律（見 hanzi_sprite.gd）。傾斜是旋轉，不違反。
+##
+## ⚠️ 染色用 self_modulate：flash_hit() 受擊閃紅用的是 modulate，
+## 共用同一個屬性的話，前搖中被打一下就會互相把對方的 tween 蓋掉。
+func _on_swing_started(profile: Dictionary, _downward: bool) -> void:
+	if hanzi_sprite == null or not is_instance_valid(hanzi_sprite):
+		return
+
+	_kill_telegraph_tween()
+	var windup := maxf(0.05, float(profile.get("windup", 0.3)))
+	var tilt := TELEGRAPH_TILT * melee_attack.facing
+
+	_telegraph_tween = hanzi_sprite.create_tween()
+	_telegraph_tween.tween_property(hanzi_sprite, "rotation", tilt, windup)
+	_telegraph_tween.parallel().tween_property(
+		hanzi_sprite, "self_modulate", TELEGRAPH_COLOR, windup
+	)
+
+
+func _on_swing_finished() -> void:
+	_kill_telegraph_tween()
+	if hanzi_sprite == null or not is_instance_valid(hanzi_sprite):
+		return
+	_telegraph_tween = hanzi_sprite.create_tween()
+	_telegraph_tween.tween_property(hanzi_sprite, "rotation", 0.0, 0.12)
+	_telegraph_tween.parallel().tween_property(hanzi_sprite, "self_modulate", Color.WHITE, 0.12)
+
+
+func _kill_telegraph_tween() -> void:
+	if _telegraph_tween != null and _telegraph_tween.is_valid():
+		_telegraph_tween.kill()
+	_telegraph_tween = null
 
 
 ## 被近戰打斷蓄力（Task 2.7c）。回傳是否真的打斷了什麼。
@@ -133,6 +194,10 @@ func take_damage(amount: int, attacker_element: String) -> void:
 
 
 func die() -> void:
+	# 死亡當幀若正在揮擊，判定框必須立刻失效——否則屍體還會再打出一下
+	if melee_attack != null and is_instance_valid(melee_attack):
+		melee_attack.cancel()
+	_kill_telegraph_tween()
 	defeated.emit(self)
 	died.emit()
 	# 死亡視覺統一交給筆畫崩解；shatter_and_die() 內部會 queue_free 掉 HanziSprite，

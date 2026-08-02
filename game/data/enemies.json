@@ -1,22 +1,230 @@
 [
-  {"char":"河","element":"water","ai":"patrol_ranged","hp":30,"damage":8,"speed":80,"drop_component_id":"water"},
-  {"char":"海","element":"water","ai":"chase_melee","hp":45,"damage":12,"speed":60,"drop_component_id":"water"},
-  {"char":"湖","element":"water","ai":"patrol_ranged","hp":25,"damage":6,"speed":90,"drop_component_id":"water"},
-  {"char":"雨","element":"water","ai":"stationary_aoe","hp":20,"damage":10,"speed":0,"drop_component_id":"rain"},
-  {"char":"焰","element":"fire","ai":"chase_melee","hp":35,"damage":14,"speed":100,"drop_component_id":"fire"},
-  {"char":"炎","element":"fire","ai":"patrol_ranged","hp":30,"damage":10,"speed":70,"drop_component_id":"fire"},
-  {"char":"灶","element":"fire","ai":"stationary_aoe","hp":40,"damage":16,"speed":0,"drop_component_id":"fire"},
-  {"char":"焚","element":"fire","ai":"chase_melee","hp":38,"damage":13,"speed":95,"drop_component_id":"fire"},
-  {"char":"鋼","element":"metal","ai":"patrol_ranged","hp":50,"damage":15,"speed":50,"drop_component_id":"metal"},
-  {"char":"針","element":"metal","ai":"chase_melee","hp":22,"damage":9,"speed":130,"drop_component_id":"metal"},
-  {"char":"劍","element":"metal","ai":"chase_melee","hp":40,"damage":18,"speed":110,"drop_component_id":"blade"},
-  {"char":"錘","element":"metal","ai":"stationary_aoe","hp":60,"damage":20,"speed":0,"drop_component_id":"metal"},
-  {"char":"樹","element":"wood","ai":"stationary_aoe","hp":55,"damage":11,"speed":0,"drop_component_id":"wood"},
-  {"char":"藤","element":"wood","ai":"patrol_ranged","hp":28,"damage":8,"speed":75,"drop_component_id":"grass"},
-  {"char":"森","element":"wood","ai":"chase_melee","hp":48,"damage":14,"speed":65,"drop_component_id":"wood"},
-  {"char":"林","element":"wood","ai":"patrol_ranged","hp":26,"damage":7,"speed":80,"drop_component_id":"wood"},
-  {"char":"巖","element":"earth","ai":"stationary_aoe","hp":65,"damage":19,"speed":0,"drop_component_id":"mountain"},
-  {"char":"石","element":"earth","ai":"chase_melee","hp":30,"damage":12,"speed":55,"drop_component_id":"stone"},
-  {"char":"山","element":"earth","ai":"patrol_ranged","hp":42,"damage":13,"speed":45,"drop_component_id":"mountain"},
-  {"char":"塵","element":"earth","ai":"chase_melee","hp":20,"damage":6,"speed":140,"drop_component_id":"earth"}
+  {
+    "char": "河",
+    "element": "water",
+    "ai": "patrol_ranged",
+    "hp": 30,
+    "damage": 8,
+    "speed": 80,
+    "drop_component_id": "water"
+  },
+  {
+    "char": "海",
+    "element": "water",
+    "ai": "chase_melee",
+    "hp": 45,
+    "damage": 12,
+    "speed": 60,
+    "drop_component_id": "water",
+    "melee": {
+      "windup": 0.3,
+      "active": 0.12,
+      "recovery": 0.35,
+      "reach": 58
+    }
+  },
+  {
+    "char": "湖",
+    "element": "water",
+    "ai": "patrol_ranged",
+    "hp": 25,
+    "damage": 6,
+    "speed": 90,
+    "drop_component_id": "water"
+  },
+  {
+    "char": "雨",
+    "element": "water",
+    "ai": "stationary_aoe",
+    "hp": 20,
+    "damage": 10,
+    "speed": 0,
+    "drop_component_id": "rain"
+  },
+  {
+    "char": "焰",
+    "element": "fire",
+    "ai": "chase_melee",
+    "hp": 35,
+    "damage": 14,
+    "speed": 100,
+    "drop_component_id": "fire",
+    "melee": {
+      "windup": 0.28,
+      "active": 0.12,
+      "recovery": 0.3,
+      "reach": 58
+    }
+  },
+  {
+    "char": "炎",
+    "element": "fire",
+    "ai": "patrol_ranged",
+    "hp": 30,
+    "damage": 10,
+    "speed": 70,
+    "drop_component_id": "fire"
+  },
+  {
+    "char": "灶",
+    "element": "fire",
+    "ai": "stationary_aoe",
+    "hp": 40,
+    "damage": 16,
+    "speed": 0,
+    "drop_component_id": "fire"
+  },
+  {
+    "char": "焚",
+    "element": "fire",
+    "ai": "chase_melee",
+    "hp": 38,
+    "damage": 13,
+    "speed": 95,
+    "drop_component_id": "fire",
+    "melee": {
+      "windup": 0.32,
+      "active": 0.12,
+      "recovery": 0.35,
+      "reach": 58
+    }
+  },
+  {
+    "char": "鋼",
+    "element": "metal",
+    "ai": "patrol_ranged",
+    "hp": 50,
+    "damage": 15,
+    "speed": 50,
+    "drop_component_id": "metal"
+  },
+  {
+    "char": "針",
+    "element": "metal",
+    "ai": "chase_melee",
+    "hp": 22,
+    "damage": 9,
+    "speed": 130,
+    "drop_component_id": "metal",
+    "melee": {
+      "windup": 0.18,
+      "active": 0.12,
+      "recovery": 0.2,
+      "reach": 58
+    }
+  },
+  {
+    "char": "劍",
+    "element": "metal",
+    "ai": "chase_melee",
+    "hp": 40,
+    "damage": 18,
+    "speed": 110,
+    "drop_component_id": "blade",
+    "melee": {
+      "windup": 0.45,
+      "active": 0.12,
+      "recovery": 0.55,
+      "reach": 58
+    }
+  },
+  {
+    "char": "錘",
+    "element": "metal",
+    "ai": "stationary_aoe",
+    "hp": 60,
+    "damage": 20,
+    "speed": 0,
+    "drop_component_id": "metal"
+  },
+  {
+    "char": "樹",
+    "element": "wood",
+    "ai": "stationary_aoe",
+    "hp": 55,
+    "damage": 11,
+    "speed": 0,
+    "drop_component_id": "wood"
+  },
+  {
+    "char": "藤",
+    "element": "wood",
+    "ai": "patrol_ranged",
+    "hp": 28,
+    "damage": 8,
+    "speed": 75,
+    "drop_component_id": "grass"
+  },
+  {
+    "char": "森",
+    "element": "wood",
+    "ai": "chase_melee",
+    "hp": 48,
+    "damage": 14,
+    "speed": 65,
+    "drop_component_id": "wood",
+    "melee": {
+      "windup": 0.38,
+      "active": 0.12,
+      "recovery": 0.42,
+      "reach": 58
+    }
+  },
+  {
+    "char": "林",
+    "element": "wood",
+    "ai": "patrol_ranged",
+    "hp": 26,
+    "damage": 7,
+    "speed": 80,
+    "drop_component_id": "wood"
+  },
+  {
+    "char": "巖",
+    "element": "earth",
+    "ai": "stationary_aoe",
+    "hp": 65,
+    "damage": 19,
+    "speed": 0,
+    "drop_component_id": "mountain"
+  },
+  {
+    "char": "石",
+    "element": "earth",
+    "ai": "chase_melee",
+    "hp": 30,
+    "damage": 12,
+    "speed": 55,
+    "drop_component_id": "stone",
+    "melee": {
+      "windup": 0.4,
+      "active": 0.12,
+      "recovery": 0.45,
+      "reach": 58
+    }
+  },
+  {
+    "char": "山",
+    "element": "earth",
+    "ai": "patrol_ranged",
+    "hp": 42,
+    "damage": 13,
+    "speed": 45,
+    "drop_component_id": "mountain"
+  },
+  {
+    "char": "塵",
+    "element": "earth",
+    "ai": "chase_melee",
+    "hp": 20,
+    "damage": 6,
+    "speed": 140,
+    "drop_component_id": "earth",
+    "melee": {
+      "windup": 0.15,
+      "active": 0.12,
+      "recovery": 0.18,
+      "reach": 58
+    }
+  }
 ]
