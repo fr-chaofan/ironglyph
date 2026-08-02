@@ -7,6 +7,8 @@ extends SceneTree
 var _frames_left: int = 45
 var _out_path: String = "res://_shot.png"
 var _done: bool = false
+var _region := Rect2i()
+var _zoom: int = 1
 
 
 func _initialize() -> void:
@@ -18,6 +20,15 @@ func _initialize() -> void:
 			_out_path = arg.trim_prefix("out=")
 		elif arg.begins_with("frames="):
 			_frames_left = int(arg.trim_prefix("frames="))
+		elif arg.begins_with("region="):
+			# region=x,y,w,h — 裁一塊出來，方便看細節
+			var parts := arg.trim_prefix("region=").split(",")
+			if parts.size() == 4:
+				_region = Rect2i(
+					int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3])
+				)
+		elif arg.begins_with("zoom="):
+			_zoom = int(arg.trim_prefix("zoom="))
 
 	print("screenshot: loading ", target)
 	var packed := load(target) as PackedScene
@@ -41,6 +52,14 @@ func _process(_delta: float) -> bool:
 	if image == null:
 		printerr("拿不到 viewport 影像")
 		return true
+
+	if _region.size.x > 0 and _region.size.y > 0:
+		image = image.get_region(_region)
+	if _zoom > 1:
+		# 最近鄰放大，看得清像素邊界
+		image.resize(
+			image.get_width() * _zoom, image.get_height() * _zoom, Image.INTERPOLATE_NEAREST
+		)
 	var error := image.save_png(_out_path)
 	print("screenshot: saved %s size=%s err=%d" % [_out_path, image.get_size(), error])
 	return true

@@ -45,6 +45,14 @@ const INK_COMPARISON_VALUES := [1.0, 0.9, 0.78, 0.65]
 const BulletScene := preload("res://scenes/projectiles/bullet_base.tscn")
 const LANE_LENGTH := 300.0
 
+## 揮擊方向對照：平揮／上挑／下劈 × 面向右／面向左。
+## 上挑一度打在正頭頂又不分左右，看起來與角色朝向脫節——這排就是拿來驗這件事的。
+const SWING_MODES := [
+	{"label": "平揮 K", "vertical": 0},
+	{"label": "上挑 W+K", "vertical": -1},
+	{"label": "下劈 S+K", "vertical": 1},
+]
+
 ## 內容四周留白，避免貼著畫面邊緣
 const CONTENT_MARGIN := 90.0
 
@@ -52,6 +60,8 @@ var _slots: Array[Node2D] = []
 ## 每一塊內容的中心與半徑，用來算鏡頭要拉多遠
 var _content_extents: Array[Rect2] = []
 var _lane_root: Node2D
+var _swing_root: Node2D
+var _swing_slots: Array[Node2D] = []
 
 
 func _ready() -> void:
@@ -59,6 +69,7 @@ func _ready() -> void:
 	_build_glyph_samples()
 	_build_ink_comparison()
 	_build_projectile_lanes()
+	_build_swing_directions()
 	_fit_camera()
 	_loop()
 
@@ -273,6 +284,88 @@ func _build_projectile_lanes() -> void:
 	)
 
 
+## 揮擊方向對照排
+func _build_swing_directions() -> void:
+	var font: FontFile = load(FONT_PATH)
+	_swing_root = Node2D.new()
+	_swing_root.position = Vector2(520.0, row_spacing * 1.25 + 60.0)
+	add_child(_swing_root)
+
+	var title := Label.new()
+	title.text = "揮擊方向（上排面向右／下排面向左）"
+	title.add_theme_font_override(&"font", font)
+	title.add_theme_font_size_override(&"font_size", 18)
+	title.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
+	title.size = Vector2(420, 24)
+	title.position = Vector2(-120.0, -120.0)
+	_swing_root.add_child(title)
+
+	for i in SWING_MODES.size():
+		for row in 2:
+			var slot := Node2D.new()
+			slot.position = Vector2(float(i) * 190.0, float(row) * 200.0)
+			_swing_root.add_child(slot)
+			_swing_slots.append(slot)
+
+			var glyph := HanziSprite.new()
+			glyph.add_theme_font_override(&"font", font)
+			glyph.add_theme_font_size_override(&"font_size", 56)
+			glyph.add_theme_color_override(&"font_color", Palette.ink())
+			glyph.size = Vector2(56, 66)
+			glyph.position = Vector2(-28, -33)
+			slot.add_child(glyph)
+			glyph.character_text = "令"
+
+			if row == 0:
+				var caption := Label.new()
+				caption.text = String(SWING_MODES[i]["label"])
+				caption.add_theme_font_override(&"font", font)
+				caption.add_theme_font_size_override(&"font_size", 16)
+				caption.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
+				caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				caption.size = Vector2(160, 22)
+				caption.position = Vector2(-80.0, -84.0)
+				slot.add_child(caption)
+
+	_register_extent(
+		_swing_root.position + Vector2(190.0, 100.0),
+		Vector2(300.0, 220.0)
+	)
+
+
+func _swing_directions() -> void:
+	for i in SWING_MODES.size():
+		for row in 2:
+			var index := i * 2 + row
+			if index >= _swing_slots.size():
+				continue
+			var facing := 1.0 if row == 0 else -1.0
+			var vertical := int(SWING_MODES[i]["vertical"])
+			# ⚠️ 偏移要用遊戲裡真正的判定框位置，不能傳 Vector2.ZERO。
+			# 傳零的話弧線畫在字的正中央，看不出「上挑其實在斜前上方」——
+			# 這排對照就白做了。
+			MeleeArc.spawn(
+				_swing_slots[index], _hitbox_offset(vertical, facing), facing, "令",
+				Palette.ink(), 0.55, 70.0, vertical, "neutral"
+			)
+
+
+## 與 MeleeAttack.get_hitbox_offset() 同一份資料，避免對照排與遊戲不一致
+func _hitbox_offset(vertical: int, facing: float) -> Vector2:
+	match vertical:
+		1:
+			return Vector2(0.0, float(MeleeAttack.get_pogo_settings().get("offset", 52.0)))
+		-1:
+			var upper := MeleeAttack.get_uppercut_settings()
+			return Vector2(
+				float(upper.get("offset_forward", 42.0)) * facing,
+				-float(upper.get("offset_up", 46.0))
+			)
+		_:
+			var profile := MeleeAttack.get_profile("ling_slash")
+			return Vector2(float(profile.get("reach", 58.0)) * facing, 0.0)
+
+
 func _fire_lane(index: int) -> void:
 	if _lane_root == null or not is_instance_valid(_lane_root):
 		return
@@ -295,6 +388,7 @@ func _loop() -> void:
 		# 齊射排在最前面：子彈飛得比揮擊久，先放才能在畫面上與刀氣同時看到
 		for i in ELEMENTS.size():
 			_fire_lane(i)
+		_swing_directions()
 		for i in ELEMENTS.size():
 			if not is_inside_tree():
 				return

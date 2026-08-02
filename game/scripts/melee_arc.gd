@@ -23,8 +23,13 @@ extends Line2D
 const DATA_PATH := "res://data/element_vfx.json"
 ## Make Me a Hanzi 的字身框大小；y 軸朝上，與螢幕相反
 const _EM_SIZE := 1024.0
-## 揮擊掃過的角度（弧度）
+## 平揮／下劈掃過的角度（弧度）
 const _SWEEP := deg_to_rad(110.0)
+## 上挑掃過的角度。比平揮窄，這樣整段弧線才留在斜前上方那一區，
+## 不會掃過頭跑到反方向去。
+const _SWEEP_UP := deg_to_rad(80.0)
+## 上挑弧線的中心方向（斜前上方）
+const _UP_ANGLE := deg_to_rad(-50.0)
 ## 造型取樣點數。太少折線感明顯，太多沒有視覺差別只是浪費。
 const _SAMPLES := 24
 
@@ -369,27 +374,43 @@ static func _deterministic_noise(index: int, salt: int) -> float:
 
 
 func _animate(facing: float, duration: float, vertical: int) -> void:
-	# 下劈往下掃、上挑往上掃、平揮水平掃
-	var base_angle := PI * 0.5 * float(vertical)
+	var sign_facing := signf(facing)
+	if is_zero_approx(sign_facing):
+		sign_facing = 1.0
+
 	# 往左揮時鏡像的是**軌跡**不是字形本身，不違反「漢字不可水平鏡像」的鐵律——
-	# 這裡畫的是一道揮擊光跡，不是要讓玩家讀出是哪個字
-	scale.x = facing if vertical == 0 else 1.0
+	# 這裡畫的是一道揮擊光跡，不是要讓玩家讀出是哪個字。
+	# ⚠️ 下劈是左右橫掃、與朝向無關，所以不鏡像；平揮與上挑都要跟著朝向。
+	scale.x = 1.0 if vertical == 1 else sign_facing
+
+	# 三種揮法的弧線中心與掃描寬度
+	var base_angle := 0.0
+	var sweep := _SWEEP
+	if vertical == 1:
+		base_angle = PI * 0.5
+	elif vertical == -1:
+		# 斜前上方。鏡像會把角度一起翻掉，所以基準角要跟著朝向變號
+		base_angle = _UP_ANGLE * sign_facing
+		sweep = _SWEEP_UP
 
 	# ⚠️ **鏡像的同時，掃描方向也必須跟著反過來。**
 	# 螢幕 y 軸朝下，所以角度由負掃到正 = 由上往下劈。形狀被 scale.x = -1 鏡像後，
 	# 同一組角度序列會變成由下往上「撩」——看起來就不是劈了。
 	# 只翻形狀不翻掃描方向，是鏡像動畫最容易漏掉的一半。
-	var sweep_dir := 1.0 if vertical != 0 else signf(facing)
-	if is_zero_approx(sweep_dir):
+	# 平揮由上往下劈、上挑由下往上撩、下劈左右橫掃
+	var sweep_dir := sign_facing
+	if vertical == 1:
 		sweep_dir = 1.0
+	elif vertical == -1:
+		sweep_dir = -sign_facing
 
-	rotation = base_angle - _SWEEP * 0.5 * sweep_dir
+	rotation = base_angle - sweep * 0.5 * sweep_dir
 	modulate.a = 0.0
 
 	var visible_time := maxf(duration, 0.05)
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(self, "rotation", base_angle + _SWEEP * 0.5 * sweep_dir, visible_time) \
+	tween.tween_property(self, "rotation", base_angle + sweep * 0.5 * sweep_dir, visible_time) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(self, "modulate:a", 1.0, visible_time * 0.25)
 	tween.chain().tween_property(self, "modulate:a", 0.0, visible_time * 0.75)
