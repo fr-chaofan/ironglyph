@@ -275,6 +275,60 @@ func test_下劈彈起速度小於一般跳躍() -> void:
 	assert_lt(bounce, jump, "下劈彈起 %.0f 必須小於跳躍 %.0f" % [bounce, jump])
 
 
+# ---- 揮擊視覺 ----
+
+func test_揮擊弧線出現在身前() -> void:
+	# ⚠️ 玩家刻意不放在原點：位置翻倍的 bug 在 (0,0) 附近幾乎看不出來，
+	# 離原點越遠偏得越多。2.7b 就是這樣讓弧線跑到腳下 120px。
+	_player.global_position = Vector2(400, -200)
+	_melee.show_arc = true
+	await wait_physics_frames(1)
+
+	_swing_through(1.0)
+
+	var arc := _find_arc()
+	assert_not_null(arc, "判定開始時應生成揮擊弧線")
+	assert_gt(arc.points.size(), 1, "弧線要有筆畫點")
+	var expected: Vector2 = _player.global_position + Vector2(58.0, 0.0)
+	assert_almost_eq(arc.global_position.x, expected.x, 1.0, "弧線應在身前 58px")
+	assert_almost_eq(arc.global_position.y, expected.y, 1.0, "弧線不該掉到腳下")
+
+
+func test_朝左揮擊時弧線在左側() -> void:
+	_player.global_position = Vector2(400, -200)
+	_melee.show_arc = true
+	await wait_physics_frames(1)
+
+	_swing_through(-1.0)
+
+	var arc := _find_arc()
+	assert_not_null(arc)
+	assert_almost_eq(arc.global_position.x, _player.global_position.x - 58.0, 1.0)
+
+
+func test_下劈弧線在腳下() -> void:
+	_player.global_position = Vector2(400, -200)
+	_melee.show_arc = true
+	await wait_physics_frames(1)
+
+	_swing_through(1.0, true)
+
+	var arc := _find_arc()
+	assert_not_null(arc)
+	assert_almost_eq(arc.global_position.x, _player.global_position.x, 1.0, "下劈弧線應在正下方")
+	assert_almost_eq(arc.global_position.y, _player.global_position.y + 52.0, 1.0)
+
+
+func test_沒有筆畫資料的字退回幾何弧線() -> void:
+	# 「刂」不在 Make Me a Hanzi 資料集裡（Task 2.7c 的刀刃筆擊會用到）。
+	# 沒有退路的話揮擊會變成一個看不見的攻擊。
+	assert_true(HanziData.get_medians("刂").is_empty(), "前置條件：「刂」應該查不到筆畫")
+
+	var arc := MeleeArc.spawn(_player, Vector2.ZERO, 1.0, "刂", Color.WHITE, 0.1, 58.0)
+	assert_not_null(arc)
+	assert_gt(arc.points.size(), 1, "查不到筆畫時必須退回幾何弧線")
+
+
 # ---- Player 整合 ----
 
 func test_Player按K揮擊並在死亡時中斷() -> void:
@@ -343,6 +397,13 @@ func _spawn_enemy_bullet(offset: Vector2) -> Bullet:
 	bullet.setup(5, "fire", _player.global_position + offset, Vector2.RIGHT)
 	await wait_physics_frames(1)
 	return bullet
+
+
+func _find_arc() -> MeleeArc:
+	for child: Node in _melee.get_children():
+		if child is MeleeArc:
+			return child as MeleeArc
+	return null
 
 
 func _physical_keycode(action: StringName) -> Key:
