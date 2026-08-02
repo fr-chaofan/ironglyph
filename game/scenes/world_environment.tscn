@@ -1,10 +1,9 @@
-; 全域畫面環境（2D Glow）。
+; 全域畫面環境。
 ;
-; 五行配色是玩家辨識屬性的主要線索（GDD 2.3）。開了 glow 之後，
-; 亮度超過 1.0 的字形與子彈會自己發光，屬性顏色在深色背景上更跳得出來。
-;
-; ⚠️ 需要 project.godot 的 rendering/viewport/hdr_2d = true 才會生效——
-;    沒有 HDR 的 2D viewport 會把顏色夾在 1.0，glow_hdr_threshold 永遠達不到。
+; ⚠️ **宣紙底之後 glow 關閉。** 發光是為了讓亮色在深背景上跳出來；
+;    在紙上它只會把整個畫面糊成一片霧，而且 bloom 會把筆畫之間的分隔抹平——
+;    「字看著糊」的元凶之一就是它。節點保留著，日後若有需要局部發光的演出
+;    （終章「主」降臨的純白光）再打開。
 ;
 ; ⚠️ 每個關卡場景各自 instance 一份。WorldEnvironment 必須在場景樹裡才有作用，
 ;    不能做成 autoload 的純腳本單例。
@@ -13,7 +12,7 @@
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
-glow_enabled = true
+glow_enabled = false
 glow_normalized = true
 glow_intensity = 0.6
 glow_strength = 1.0

@@ -84,27 +84,38 @@ func test_按筆順交錯畫而不是先畫完所有襯底() -> void:
 func test_筆順越後面墨越淡() -> void:
 	# 真毛筆蘸一次墨寫好幾筆，墨會越寫越淡。這既是水墨的本色，
 	# 又順帶讓相鄰筆畫的顏色不同，眼睛自然分得開。
+	#
+	# ⚠️ 必須明確指定墨色再測。用 Label 的預設白色會讓這條測試**碰巧通過**——
+	# 白往紙色化開剛好是變暗，方向與焦墨相反，等於什麼都沒驗到。
 	var sprite: HanziSprite = await _make_sprite("森")
+	sprite.add_theme_color_override(&"font_color", Palette.ink())
+	sprite.character_text = "森"
+
 	var lines := _brush_lines(sprite)
 	var stroke_count := HanziData.get_medians("森").size()
-
 	var first: Color = (lines[1] as Line2D).default_color
 	var last: Color = (lines[(stroke_count - 1) * 2 + 1] as Line2D).default_color
+	var paper := Palette.paper()
 
 	assert_lt(
-		last.r + last.g + last.b, first.r + first.g + first.b,
-		"最後一筆應該比第一筆淡"
+		Palette.distance(last, paper), Palette.distance(first, paper),
+		"最後一筆應該比第一筆更靠近紙色（墨越寫越淡）"
 	)
 
 
 func test_單筆之內也有濃淡() -> void:
 	var sprite: HanziSprite = await _make_sprite("令")
+	sprite.add_theme_color_override(&"font_color", Palette.ink())
+	sprite.character_text = "令"
 	var line: Line2D = _brush_lines(sprite)[1]
 
 	assert_not_null(line.gradient, "缺少 gradient，單筆會是死板的均勻色塊")
+	# 紙上的「乾」是墨往紙色化開，不是降 alpha——降 alpha 會讓底下的襯底透出來變髒
+	var paper := Palette.paper()
 	assert_lt(
-		line.gradient.get_color(1).a, line.gradient.get_color(0).a,
-		"收筆要比起筆乾"
+		Palette.distance(line.gradient.get_color(1), paper),
+		Palette.distance(line.gradient.get_color(0), paper),
+		"收筆要比起筆更靠近紙色"
 	)
 
 

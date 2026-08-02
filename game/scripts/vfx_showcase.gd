@@ -85,6 +85,15 @@ func _fit_camera() -> void:
 	camera.zoom = Vector2.ONE * minf(1.0, zoom)
 	camera.position = bounds.get_center()
 
+	# ⚠️ 背景要跟著鏡頭鋪滿。固定大小的 ColorRect 一旦鏡頭拉遠就露出邊緣，
+	# 畫面右側與下方會出現黑帶——紙只鋪了一半看起來比全黑還糟。
+	var background := get_node_or_null(^"Background") as ColorRect
+	if background != null:
+		var visible_size := Vector2(get_viewport_rect().size) / camera.zoom
+		background.size = visible_size * 1.1
+		background.position = camera.position - background.size * 0.5
+		background.color = Palette.paper()
+
 
 ## 登記一塊內容的佔位，供 _fit_camera 計算。
 func _register_extent(center: Vector2, half_size: Vector2) -> void:
@@ -114,8 +123,8 @@ func _build_layout() -> void:
 		glyph.add_theme_font_override(&"font", font)
 		glyph.add_theme_font_size_override(&"font_size", 64)
 		glyph.add_theme_constant_override(&"outline_size", 5)
-		glyph.add_theme_color_override(&"font_outline_color", Color(0.05, 0.05, 0.1))
-		glyph.add_theme_color_override(&"font_color", Color(1, 1, 1))
+		glyph.add_theme_color_override(&"font_outline_color", Palette.paper())
+		glyph.add_theme_color_override(&"font_color", Palette.ink())
 		glyph.size = Vector2(64, 76)
 		glyph.position = Vector2(-32, -38)
 		slot.add_child(glyph)
@@ -126,7 +135,7 @@ func _build_layout() -> void:
 		caption.add_theme_font_override(&"font", font)
 		caption.add_theme_font_size_override(&"font_size", 20)
 		caption.add_theme_constant_override(&"outline_size", 4)
-		caption.add_theme_color_override(&"font_outline_color", Color(0, 0, 0))
+		caption.add_theme_color_override(&"font_outline_color", Palette.paper())
 		caption.add_theme_color_override(
 			&"font_color", Bullet.ELEMENT_COLORS.get(element, Color.WHITE)
 		)
@@ -156,8 +165,8 @@ func _build_glyph_samples() -> void:
 		var glyph := HanziSprite.new()
 		glyph.add_theme_font_override(&"font", font)
 		glyph.add_theme_font_size_override(&"font_size", 72)
-		glyph.add_theme_color_override(&"font_outline_color", Color(0.05, 0.05, 0.1))
-		glyph.add_theme_color_override(&"font_color", Color(1, 1, 1))
+		glyph.add_theme_color_override(&"font_outline_color", Palette.paper())
+		glyph.add_theme_color_override(&"font_color", Palette.ink())
 		glyph.size = Vector2(72, 84)
 		glyph.position = Vector2(-36, -42)
 		slot.add_child(glyph)
@@ -167,7 +176,7 @@ func _build_glyph_samples() -> void:
 		caption.text = "%d 筆" % HanziData.get_medians(glyph_text).size()
 		caption.add_theme_font_override(&"font", font)
 		caption.add_theme_font_size_override(&"font_size", 18)
-		caption.add_theme_color_override(&"font_color", Color(0.7, 0.7, 0.75))
+		caption.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.size = Vector2(120, 24)
 		caption.position = Vector2(-60, 56)
@@ -189,7 +198,7 @@ func _build_ink_comparison() -> void:
 	title.text = "筆順濃淡對照（brush_ink_depletion）"
 	title.add_theme_font_override(&"font", font)
 	title.add_theme_font_size_override(&"font_size", 18)
-	title.add_theme_color_override(&"font_color", Color(0.75, 0.75, 0.8))
+	title.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.size = Vector2(400, 24)
 	title.position = Vector2(-200, -76)
@@ -205,8 +214,8 @@ func _build_ink_comparison() -> void:
 		var glyph := HanziSprite.new()
 		glyph.add_theme_font_override(&"font", font)
 		glyph.add_theme_font_size_override(&"font_size", 72)
-		glyph.add_theme_color_override(&"font_outline_color", Color(0.05, 0.05, 0.1))
-		glyph.add_theme_color_override(&"font_color", Color(1, 1, 1))
+		glyph.add_theme_color_override(&"font_outline_color", Palette.paper())
+		glyph.add_theme_color_override(&"font_color", Palette.ink())
 		glyph.size = Vector2(72, 84)
 		glyph.position = Vector2(-36, -42)
 		glyph.brush_ink_depletion = value
@@ -217,7 +226,7 @@ func _build_ink_comparison() -> void:
 		caption.text = "%.2f%s" % [value, "（現值）" if is_equal_approx(value, 0.78) else ""]
 		caption.add_theme_font_override(&"font", font)
 		caption.add_theme_font_size_override(&"font_size", 18)
-		caption.add_theme_color_override(&"font_color", Color(0.7, 0.7, 0.75))
+		caption.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.size = Vector2(140, 24)
 		caption.position = Vector2(-70, 56)
