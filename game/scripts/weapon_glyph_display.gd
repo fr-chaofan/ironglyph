@@ -25,6 +25,10 @@ var _owner_dead: bool = false
 
 
 func _ready() -> void:
+	# 手持的部件與拾取物用同一套視覺處理，玩家才不必學兩次
+	if _glyph != null:
+		ComponentGlyph.wrap(_glyph, _glyph.get_theme_font_size(&"font_size"))
+
 	var parent_node := get_parent()
 	set_facing(_get_facing_from(parent_node))
 	_connect_owner_death(parent_node)
@@ -74,7 +78,10 @@ func set_weapon(weapon: Dictionary) -> void:
 		return
 
 	var element := String(weapon.get("element", "neutral"))
-	var element_color: Color = Bullet.ELEMENT_COLORS.get(element, Color.WHITE)
+	# 淡墨：與拾取物同一套處理，玩家不必學兩次
+	var element_color: Color = ComponentGlyph.wash(
+		Bullet.ELEMENT_COLORS.get(element, Color.WHITE)
+	)
 
 	_kill_switch_tween()
 	show()

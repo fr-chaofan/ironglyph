@@ -27,10 +27,15 @@ var _nearby_loadout: Node
 var _exchange_lock_left: float = 0.0
 var _attract_target: Node2D
 var _attract_speed_current: float = 0.0
+var _frame: ComponentGlyph
 
 
 func _ready() -> void:
 	add_to_group(&"component_pickup")
+	# 部件套寫字格＋淡墨＋浮動，與敵人的字形分開。
+	# 「山石雨」三個字同時是敵人與部件，光看字形分不出來。
+	if _glyph != null:
+		_frame = ComponentGlyph.wrap(_glyph, _glyph.get_theme_font_size(&"font_size"))
 	if not body_entered.is_connected(_on_body_entered):
 		body_entered.connect(_on_body_entered)
 	if not body_exited.is_connected(_on_body_exited):
@@ -158,7 +163,8 @@ func _refresh_visuals() -> void:
 	if _glyph != null:
 		_glyph.text = display_glyph
 		var element := String(component.get("element", "neutral"))
-		_glyph.modulate = Bullet.ELEMENT_COLORS.get(element, Color.WHITE)
+		# 淡墨：借來的部件還沒寫進你身上，墨比本體淡
+		_glyph.modulate = ComponentGlyph.wash(Bullet.ELEMENT_COLORS.get(element, Color.WHITE))
 
 	if _hint == null:
 		return
