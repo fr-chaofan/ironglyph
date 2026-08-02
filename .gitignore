@@ -33,3 +33,4 @@ game/addons/**/~*
 
 # 開發用截圖（tools/screenshot.gd 的產物）
 game/_shot*.png
+game/_shot*.png.import
