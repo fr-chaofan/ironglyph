@@ -85,6 +85,33 @@ func test_只取手卷上半段() -> void:
 		assert_true(sprite.region_enabled, "沒開 region 就是整張貼上去")
 
 
+func test_遠景要超額覆蓋視口() -> void:
+	# ⚠️ 縮放與位置一律由視口算出來，不要手填數字。
+	# 手調的結果就是「在我的解析度上剛好，換一台機器就露白」。
+	# 而且鏡頭會跟著玩家上下移動，遠景的垂直視差比例很小、幾乎不跟著跑——
+	# 只鋪滿一個視口的話，玩家一跳起來畫面下緣就會露出空白的紙。
+	var parallax := InkParallax.new()
+	add_child_autofree(parallax)
+	await wait_physics_frames(1)
+
+	assert_gt(parallax.coverage, 1.0, "遠景必須鋪得比視口大，否則鏡頭一動就露白")
+
+	var sprite: Sprite2D = null
+	for child: Node in parallax.get_children():
+		if child is Sprite2D:
+			sprite = child as Sprite2D
+			break
+	assert_not_null(sprite)
+	if sprite == null:
+		return
+
+	var painted_height := sprite.region_rect.size.y * sprite.scale.y
+	assert_gt(
+		painted_height, parallax.get_viewport_rect().size.y,
+		"遠景畫出來的高度要大於視口高度"
+	)
+
+
 func test_用Parallax2D而不是舊的ParallaxBackground() -> void:
 	# ⚠️ ParallaxBackground 是 CanvasLayer，預設 layer = -100，
 	# 會被場景裡那張不透明的紙色 ColorRect 整個蓋住，畫面上完全看不到。
