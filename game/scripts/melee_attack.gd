@@ -183,7 +183,8 @@ func _enter_active() -> void:
 func _spawn_arc() -> void:
 	if not show_arc:
 		return
-	var color: Color = Bullet.ELEMENT_COLORS.get(get_element(), Color.WHITE)
+	var element := get_element()
+	var color: Color = Bullet.ELEMENT_COLORS.get(element, Color.WHITE)
 	# 傳局部偏移而不是世界座標：弧線掛在本節點底下，本節點就在角色中心
 	MeleeArc.spawn(
 		self,
@@ -193,7 +194,8 @@ func _spawn_arc() -> void:
 		color,
 		float(_timings.get("active", 0.12)) * 1.6,
 		float(_timings.get("reach", 58.0)),
-		downward
+		downward,
+		element
 	)
 
 

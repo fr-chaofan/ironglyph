@@ -1,0 +1,100 @@
+{
+  "_comment": "五行之呼吸——每個屬性的揮擊刀氣造型。這裡的數字是給眼睛調的，改完不必動程式碼；用 scenes/vfx_showcase.tscn 六種並排循環播放來對照。",
+
+  "defaults": {
+    "layers": 3,
+    "core_width": 9.0,
+    "swath_width": 30.0,
+    "amplitude": 0.0,
+    "frequency": 2.0,
+    "jitter": 0.0,
+    "drift": 0.0,
+    "spike": 0.0,
+    "branches": 0,
+    "branch_length": 0.35,
+    "gap_ratio": 0.0,
+    "particles": 0,
+    "particle_speed": 130.0,
+    "particle_spread": 60.0,
+    "trail_scale": 1.0
+  },
+
+  "water": {
+    "_note": "水之呼吸：翻卷的浪。低頻大振幅正弦，層數多、外層寬而淡，像一整片水推出去",
+    "layers": 4,
+    "core_width": 9.0,
+    "swath_width": 42.0,
+    "amplitude": 15.0,
+    "frequency": 2.6,
+    "particles": 10,
+    "particle_speed": 110.0,
+    "particle_spread": 70.0,
+    "trail_scale": 1.15
+  },
+
+  "fire": {
+    "_note": "炎之呼吸：舔舐的火舌。高頻抖動 + 往上飄，尾端斷開成舌尖",
+    "layers": 4,
+    "core_width": 8.0,
+    "swath_width": 36.0,
+    "amplitude": 7.0,
+    "frequency": 5.5,
+    "jitter": 8.0,
+    "drift": -20.0,
+    "gap_ratio": 0.16,
+    "particles": 14,
+    "particle_speed": 165.0,
+    "particle_spread": 85.0,
+    "trail_scale": 1.1
+  },
+
+  "metal": {
+    "_note": "金之呼吸：銳利的刃光／雷。層數少、極細、折線化，斷口大——不拖泥帶水",
+    "layers": 2,
+    "core_width": 6.0,
+    "swath_width": 18.0,
+    "spike": 26.0,
+    "gap_ratio": 0.34,
+    "particles": 7,
+    "particle_speed": 230.0,
+    "particle_spread": 30.0,
+    "trail_scale": 0.85
+  },
+
+  "wood": {
+    "_note": "木之呼吸：抽枝。主弧線上長出短枝，緩慢的低頻起伏",
+    "layers": 3,
+    "core_width": 8.0,
+    "swath_width": 28.0,
+    "amplitude": 7.0,
+    "frequency": 1.4,
+    "branches": 5,
+    "branch_length": 0.4,
+    "particles": 9,
+    "particle_speed": 95.0,
+    "particle_spread": 75.0,
+    "trail_scale": 1.05
+  },
+
+  "earth": {
+    "_note": "土之呼吸：崩落的岩塵。粗、短、碎裂成塊，幾乎不延展",
+    "layers": 3,
+    "core_width": 14.0,
+    "swath_width": 26.0,
+    "jitter": 6.5,
+    "gap_ratio": 0.3,
+    "particles": 13,
+    "particle_speed": 90.0,
+    "particle_spread": 95.0,
+    "trail_scale": 0.9
+  },
+
+  "neutral": {
+    "_note": "無屬性：純墨。不加任何屬性造型，就是一筆書法——這是「令」自己的樣子",
+    "layers": 2,
+    "core_width": 10.0,
+    "swath_width": 16.0,
+    "particles": 0,
+    "trail_scale": 1.0
+  }
+}
