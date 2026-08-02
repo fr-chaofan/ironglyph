@@ -19,17 +19,20 @@ const SCROLL_PATH := "res://assets/backgrounds/liuyu-landscape-1680.jpg"
 @export_range(0.0, 1.0, 0.01) var distance_scale: float = 0.18
 ## 遠山往紙色化開的程度。1.0 = 完全變成紙（看不見）。
 @export_range(0.0, 1.0, 0.01) var wash: float = 0.80
-## 只取畫面上半段當遠景。
+## 取手卷的上面多少當遠景。
 ##
-## ⚠️ 手卷的下半部是近景的樹石，筆觸密而深——整張貼上去會與前景的字打架，
-## 玩家的視線找不到該看哪裡。只取上半的遠山留白最多，正好當「天」。
-@export_range(0.2, 1.0, 0.05) var top_fraction: float = 0.55
+## ⚠️ 手卷最下緣是近景的樹石，筆觸密而深，貼上來會與前景的字打架。
+## 但取太少又會鋪不滿畫面——0.78 是「夠鋪滿、又切掉最吵那一段」的折衷。
+@export_range(0.2, 1.0, 0.02) var top_fraction: float = 0.78
 
-## 遠景在畫面上的垂直位置
-@export var vertical_offset: float = -250.0
-## 遠景圖像本身的縮放。
-## ⚠️ 不能叫 scroll_scale——那是 Parallax2D 內建的視差比例屬性，會撞名。
-@export var image_scale: float = 0.58
+## 遠景要蓋住幾倍的視口高度。
+##
+## ⚠️ 要大於 1：鏡頭會跟著玩家上下移動，而遠景的垂直視差比例很小、幾乎不跟著跑。
+## 只鋪滿一個視口的話，玩家一跳起來畫面下緣就會露出空白的紙。
+@export_range(1.0, 3.0, 0.05) var coverage: float = 2.2
+
+## 垂直微調。正值往下。
+@export var vertical_bias: float = 190.0
 
 var _sprite: Sprite2D
 
@@ -40,21 +43,27 @@ func _ready() -> void:
 		push_warning("InkParallax: 載不到 %s" % SCROLL_PATH)
 		return
 
+	# ⚠️ 縮放與位置一律由視口算出來，不要手填數字。
+	# 手調的結果就是「在我的解析度上剛好，換一台機器就露白」——
+	# 而且每次微調都得重跑一次才知道對不對。
+	var cropped_height := texture.get_height() * top_fraction
+	var target_height := get_viewport_rect().size.y * coverage
+	var fitted_scale := target_height / cropped_height
+
 	scroll_scale = Vector2(distance_scale, distance_scale * 0.5)
 	# 水平無限重複，玩家往哪邊走都不會走到畫的盡頭
-	repeat_size = Vector2(texture.get_width() * image_scale, 0.0)
+	repeat_size = Vector2(texture.get_width() * fitted_scale, 0.0)
 	repeat_times = 3
 
 	_sprite = Sprite2D.new()
 	_sprite.texture = texture
 	_sprite.centered = false
-	# 只取上半段的遠山
+	# 切掉最下緣筆觸最密的近景
 	_sprite.region_enabled = true
-	_sprite.region_rect = Rect2(
-		0.0, 0.0, texture.get_width(), texture.get_height() * top_fraction
-	)
-	_sprite.scale = Vector2.ONE * image_scale
-	_sprite.position = Vector2(0.0, vertical_offset)
+	_sprite.region_rect = Rect2(0.0, 0.0, texture.get_width(), cropped_height)
+	_sprite.scale = Vector2.ONE * fitted_scale
+	# 以視口中心為基準往上鋪，讓遠景橫跨整個可見範圍
+	_sprite.position = Vector2(0.0, -target_height * 0.5 + vertical_bias)
 	# 往紙色化開：alpha 讓紙透上來，modulate 再把殘餘的墨壓向紙的色溫
 	_sprite.modulate = Color(1.0, 1.0, 1.0, 1.0 - wash).lerp(
 		Color(Palette.paper().r, Palette.paper().g, Palette.paper().b, 1.0 - wash), 0.35
