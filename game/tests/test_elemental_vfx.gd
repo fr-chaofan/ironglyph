@@ -168,6 +168,40 @@ func test_展示場的每個屬性都有中文標題() -> void:
 		)
 
 
+func test_展示場的所有內容都在鏡頭範圍內() -> void:
+	# ⚠️ 這一條是修正回歸用的。
+	# 第一版把字形樣本排放在 y=400、濃淡對照排在 y=590，而 720 高的視口
+	# 只看得到 y ∈ [-360, 360]——兩排全都在畫面外，實機上完全看不到。
+	# 內容一多就會再犯，所以鏡頭改成自動框住內容，並且用這條測試守住。
+	var showcase: Node2D = load("res://scenes/vfx_showcase.tscn").instantiate()
+	add_child_autofree(showcase)
+	await wait_physics_frames(1)
+
+	var camera := showcase.get_node(^"Camera2D") as Camera2D
+	var bounds: Rect2 = showcase.get_content_bounds()
+	assert_gt(bounds.size.x, 0.0, "內容外框不該是空的")
+
+	# 鏡頭實際看得到的世界範圍
+	var visible_size := Vector2(showcase.get_viewport_rect().size) / camera.zoom
+	var visible := Rect2(camera.position - visible_size * 0.5, visible_size)
+
+	assert_true(
+		visible.encloses(bounds),
+		"有內容在鏡頭外：可見範圍 %s 裝不下內容 %s" % [visible, bounds]
+	)
+
+
+func test_展示場的三個區塊都有登記佔位() -> void:
+	# 漏登記的區塊不會被鏡頭計算涵蓋，等於又跑到畫面外
+	var showcase: Node2D = load("res://scenes/vfx_showcase.tscn").instantiate()
+	add_child_autofree(showcase)
+	await wait_physics_frames(1)
+
+	var bounds: Rect2 = showcase.get_content_bounds()
+	# 六格屬性 + 六個字形樣本 + 四檔濃淡，垂直方向一定跨得很開
+	assert_gt(bounds.size.y, 600.0, "縱向內容看起來沒有全部登記進去")
+
+
 # ---- helpers ----
 
 func _spawn(element: String) -> MeleeArc:

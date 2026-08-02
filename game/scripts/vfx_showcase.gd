@@ -40,14 +40,55 @@ const GLYPH_SAMPLES := ["山", "令", "河", "劍", "藤", "巖"]
 const INK_COMPARISON_GLYPH := "森"
 const INK_COMPARISON_VALUES := [1.0, 0.9, 0.78, 0.65]
 
+## 內容四周留白，避免貼著畫面邊緣
+const CONTENT_MARGIN := 90.0
+
 var _slots: Array[Node2D] = []
+## 每一塊內容的中心與半徑，用來算鏡頭要拉多遠
+var _content_extents: Array[Rect2] = []
 
 
 func _ready() -> void:
 	_build_layout()
 	_build_glyph_samples()
 	_build_ink_comparison()
+	_fit_camera()
 	_loop()
+
+
+## 全部內容的外框。
+func get_content_bounds() -> Rect2:
+	if _content_extents.is_empty():
+		return Rect2()
+	var bounds: Rect2 = _content_extents[0]
+	for rect: Rect2 in _content_extents:
+		bounds = bounds.merge(rect)
+	return bounds.grow(CONTENT_MARGIN)
+
+
+## 讓鏡頭自動框住所有內容。
+##
+## ⚠️ **不要手動排座標再假設看得到。** 第一版就是這樣——字形樣本排放在 y=400、
+## 濃淡對照排在 y=590，而 720 高的視口只看得到 y ∈ [-360, 360]，
+## 兩排全都在畫面外，實機上完全看不到。內容一多就會再犯，所以改成鏡頭自己適應內容。
+func _fit_camera() -> void:
+	var camera := get_node_or_null(^"Camera2D") as Camera2D
+	if camera == null:
+		return
+
+	var bounds := get_content_bounds()
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return
+
+	var viewport_size := Vector2(get_viewport_rect().size)
+	var zoom := minf(viewport_size.x / bounds.size.x, viewport_size.y / bounds.size.y)
+	camera.zoom = Vector2.ONE * minf(1.0, zoom)
+	camera.position = bounds.get_center()
+
+
+## 登記一塊內容的佔位，供 _fit_camera 計算。
+func _register_extent(center: Vector2, half_size: Vector2) -> void:
+	_content_extents.append(Rect2(center - half_size, half_size * 2.0))
 
 
 func _build_layout() -> void:
@@ -64,6 +105,8 @@ func _build_layout() -> void:
 		)
 		add_child(slot)
 		_slots.append(slot)
+		# 揮擊會往外掃，佔位要比字本身大
+		_register_extent(slot.position + Vector2(0.0, 40.0), Vector2(150.0, 140.0))
 
 		# 揮擊的錨點：一個靜止的字，讓刀氣有東西可以纏。
 		# 用 HanziSprite 而不是純 Label——這樣展示場看到的就是遊戲裡真正的筆畫渲染
@@ -108,6 +151,7 @@ func _build_glyph_samples() -> void:
 		var slot := Node2D.new()
 		slot.position = Vector2((float(i) - 2.5) * 150.0, 0.0)
 		row.add_child(slot)
+		_register_extent(row.position + slot.position + Vector2(0.0, 20.0), Vector2(75.0, 70.0))
 
 		var glyph := HanziSprite.new()
 		glyph.add_theme_font_override(&"font", font)
@@ -156,6 +200,7 @@ func _build_ink_comparison() -> void:
 		var slot := Node2D.new()
 		slot.position = Vector2((float(i) - 1.5) * 150.0, 0.0)
 		row.add_child(slot)
+		_register_extent(row.position + slot.position + Vector2(0.0, 20.0), Vector2(75.0, 80.0))
 
 		var glyph := HanziSprite.new()
 		glyph.add_theme_font_override(&"font", font)
