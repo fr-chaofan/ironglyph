@@ -47,6 +47,7 @@ const LANE_LENGTH := 300.0
 
 ## 部件 vs 敵人對照：同一個字，左邊當敵人、右邊當部件。
 ## 「山石雨」三個字同時是敵人與部件，連屬性色都一樣——這排就是驗區分度的。
+const PickupScene := preload("res://scenes/component_pickup.tscn")
 const AMBIGUOUS_GLYPHS := [
 	{"glyph": "雨", "element": "water"},
 	{"glyph": "山", "element": "earth"},
@@ -326,19 +327,17 @@ func _build_component_contrast() -> void:
 		enemy_glyph.set_element_color(element)
 		enemy_glyph.character_text = String(entry["glyph"])
 
-		# 部件：40 級、淡墨、套寫字格、浮動
-		var part := Label.new()
-		part.add_theme_font_override(&"font", font)
-		part.add_theme_font_size_override(&"font_size", 40)
-		part.add_theme_color_override(&"font_color", Color.WHITE)
-		part.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		part.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		part.size = Vector2(48, 52)
-		part.position = Vector2(20, -26)
-		part.text = String(entry["glyph"])
-		part.modulate = ComponentGlyph.wash(Palette.element(element))
-		column.add_child(part)
-		ComponentGlyph.wrap(part, 40.0)
+		# 部件：直接放**真正的拾取物場景**，不要自己拼一個像的。
+		# 自己拼的話字級、淡墨、格子任何一項改了都不會同步——
+		# 對照排就開始說謊了（字級從 40 改成 32 時就發生過一次）。
+		var pickup: ComponentPickup = PickupScene.instantiate()
+		pickup.collision_layer = 0
+		pickup.collision_mask = 0
+		pickup.position = Vector2(44, 0)
+		column.add_child(pickup)
+		pickup.setup({
+			"id": "showcase", "display_glyph": String(entry["glyph"]), "element": element,
+		})
 
 	_register_extent(root.position + Vector2(190.0, 0.0), Vector2(300.0, 120.0))
 

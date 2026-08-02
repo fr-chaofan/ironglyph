@@ -25,9 +25,10 @@ var _owner_dead: bool = false
 
 
 func _ready() -> void:
-	# 手持的部件與拾取物用同一套視覺處理，玩家才不必學兩次
-	if _glyph != null:
-		ComponentGlyph.wrap(_glyph, _glyph.get_theme_font_size(&"font_size"))
+	# ⚠️ **手持的部件不套寫字格。**
+	# 寫字格的語義是「待書寫／待組裝的部件」——一旦拿在身上，那件事已經完成了。
+	# 而且格子跟著角色移動會很吵，與主角的字擠在一起反而更難讀。
+	# 淡墨仍然保留（見 set_weapon）：借來的東西還沒寫進你身上。
 
 	var parent_node := get_parent()
 	set_facing(_get_facing_from(parent_node))
