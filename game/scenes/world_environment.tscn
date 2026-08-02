@@ -1,0 +1,26 @@
+; 全域畫面環境（2D Glow）。
+;
+; 五行配色是玩家辨識屬性的主要線索（GDD 2.3）。開了 glow 之後，
+; 亮度超過 1.0 的字形與子彈會自己發光，屬性顏色在深色背景上更跳得出來。
+;
+; ⚠️ 需要 project.godot 的 rendering/viewport/hdr_2d = true 才會生效——
+;    沒有 HDR 的 2D viewport 會把顏色夾在 1.0，glow_hdr_threshold 永遠達不到。
+;
+; ⚠️ 每個關卡場景各自 instance 一份。WorldEnvironment 必須在場景樹裡才有作用，
+;    不能做成 autoload 的純腳本單例。
+
+[gd_scene load_steps=2 format=3]
+
+[sub_resource type="Environment" id="Environment_glow"]
+background_mode = 3
+glow_enabled = true
+glow_normalized = true
+glow_intensity = 0.6
+glow_strength = 1.0
+glow_bloom = 0.05
+glow_blend_mode = 1
+glow_hdr_threshold = 1.0
+glow_hdr_scale = 2.0
+
+[node name="WorldEnvironment" type="WorldEnvironment"]
+environment = SubResource("Environment_glow")

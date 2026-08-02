@@ -57,6 +57,8 @@ func _apply_data() -> void:
 
 	if hanzi_sprite != null:
 		hanzi_sprite.character_text = String(char_data.get("char", "敵"))
+		# 敵人身上必須看得出屬性，否則玩家只能靠背字表決定要換哪個部件
+		hanzi_sprite.set_element_color(element)
 
 	hp_changed.emit(hp, max_hp)
 	_attach_ai()
