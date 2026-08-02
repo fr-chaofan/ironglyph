@@ -10,6 +10,7 @@
       "radical": "雨",
       "name": "歸零爆發",
       "element": "water",
+      "attack_type": "projectile",
       "damage": 5,
       "fire_rate": 0.9,
       "projectile": "wave",

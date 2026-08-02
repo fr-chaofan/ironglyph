@@ -29,7 +29,10 @@ func test_載入10把武器() -> void:
 
 
 func test_每把武器欄位齊全() -> void:
-	var required := ["id", "radical", "element", "name", "damage", "fire_rate", "projectile", "range"]
+	var required := [
+		"id", "radical", "element", "name", "damage", "fire_rate",
+		"attack_type", "projectile", "range",
+	]
 	for w: Dictionary in _wm.weapons:
 		for key: String in required:
 			assert_true(w.has(key), "武器 %s 缺欄位 %s" % [w.get("id", "?"), key])
@@ -95,6 +98,105 @@ func test_E與Q不再循環永久武器catalog() -> void:
 	await wait_physics_frames(2)
 	assert_eq(_wm.get_current_weapon().get("id", ""), original_id,
 		"沒有拾取物／已裝備部件時，E/Q不可遍歷十把永久武器")
+
+
+# ---- Task 2.7a 攻擊型別與射程 ----
+
+func test_attack_type只有兩種合法值() -> void:
+	for w: Dictionary in _wm.weapons:
+		assert_has(
+			["projectile", "melee"], w.get("attack_type", ""),
+			"武器 %s 的 attack_type 不合法" % w.get("id", "?")
+		)
+
+
+func test_range值都在合法集合內() -> void:
+	# range 從死資料變成真的會影響飛行距離，打錯字會靜默變成不限射程
+	var valid := Bullet.RANGE_DISTANCES.keys()
+	valid.append("melee")
+	for w: Dictionary in _wm.weapons:
+		assert_has(valid, w.get("range", ""), "武器 %s 的 range 不合法" % w.get("id", "?"))
+
+
+func test_近戰刀標記為melee而非投射物() -> void:
+	var dao: Dictionary = _wm.get_weapon_by_id("dao")
+	assert_eq(dao.get("attack_type", ""), "melee", "「刂・近戰刀」不該是投射物")
+
+
+func test_近戰武器開火時退回基礎弓而不是丟出一把飛刀() -> void:
+	assert_true(_wm.set_active_weapon_by_id("dao"))
+	_wm.cooldown = 0.0
+
+	_wm.fire(1.0)
+	var bullets := _get_bullets()
+
+	assert_eq(bullets.size(), 1, "J 仍應有遠程手段，不能完全打不出東西")
+	var b: Bullet = bullets[-1]
+	assert_eq(b.damage, 7, "應退回基礎弓「弓」的 7 傷，而不是近戰刀的 14")
+	assert_almost_eq(_wm.cooldown, 0.3, 0.001, "冷卻也應該用弓的 fire_rate")
+	b.queue_free()
+
+
+func test_三種射程換算成不同的飛行距離() -> void:
+	# 2.7a 之前「暗器(long)」與「藤蔓刺(short)」的射程完全一樣
+	assert_eq(Bullet.RANGE_DISTANCES["short"], 180.0)
+	assert_eq(Bullet.RANGE_DISTANCES["medium"], 420.0)
+	assert_eq(Bullet.RANGE_DISTANCES["long"], 720.0)
+
+	var b: Bullet = BulletScene.instantiate()
+	add_child_autofree(b)
+	b.set_range("short")
+	assert_eq(b.max_distance, 180.0)
+	b.set_range("long")
+	assert_eq(b.max_distance, 720.0)
+
+
+func test_未知射程與melee不限距離() -> void:
+	# 近戰武器不該走到生成子彈這條路；真的走到了也讓它照舊飛，
+	# 不要靜默變成射程 0 的啞彈
+	var b: Bullet = BulletScene.instantiate()
+	add_child_autofree(b)
+
+	b.set_range("melee")
+	assert_eq(b.max_distance, 0.0)
+	b.set_range("no_such_range")
+	assert_eq(b.max_distance, 0.0)
+
+
+func test_子彈飛超過射程就釋放() -> void:
+	var b: Bullet = BulletScene.instantiate()
+	add_child_autofree(b)
+	b.speed = 1000.0
+	b.set_range("short")  # 180px
+	b.setup(5, "neutral", Vector2.ZERO, Vector2.RIGHT)
+
+	b._physics_process(0.1)  # 飛 100px
+	assert_false(b.is_queued_for_deletion(), "還沒到 180px 不該消失")
+
+	b._physics_process(0.1)  # 累計 200px
+	assert_true(b.is_queued_for_deletion(), "超過射程上限必須消失")
+
+
+func test_往左飛也會累計射程() -> void:
+	# 位移是負的，用 absf 累計；忘了取絕對值的話往左的子彈永遠不會到期
+	var b: Bullet = BulletScene.instantiate()
+	add_child_autofree(b)
+	b.speed = 1000.0
+	b.set_range("short")
+	b.setup(5, "neutral", Vector2.ZERO, Vector2.LEFT)
+
+	b._physics_process(0.1)
+	b._physics_process(0.1)
+	assert_true(b.is_queued_for_deletion(), "朝左飛的子彈也必須受射程限制")
+
+
+func test_遠程武器實際生成的子彈帶對射程() -> void:
+	assert_true(_wm.set_active_weapon_by_id("jin"))  # 暗器 long
+	_wm.cooldown = 0.0
+	_wm.fire(1.0)
+	var b: Bullet = _get_bullets()[-1]
+	assert_eq(b.max_distance, 720.0, "暗器是 long，應為 720px")
+	b.queue_free()
 
 
 # ---- Task 2.3 開火 ----

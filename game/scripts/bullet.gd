@@ -20,17 +20,34 @@ const ELEMENT_COLORS := {
 	"neutral": Color(1.00, 0.50, 0.85), # 洋紅（非五行色，代表無屬性）
 }
 
+## `weapons.json` 的 `range` 欄位換算成實際飛行距離（像素）。
+##
+## Task 2.7a 之前這個欄位是死資料——十把武器只有傷害與射速的差別，
+## 「暗器(long)」與「藤蔓刺(short)」的射程完全一樣。
+const RANGE_DISTANCES := {
+	"short": 180.0,
+	"medium": 420.0,
+	"long": 720.0,
+}
+
 @export var speed: float = 500.0
 
 ## 存活上限（秒）。沒有這個的話，打空的子彈會一直往畫面外飛且永不釋放，
 ## 一場戰鬥下來累積成千上萬個節點。
 @export var max_lifetime: float = 3.0
 
+## 飛行距離上限（像素）。0 表示不限距離，只受 max_lifetime 約束。
+##
+## ⚠️ 這是**距離**上限而不是換算成時間的存活上限：兩者在等速直線下等價，
+## 但日後若加入減速／追蹤彈，距離才是設計者真正想控制的量。
+@export var max_distance: float = 0.0
+
 var damage: int = 0
 var element: String = "neutral"
 var direction: Vector2 = Vector2.RIGHT
 
 var _age: float = 0.0
+var _travelled: float = 0.0
 
 
 func _ready() -> void:
@@ -49,8 +66,21 @@ func setup(dmg: int, elem: String, spawn_pos: Vector2, dir: Vector2) -> void:
 	modulate = ELEMENT_COLORS.get(elem, Color.WHITE)
 
 
+## 依 `weapons.json` 的 `range` 值設定飛行距離上限。
+## 未知或 "melee" 一律回到不限距離——近戰武器不該走到生成子彈這條路，
+## 真的走到了也讓它照舊飛，不要靜默變成射程 0 的啞彈。
+func set_range(range_name: String) -> void:
+	max_distance = float(RANGE_DISTANCES.get(range_name, 0.0))
+
+
 func _physics_process(delta: float) -> void:
-	position += direction * speed * delta
+	var step := speed * delta
+	position += direction * step
+
+	_travelled += absf(step)
+	if max_distance > 0.0 and _travelled >= max_distance:
+		queue_free()
+		return
 
 	_age += delta
 	if _age >= max_lifetime:

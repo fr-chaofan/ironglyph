@@ -8,6 +8,8 @@ extends Node
 signal weapon_changed(weapon: Dictionary, index: int)
 
 const DATA_PATH := "res://data/weapons.json"
+## 沒有遠程可用時退回的基礎攻擊（見 _resolve_ranged_weapon）
+const CORE_RANGED_WEAPON_ID := "gong"
 const BULLET_SCENE := preload("res://scenes/projectiles/bullet_base.tscn")
 
 ## 子彈生成點相對於角色中心的偏移，避免一出生就卡在自己的碰撞體裡
@@ -96,7 +98,9 @@ func fire(direction: float = 1.0) -> void:
 	if not can_fire():
 		return
 
-	var weapon: Dictionary = get_current_weapon()
+	var weapon: Dictionary = _resolve_ranged_weapon()
+	if weapon.is_empty():
+		return
 	cooldown = float(weapon.get("fire_rate", 0.5))
 
 	var dir := Vector2(signf(direction) if not is_zero_approx(direction) else 1.0, 0.0)
@@ -115,12 +119,32 @@ func fire(direction: float = 1.0) -> void:
 	_spawn_bullet(weapon, spawn_pos, dir)
 
 
+## J（遠程）永遠不會把近戰武器當投射物丟出去。
+##
+## `weapons.json` 的「刂・近戰刀」標著 `attack_type: melee`，Task 2.7a 之前它會生成一把
+## **飛出去的刀**。現在改為退回 CORE 基礎弓——這正是 `docs/COMBAT.md` 3.2 節定案的
+## 「HELD・近戰類 → J 退回基礎弓」行為。
+##
+## ⚠️ Task 2.7c 會把這個決策移到 `GlyphLoadout.get_ranged_profile()`，
+## 由裝備狀態的唯一真相源統一分派 J/K；此處是在近戰系統上線前的過渡實作。
+func _resolve_ranged_weapon() -> Dictionary:
+	var weapon: Dictionary = get_current_weapon()
+	if String(weapon.get("attack_type", "projectile")) != "melee":
+		return weapon
+
+	var fallback := get_weapon_by_id(CORE_RANGED_WEAPON_ID)
+	if fallback.is_empty():
+		push_warning("WeaponManager: 近戰武器無法退回基礎弓「%s」" % CORE_RANGED_WEAPON_ID)
+	return fallback
+
+
 func _spawn_bullet(weapon: Dictionary, spawn_pos: Vector2, direction: Vector2) -> Bullet:
 	var bullet: Bullet = BULLET_SCENE.instantiate()
 
 	# 掛在關卡根節點而非 Player 底下——掛在 Player 底下的話，子彈會跟著角色移動，
 	# 且角色死亡 queue_free 時會把空中的子彈一起帶走。
 	_get_projectile_parent().add_child(bullet)
+	bullet.set_range(String(weapon.get("range", "")))
 	bullet.setup(
 		int(weapon.get("damage", 0)),
 		String(weapon.get("element", "neutral")),
