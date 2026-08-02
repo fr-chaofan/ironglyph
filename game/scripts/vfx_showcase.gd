@@ -35,12 +35,18 @@ const FONT_PATH := "res://assets/fonts/LXGWWenKaiTC-Regular.ttf"
 ## 「巖」23 筆是全專案最複雜的字，它糊不糊決定線寬參數要不要再收。
 const GLYPH_SAMPLES := ["山", "令", "河", "劍", "藤", "巖"]
 
+## 筆順濃淡對照排：同一個字用不同的 brush_ink_depletion 並排，直接挑數值。
+## 用「森」——12 筆而且相鄰筆畫多，最看得出「糊不糊」。
+const INK_COMPARISON_GLYPH := "森"
+const INK_COMPARISON_VALUES := [1.0, 0.9, 0.78, 0.65]
+
 var _slots: Array[Node2D] = []
 
 
 func _ready() -> void:
 	_build_layout()
 	_build_glyph_samples()
+	_build_ink_comparison()
 	_loop()
 
 
@@ -121,6 +127,55 @@ func _build_glyph_samples() -> void:
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.size = Vector2(120, 24)
 		caption.position = Vector2(-60, 56)
+		slot.add_child(caption)
+
+
+## 筆順濃淡對照排。
+##
+## 「同樣的顏色填充所以看著有點糊」的直接解法就是這個參數——
+## 1.0 是每一筆都一樣濃（最糊），越小則越後面的筆畫墨越淡、相鄰筆畫越分得開。
+## 並排看才挑得出想要的那一檔。
+func _build_ink_comparison() -> void:
+	var font: FontFile = load(FONT_PATH)
+	var row := Node2D.new()
+	row.position = Vector2(0.0, row_spacing * 1.25 + 190.0)
+	add_child(row)
+
+	var title := Label.new()
+	title.text = "筆順濃淡對照（brush_ink_depletion）"
+	title.add_theme_font_override(&"font", font)
+	title.add_theme_font_size_override(&"font_size", 18)
+	title.add_theme_color_override(&"font_color", Color(0.75, 0.75, 0.8))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.size = Vector2(400, 24)
+	title.position = Vector2(-200, -76)
+	row.add_child(title)
+
+	for i in INK_COMPARISON_VALUES.size():
+		var value: float = INK_COMPARISON_VALUES[i]
+		var slot := Node2D.new()
+		slot.position = Vector2((float(i) - 1.5) * 150.0, 0.0)
+		row.add_child(slot)
+
+		var glyph := HanziSprite.new()
+		glyph.add_theme_font_override(&"font", font)
+		glyph.add_theme_font_size_override(&"font_size", 72)
+		glyph.add_theme_color_override(&"font_outline_color", Color(0.05, 0.05, 0.1))
+		glyph.add_theme_color_override(&"font_color", Color(1, 1, 1))
+		glyph.size = Vector2(72, 84)
+		glyph.position = Vector2(-36, -42)
+		glyph.brush_ink_depletion = value
+		slot.add_child(glyph)
+		glyph.character_text = INK_COMPARISON_GLYPH
+
+		var caption := Label.new()
+		caption.text = "%.2f%s" % [value, "（現值）" if is_equal_approx(value, 0.78) else ""]
+		caption.add_theme_font_override(&"font", font)
+		caption.add_theme_font_size_override(&"font_size", 18)
+		caption.add_theme_color_override(&"font_color", Color(0.7, 0.7, 0.75))
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		caption.size = Vector2(140, 24)
+		caption.position = Vector2(-70, 56)
 		slot.add_child(caption)
 
 
