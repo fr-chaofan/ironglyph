@@ -9,6 +9,8 @@ extends Character
 @onready var weapon_manager: Node = get_node_or_null(^"WeaponManager")
 ## Task 2.5：世界空間的武器字形顯示。只移動持握側，不鏡像漢字。
 @onready var weapon_glyph_display: WeaponGlyphDisplay = get_node_or_null(^"WeaponGlyphDisplay")
+## Task 2.7b：近戰揮擊。K 是「令」自己的字核能力，與 J 的部件遠程互不取代。
+@onready var melee_attack: MeleeAttack = get_node_or_null(^"MeleeAttack") as MeleeAttack
 
 ## 面向：1 = 右、-1 = 左。開火方向與朝向指示器都看這個值。
 var facing_dir: float = 1.0
@@ -32,6 +34,9 @@ func _ready() -> void:
 	super()
 	# 敵人AI 透過這個群組找玩家，不用寫死節點路徑——關卡場景結構改變時不會壞掉
 	add_to_group(&"player")
+
+	if melee_attack != null:
+		melee_attack.pogo_bounced.connect(_on_pogo_bounced)
 
 
 func _physics_process(delta: float) -> void:
@@ -64,7 +69,41 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_pressed(&"fire"):
 		_try_fire()
 
+	if InputMap.has_action(&"melee") and Input.is_action_just_pressed(&"melee"):
+		_try_melee()
+
 	move_and_slide()
+
+
+## K 近戰。空中按住 S 是下劈（pogo）——落地時按 S 沒有意義，
+## 腳下就是地板，判定框只會掃到地形。
+func _try_melee() -> bool:
+	if is_dead or melee_attack == null:
+		return false
+
+	var wants_down := (
+		not is_on_floor()
+		and InputMap.has_action(&"move_down")
+		and Input.is_action_pressed(&"move_down")
+	)
+	# Task 2.7c 起 profile 由 GlyphLoadout 依裝備狀態決定；
+	# 現在一律是「令」自己的筆擊。
+	return melee_attack.swing(facing_dir, {}, wants_down)
+
+
+## 下劈命中後彈起。
+##
+## ⚠️ 這個 callback 在 `MeleeAttack._physics_process()` 裡送出，而子節點的
+## `_physics_process` 跑在 Player 之後——也就是**本幀的 `apply_gravity()` 與
+## `move_and_slide()` 都已經跑完了**。因此這裡設的 `velocity.y` 會完整保留到
+## 下一幀才被套用，不會當幀就被重力吃掉。若哪天把揮擊判定移回 Player 自己的
+## `_physics_process`，順序就必須重新檢查。
+func _on_pogo_bounced(bounce_velocity: float) -> void:
+	if is_dead:
+		return
+	velocity.y = bounce_velocity
+	# 踩著敵人可以重新取得二段跳，這是下劈作為位移手段的核心
+	_jumps_used = 0
 
 
 func _try_fire() -> void:
@@ -87,6 +126,9 @@ func die() -> void:
 
 	is_dead = true
 	velocity = Vector2.ZERO
+	# 死亡當幀若正在揮擊，判定框必須立刻失效——否則屍體還會再打出一下
+	if melee_attack != null and is_instance_valid(melee_attack):
+		melee_attack.cancel()
 	set_physics_process(false)
 	set_process(false)
 	set_process_input(false)

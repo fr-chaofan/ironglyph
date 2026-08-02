@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" uid="uid://lo6aiv5brjnk" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" uid="uid://dwrdgxfkig3ny" path="res://scripts/hanzi_sprite.gd" id="2_hanzi"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://c11swsunc1rkh" path="res://scripts/weapon_manager.gd" id="5_weapon"]
 [ext_resource type="Script" uid="uid://yvct3t80i0f6" path="res://scripts/weapon_glyph_display.gd" id="6_weapon_glyph"]
 [ext_resource type="Script" path="res://scripts/glyph_loadout.gd" id="7_loadout"]
+[ext_resource type="Script" path="res://scripts/melee_attack.gd" id="8_melee"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(52, 64)
@@ -63,6 +64,11 @@ vertical_alignment = 1
 
 [node name="GlyphLoadout" type="Node" parent="."]
 script = ExtResource("7_loadout")
+
+[node name="MeleeAttack" type="Node2D" parent="."]
+script = ExtResource("8_melee")
+target_mask = 4
+block_mask = 16
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("4_camera")
