@@ -14,6 +14,26 @@ extends Label
 	set(value):
 		character_text = value
 		text = value
+		_rebuild_brush()
+
+## 是否用**真實筆畫**畫出這個字，而不是交給字型平塗。
+##
+## Label 把字渲染成一塊實心填充——不管換什麼字型，都不會有濃淡、飛白與提按，
+## 也就永遠不會有水墨感。真正的水墨在**筆觸**裡，不在字型裡。
+##
+## 這裡用的是揮擊刀氣同一套技術：`HanziData` 的 medians（每一筆的中軸點序列）
+## 畫成帶 `width_curve` 的 `Line2D`，起筆有頓、收筆漸細。
+## 附帶好處是「太細」變成一個參數，不再受制於字型只有 Regular 一個字重。
+@export var brush_enabled: bool = true:
+	set(value):
+		brush_enabled = value
+		_rebuild_brush()
+
+## 3 筆的字（如「山」）線寬占字級的比例
+@export var brush_width_ratio: float = 0.18
+## 23 筆的字（如「巖」）線寬占字級的比例。
+## ⚠️ 不隨筆畫數遞減的話，同一個寬度下「山」剛好、「巖」會糊成一團黑。
+@export var brush_min_width_ratio: float = 0.065
 
 ## 五行屬性著色的亮度加成。
 ##
@@ -30,11 +50,106 @@ const ELEMENT_GLOW_BOOST := 1.22
 var _hit_tween: Tween
 
 
+var _brush_root: Node2D
+
+
 func _ready() -> void:
 	text = character_text
 	# 讓字以自身中心為錨點，角色定位/旋轉/縮放才不會偏移
 	horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_rebuild_brush()
+
+
+## 用真實筆畫重畫這個字。
+##
+## 查不到筆畫資料就**退回字型平塗**——UI 用字、以及不在 Make Me a Hanzi 資料集裡的
+## 字（例如「刂」）都走這條路，不能讓它們變成看不見的空白。
+func _rebuild_brush() -> void:
+	if not is_node_ready():
+		return
+
+	if _brush_root != null and is_instance_valid(_brush_root):
+		_brush_root.queue_free()
+		remove_child(_brush_root)
+		_brush_root = null
+
+	var medians: Array = HanziData.get_medians(text) if brush_enabled else []
+	if medians.is_empty():
+		# 退回字型渲染
+		visible_ratio = 1.0
+		return
+
+	# 字型那一份不要畫出來，但 font_color 保留著——它是屬性色的唯一真相源，
+	# 筆畫的顏色也是從那裡讀的
+	visible_ratio = 0.0
+
+	_brush_root = Node2D.new()
+	_brush_root.name = "BrushStrokes"
+	add_child(_brush_root)
+
+	var font_size := float(get_theme_font_size(&"font_size"))
+	var scale_factor := font_size / _EM_SIZE
+	var bounds := _median_bounds(medians)
+	var center := bounds.get_center()
+	var origin := size * 0.5
+
+	# 筆畫越多線越細，否則「巖」(23筆) 會糊成一團
+	var density := clampf((float(medians.size()) - 3.0) / 20.0, 0.0, 1.0)
+	var width := font_size * lerpf(brush_width_ratio, brush_min_width_ratio, density)
+
+	var glyph_color := get_theme_color(&"font_color")
+	var outline_color := get_theme_color(&"font_outline_color")
+
+	# ⚠️ 兩趟畫：先把**所有**筆畫的深色襯底畫完，再畫彩色筆畫。
+	# 一筆一筆「襯底＋彩色」交錯的話，後一筆的襯底會壓進前一筆的彩色線裡，
+	# 字看起來像被切開。
+	for stroke: Array in medians:
+		var line := _make_stroke_line(stroke, center, scale_factor, origin, width * 1.5, outline_color)
+		if line != null:
+			line.z_index = -1
+			_brush_root.add_child(line)
+
+	for stroke: Array in medians:
+		var line := _make_stroke_line(stroke, center, scale_factor, origin, width, glyph_color)
+		if line != null:
+			_brush_root.add_child(line)
+
+
+## 把一筆的中軸點序列畫成帶提按的毛筆線條。
+func _make_stroke_line(
+	stroke: Array,
+	center: Vector2,
+	scale_factor: float,
+	origin: Vector2,
+	width: float,
+	color: Color
+) -> Line2D:
+	if stroke.size() < 2:
+		return null
+
+	var line := Line2D.new()
+	line.width = maxf(1.0, width)
+	line.default_color = color
+	line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	line.end_cap_mode = Line2D.LINE_CAP_ROUND
+	line.joint_mode = Line2D.LINE_JOINT_ROUND
+
+	# 提按：起筆略頓、行筆飽滿、收筆漸細。
+	# 收筆不收到 0——那會讓每一筆末端變成尖針，字看起來毛毛躁躁而且更難辨識。
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 0.82))
+	curve.add_point(Vector2(0.22, 1.0))
+	curve.add_point(Vector2(1.0, 0.42))
+	line.width_curve = curve
+
+	for point: Array in stroke:
+		line.add_point(Vector2(
+			(float(point[0]) - center.x) * scale_factor,
+			# y 取負號：字身框 y 朝上，螢幕 y 朝下
+			-(float(point[1]) - center.y) * scale_factor
+		) + origin)
+	return line
 
 
 ## 依五行屬性替字形上色。
@@ -60,6 +175,8 @@ func set_element_color(element_name: String) -> void:
 			color.a
 		)
 	)
+	# 筆畫的顏色是從 font_color 讀的，換色之後要重畫
+	_rebuild_brush()
 
 
 ## 受擊回饋：短暫閃紅再復原。
@@ -125,6 +242,9 @@ func _make_stroke_fragment(stroke_median: Array, center: Vector2, scale_factor: 
 		return null
 
 	var line := Line2D.new()
+	# 明確標記成碎片。場上的 Line2D 不只碎片一種——字形筆畫、揮擊刀氣都是，
+	# 靠「是不是 Line2D」來認碎片會連它們一起數進去。
+	line.add_to_group(&"stroke_fragment")
 	line.width = maxf(2.0, font_size * 0.09)
 	line.default_color = modulate
 	line.begin_cap_mode = Line2D.LINE_CAP_ROUND

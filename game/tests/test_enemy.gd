@@ -283,14 +283,11 @@ func test_死亡後敵人節點被釋放() -> void:
 # ---- helpers ----
 
 ## 筆畫碎片是 Line2D，掃整棵場景樹數出來
+## ⚠️ 用 group 而不是「是不是 Line2D」來認碎片。
+## 場上的 Line2D 不只崩解碎片一種——字形的筆畫渲染、揮擊刀氣的每一層都是，
+## 按型別數會把它們全部數進來，敵人死亡時筆畫被釋放還會讓數量變成負的。
 func _count_fragments() -> int:
-	var found: Array = []
-	_collect_fragments(get_tree().root, found)
-	return found.size()
+	return get_tree().get_nodes_in_group(&"stroke_fragment").size()
 
 
-func _collect_fragments(node: Node, found: Array) -> void:
-	if node is Line2D:
-		found.append(node)
-	for child: Node in node.get_children():
-		_collect_fragments(child, found)
+
