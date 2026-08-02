@@ -40,18 +40,25 @@ const GLYPH_SAMPLES := ["山", "令", "河", "劍", "藤", "巖"]
 const INK_COMPARISON_GLYPH := "森"
 const INK_COMPARISON_VALUES := [1.0, 0.9, 0.78, 0.65]
 
+## 子彈跑道：六種屬性各一條，看得出遠程的造型差異。
+## 近戰有多層刀氣，遠程原本只是一個實心菱形——這排就是拿來對照調的。
+const BulletScene := preload("res://scenes/projectiles/bullet_base.tscn")
+const LANE_LENGTH := 300.0
+
 ## 內容四周留白，避免貼著畫面邊緣
 const CONTENT_MARGIN := 90.0
 
 var _slots: Array[Node2D] = []
 ## 每一塊內容的中心與半徑，用來算鏡頭要拉多遠
 var _content_extents: Array[Rect2] = []
+var _lane_root: Node2D
 
 
 func _ready() -> void:
 	_build_layout()
 	_build_glyph_samples()
 	_build_ink_comparison()
+	_build_projectile_lanes()
 	_fit_camera()
 	_loop()
 
@@ -233,10 +240,61 @@ func _build_ink_comparison() -> void:
 		slot.add_child(caption)
 
 
+## 子彈跑道。每條跑道一個屬性，循環放子彈飛過去。
+func _build_projectile_lanes() -> void:
+	var font: FontFile = load(FONT_PATH)
+	_lane_root = Node2D.new()
+	_lane_root.position = Vector2(-LANE_LENGTH * 0.5, row_spacing * 1.25 + 380.0)
+	add_child(_lane_root)
+
+	var title := Label.new()
+	title.text = "遠程子彈造型"
+	title.add_theme_font_override(&"font", font)
+	title.add_theme_font_size_override(&"font_size", 18)
+	title.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
+	title.size = Vector2(300, 24)
+	title.position = Vector2(0.0, -46.0)
+	_lane_root.add_child(title)
+
+	for i in ELEMENTS.size():
+		var element: String = ELEMENTS[i]
+		var caption := Label.new()
+		caption.text = element
+		caption.add_theme_font_override(&"font", font)
+		caption.add_theme_font_size_override(&"font_size", 16)
+		caption.add_theme_color_override(&"font_color", Palette.element(element))
+		caption.size = Vector2(90, 22)
+		caption.position = Vector2(-104.0, float(i) * 50.0 - 11.0)
+		_lane_root.add_child(caption)
+
+	_register_extent(
+		_lane_root.position + Vector2(LANE_LENGTH * 0.5, float(ELEMENTS.size()) * 25.0),
+		Vector2(LANE_LENGTH * 0.5 + 120.0, float(ELEMENTS.size()) * 28.0 + 40.0)
+	)
+
+
+func _fire_lane(index: int) -> void:
+	if _lane_root == null or not is_instance_valid(_lane_root):
+		return
+	var element: String = ELEMENTS[index]
+	var bullet: Bullet = BulletScene.instantiate()
+	# 展示用刻意放慢，看得清造型；遊戲裡的速度由武器決定
+	bullet.speed = 170.0
+	bullet.max_lifetime = LANE_LENGTH / 170.0
+	# 展示場沒有東西可以打，關掉碰撞免得誤傷別的展示元件
+	bullet.collision_layer = 0
+	bullet.collision_mask = 0
+	_lane_root.add_child(bullet)
+	bullet.setup(1, element, _lane_root.global_position + Vector2(0.0, float(index) * 50.0), Vector2.RIGHT)
+
+
 ## 六種屬性依序揮，揮完一輪停一拍再來。
 ## 全部同時揮的話畫面太亂，反而看不出單一屬性的造型。
 func _loop() -> void:
 	while is_inside_tree():
+		# 齊射排在最前面：子彈飛得比揮擊久，先放才能在畫面上與刀氣同時看到
+		for i in ELEMENTS.size():
+			_fire_lane(i)
 		for i in ELEMENTS.size():
 			if not is_inside_tree():
 				return

@@ -42,6 +42,9 @@ var direction: Vector2 = Vector2.RIGHT
 
 var _age: float = 0.0
 var _travelled: float = 0.0
+var _trail: BulletTrail
+var _vfx: Dictionary = {}
+var _spin: float = 0.0
 
 
 func _ready() -> void:
@@ -58,6 +61,80 @@ func setup(dmg: int, elem: String, spawn_pos: Vector2, dir: Vector2) -> void:
 	direction = dir.normalized()
 	global_position = spawn_pos
 	modulate = ELEMENT_COLORS.get(elem, Color.WHITE)
+	_build_visual()
+
+
+## 依屬性造出筆頭與拖尾。
+##
+## 遠程原本是一個固定的 9×6 實心菱形，六種屬性只換顏色——近戰卻有多層刀氣、
+## 筆鋒與粒子。這裡把同一套思路搬過來：**子彈本身就是一筆運動中的墨**，
+## 每個屬性的筆頭長寬、拖尾長度、擺動、自轉都不一樣。造型參數在
+## `data/element_vfx.json` 的 projectile 區塊，調整不必動程式碼。
+func _build_visual() -> void:
+	_vfx = _get_projectile_profile(element)
+	var color: Color = ELEMENT_COLORS.get(element, Color.WHITE)
+	_spin = float(_vfx.get("spin", 0.0))
+
+	# 筆頭：一枚有鋒的墨點，長寬依屬性而異（金是細長的針，土是粗短的塊）
+	var visual := get_node_or_null(^"Visual") as Polygon2D
+	if visual != null:
+		var length := float(_vfx.get("head_length", 14.0))
+		var half := float(_vfx.get("head_width", 7.0)) * 0.5
+		visual.polygon = PackedVector2Array([
+			Vector2(length * 0.5, 0.0),
+			Vector2(-length * 0.35, -half),
+			Vector2(-length * 0.5, 0.0),
+			Vector2(-length * 0.35, half),
+		])
+		# 筆頭要朝著飛行方向，否則金的長針會橫著飛
+		if not is_zero_approx(_spin):
+			visual.rotation = 0.0
+		else:
+			visual.rotation = direction.angle()
+
+	_trail = BulletTrail.new()
+	_trail.setup(
+		color,
+		float(_vfx.get("trail_width", 11.0)),
+		int(_vfx.get("trail_points", 16)),
+		float(_vfx.get("wave", 0.0)),
+		float(_vfx.get("wave_frequency", 3.0))
+	)
+	add_child(_trail)
+
+	var amount := int(_vfx.get("particles", 0))
+	if amount <= 0:
+		return
+	var particles := CPUParticles2D.new()
+	particles.amount = amount
+	particles.lifetime = 0.4
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = 5.0
+	particles.direction = -direction
+	particles.spread = 40.0
+	particles.initial_velocity_min = float(_vfx.get("particle_speed", 70.0)) * 0.4
+	particles.initial_velocity_max = float(_vfx.get("particle_speed", 70.0))
+	particles.gravity = Vector2(0.0, 90.0)
+	particles.scale_amount_min = 0.8
+	particles.scale_amount_max = 2.0
+	particles.color = color
+	particles.z_index = 3
+	particles.emitting = true
+	add_child(particles)
+
+
+static func _get_projectile_profile(element_name: String) -> Dictionary:
+	var data := MeleeArc.load_vfx_data()
+	var profile: Dictionary = (data.get("projectile_defaults", {}) as Dictionary).duplicate(true)
+	var table: Variant = data.get("projectile", {})
+	if typeof(table) != TYPE_DICTIONARY:
+		return profile
+	var override: Variant = (table as Dictionary).get(element_name, {})
+	if typeof(override) == TYPE_DICTIONARY:
+		for key: String in (override as Dictionary):
+			if not key.begins_with("_"):
+				profile[key] = (override as Dictionary)[key]
+	return profile
 
 
 ## 依 `weapons.json` 的 `range` 值設定飛行距離上限。
@@ -71,6 +148,14 @@ func _physics_process(delta: float) -> void:
 	var step := speed * delta
 	position += direction * step
 
+	if _trail != null and is_instance_valid(_trail):
+		_trail.push_sample(global_position, direction, delta)
+	if not is_zero_approx(_spin):
+		# 土屬的石塊翻滾
+		var visual := get_node_or_null(^"Visual") as Polygon2D
+		if visual != null:
+			visual.rotation += _spin * delta
+
 	_travelled += absf(step)
 	if max_distance > 0.0 and _travelled >= max_distance:
 		queue_free()
@@ -78,6 +163,12 @@ func _physics_process(delta: float) -> void:
 
 	_age += delta
 	if _age >= max_lifetime:
+		# 飛到期的子彈不算命中，只讓拖尾化開，不炸墨點
+		if _trail != null and is_instance_valid(_trail):
+			var trail_parent := _get_effect_parent()
+			remove_child(_trail)
+			trail_parent.add_child(_trail)
+			_trail.fade_and_free()
 		queue_free()
 
 
@@ -85,4 +176,50 @@ func _on_body_entered(body: Node2D) -> void:
 	if body is Character:
 		(body as Character).take_damage(damage, element)
 	# 打到地形（沒有 take_damage 的 StaticBody2D）也要消失，不能穿牆
+	_burst()
 	queue_free()
+
+
+## 命中時炸開幾點墨。原本子彈是直接 queue_free，打中什麼都沒有回饋。
+##
+## ⚠️ 墨點與拖尾都不能掛在自己底下——本節點下一刻就要被釋放。
+## 拖尾改成脫離後自己淡出，墨跡會在紙上留一會兒才化開。
+func _burst() -> void:
+	if _trail != null and is_instance_valid(_trail):
+		var trail_parent := _get_effect_parent()
+		remove_child(_trail)
+		trail_parent.add_child(_trail)
+		_trail.fade_and_free()
+
+	var bits := int(_vfx.get("impact_bits", 0))
+	if bits <= 0:
+		return
+
+	var burst := CPUParticles2D.new()
+	burst.amount = bits
+	burst.lifetime = 0.45
+	burst.one_shot = true
+	burst.explosiveness = 1.0
+	burst.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	burst.emission_sphere_radius = 4.0
+	burst.direction = -direction
+	burst.spread = float(_vfx.get("impact_spread", 90.0))
+	burst.initial_velocity_min = 40.0
+	burst.initial_velocity_max = 150.0
+	burst.gravity = Vector2(0.0, 260.0)
+	burst.scale_amount_min = 1.0
+	burst.scale_amount_max = 2.6
+	burst.color = ELEMENT_COLORS.get(element, Color.WHITE)
+	burst.z_index = 5
+	burst.emitting = true
+
+	var parent := _get_effect_parent()
+	parent.add_child(burst)
+	burst.global_position = global_position
+	# one_shot 的粒子放完要自己收掉，否則場上會累積空節點
+	burst.get_tree().create_timer(burst.lifetime * 2.0).timeout.connect(burst.queue_free)
+
+
+func _get_effect_parent() -> Node:
+	var scene := get_tree().current_scene
+	return scene if scene != null else get_tree().root
