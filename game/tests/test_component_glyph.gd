@@ -129,6 +129,45 @@ func test_字與格子同步浮動() -> void:
 	)
 
 
+func test_手持的部件不套寫字格() -> void:
+	# 寫字格的語義是「待書寫／待組裝的部件」——一旦拿在身上那件事已經完成了。
+	# 而且格子跟著角色移動會很吵，與主角的字擠在一起反而更難讀。
+	var player: Node2D = load("res://scenes/player.tscn").instantiate()
+	add_child_autofree(player)
+	await wait_physics_frames(2)
+
+	var display := player.get_node(^"WeaponGlyphDisplay")
+	for child: Node in display.get_children():
+		assert_false(child is ComponentGlyph, "手持的部件不該套寫字格")
+
+
+func test_手持的部件仍然是淡墨() -> void:
+	# 格子拿掉了，但「借來的東西還沒寫進你身上」這件事還在
+	var raw: Color = Bullet.ELEMENT_COLORS["water"]
+	assert_lt(
+		Palette.distance(ComponentGlyph.wash(raw), Palette.paper()),
+		Palette.distance(raw, Palette.paper())
+	)
+
+
+func test_部件字級明顯小於角色() -> void:
+	# 字號是區分度的第一道信號，差距不夠大就白費
+	var pickup: ComponentPickup = PickupScene.instantiate()
+	add_child_autofree(pickup)
+	await wait_physics_frames(1)
+	var pickup_size := (pickup.get_node(^"Glyph") as Label).get_theme_font_size(&"font_size")
+
+	var enemy: Enemy = EnemyScene.instantiate()
+	add_child_autofree(enemy)
+	await wait_physics_frames(1)
+	var enemy_size := enemy.hanzi_sprite.get_theme_font_size(&"font_size")
+
+	assert_lt(
+		float(pickup_size), float(enemy_size) * 0.6,
+		"部件字級要明顯小於角色，%d vs %d 差距不夠" % [pickup_size, enemy_size]
+	)
+
+
 func test_敵人不套寫字格() -> void:
 	# 格子是「這是待組裝的部件」的信號，敵人套上就失去意義了
 	var enemy: Enemy = EnemyScene.instantiate()
