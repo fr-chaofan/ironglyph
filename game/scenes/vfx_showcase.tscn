@@ -1,0 +1,25 @@
+; 五行之呼吸展示場（純調參用，不是遊戲的一部分）。
+;
+; 用法：在 Godot 編輯器裡打開這個場景按 F6 單獨執行，六種屬性會並排循環揮擊。
+; 調參流程：改 data/element_vfx.json → F6 → 看 → 再改，完全不需要動程式碼。
+;
+; 視覺定案後可以連同 test_room 一起刪掉。
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/vfx_showcase.gd" id="1_showcase"]
+[ext_resource type="PackedScene" path="res://scenes/world_environment.tscn" id="2_env"]
+
+[node name="VFXShowcase" type="Node2D"]
+script = ExtResource("1_showcase")
+
+[node name="WorldEnvironment" parent="." instance=ExtResource("2_env")]
+
+[node name="Background" type="ColorRect" parent="."]
+offset_left = -960.0
+offset_top = -540.0
+offset_right = 960.0
+offset_bottom = 540.0
+color = Color(0.07, 0.07, 0.1, 1)
+
+[node name="Camera2D" type="Camera2D" parent="."]
