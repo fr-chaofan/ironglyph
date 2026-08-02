@@ -31,11 +31,16 @@ const FONT_PATH := "res://assets/fonts/LXGWWenKaiTC-Regular.ttf"
 ## 展示用的字。用「令」——主角的字核，筆畫數適中看得出筆形
 @export var showcase_glyph: String = "令"
 
+## 底下那一排字形樣本：筆畫數由少到多，用來判斷筆畫渲染的辨識度。
+## 「巖」23 筆是全專案最複雜的字，它糊不糊決定線寬參數要不要再收。
+const GLYPH_SAMPLES := ["山", "令", "河", "劍", "藤", "巖"]
+
 var _slots: Array[Node2D] = []
 
 
 func _ready() -> void:
 	_build_layout()
+	_build_glyph_samples()
 	_loop()
 
 
@@ -54,19 +59,18 @@ func _build_layout() -> void:
 		add_child(slot)
 		_slots.append(slot)
 
-		# 揮擊的錨點：一個靜止的字，讓刀氣有東西可以纏
-		var glyph := Label.new()
-		glyph.text = showcase_glyph
+		# 揮擊的錨點：一個靜止的字，讓刀氣有東西可以纏。
+		# 用 HanziSprite 而不是純 Label——這樣展示場看到的就是遊戲裡真正的筆畫渲染
+		var glyph := HanziSprite.new()
 		glyph.add_theme_font_override(&"font", font)
 		glyph.add_theme_font_size_override(&"font_size", 64)
 		glyph.add_theme_constant_override(&"outline_size", 5)
 		glyph.add_theme_color_override(&"font_outline_color", Color(0.05, 0.05, 0.1))
-		glyph.add_theme_color_override(&"font_color", Color(1, 1, 1, 0.35))
-		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		glyph.add_theme_color_override(&"font_color", Color(1, 1, 1))
 		glyph.size = Vector2(64, 76)
 		glyph.position = Vector2(-32, -38)
 		slot.add_child(glyph)
+		glyph.character_text = showcase_glyph
 
 		var caption := Label.new()
 		caption.text = "%s\n%s" % [ELEMENT_LABELS.get(element, element), element]
@@ -80,6 +84,43 @@ func _build_layout() -> void:
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.size = Vector2(220, 56)
 		caption.position = Vector2(-110, 96)
+		slot.add_child(caption)
+
+
+## 底下一排字形樣本，筆畫數由少到多。
+##
+## 「巖」23 筆是全專案最複雜的字——線寬若沒有隨筆畫數遞減，它會糊成一團黑。
+## 這一排就是為了讓那個參數有東西可以對照著調。
+func _build_glyph_samples() -> void:
+	var font: FontFile = load(FONT_PATH)
+	var row := Node2D.new()
+	row.position = Vector2(0.0, row_spacing * 1.25)
+	add_child(row)
+
+	for i in GLYPH_SAMPLES.size():
+		var glyph_text: String = GLYPH_SAMPLES[i]
+		var slot := Node2D.new()
+		slot.position = Vector2((float(i) - 2.5) * 150.0, 0.0)
+		row.add_child(slot)
+
+		var glyph := HanziSprite.new()
+		glyph.add_theme_font_override(&"font", font)
+		glyph.add_theme_font_size_override(&"font_size", 72)
+		glyph.add_theme_color_override(&"font_outline_color", Color(0.05, 0.05, 0.1))
+		glyph.add_theme_color_override(&"font_color", Color(1, 1, 1))
+		glyph.size = Vector2(72, 84)
+		glyph.position = Vector2(-36, -42)
+		slot.add_child(glyph)
+		glyph.character_text = glyph_text
+
+		var caption := Label.new()
+		caption.text = "%d 筆" % HanziData.get_medians(glyph_text).size()
+		caption.add_theme_font_override(&"font", font)
+		caption.add_theme_font_size_override(&"font_size", 18)
+		caption.add_theme_color_override(&"font_color", Color(0.7, 0.7, 0.75))
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		caption.size = Vector2(120, 24)
+		caption.position = Vector2(-60, 56)
 		slot.add_child(caption)
 
 
