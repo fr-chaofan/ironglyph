@@ -11,6 +11,17 @@ extends Node
 ## 被近戰打斷後的硬直（秒）。玩家可以在這段時間再補一下。
 @export var stagger_time: float = 0.35
 
+## 蓄力時的警示色。
+##
+## ⚠️ 用 `self_modulate` 而不是 `modulate`：`HanziSprite.flash_hit()` 受擊閃紅用的是
+## `modulate`，兩者若共用同一個屬性，蓄力中被打一下就會互相把對方的 tween 蓋掉。
+## CanvasItem 的這兩個屬性是相乘的，各自獨立 tween 不會打架。
+const CHARGE_COLOR := Color(1.0, 0.45, 0.25)
+## 硬直時的顏色。玩家要看得出「現在可以免費打它」。
+const STAGGER_COLOR := Color(0.5, 0.62, 0.8)
+## 蓄力時字形放大到多少。原本是 1.25，實機驗證時肉眼分辨不出來。
+const CHARGE_SCALE := Vector2(1.4, 1.4)
+
 var _cooldown: float = 0.0
 var _telegraph_left: float = 0.0
 var _stagger_left: float = 0.0
@@ -41,8 +52,13 @@ func interrupt(enemy: Enemy) -> bool:
 		_telegraph_tween.kill()
 	_telegraph_tween = null
 
-	if enemy != null and enemy.hanzi_sprite != null and is_instance_valid(enemy.hanzi_sprite):
-		enemy.hanzi_sprite.scale = Vector2.ONE
+	if enemy != null and is_instance_valid(enemy):
+		if enemy.hanzi_sprite != null and is_instance_valid(enemy.hanzi_sprite):
+			enemy.hanzi_sprite.scale = Vector2.ONE
+			# 硬直期間染成另一個顏色，玩家才看得出「現在可以免費打它」——
+			# 只把縮放彈回去的話，實機上根本分辨不出有沒有打斷成功
+			enemy.hanzi_sprite.self_modulate = STAGGER_COLOR
+		DamagePopup.show_text(enemy, "打斷！", DamagePopup.INTERRUPT_COLOR, 30)
 	return true
 
 
@@ -56,6 +72,8 @@ func decide_velocity(enemy: Enemy, delta: float) -> float:
 		# 否則玩家站著無限打斷就能把敵人永久鎖死
 		_stagger_left = maxf(0.0, _stagger_left - delta)
 		_cooldown = maxf(0.0, _cooldown - delta)
+		if _stagger_left <= 0.0:
+			_restore_tint(enemy)
 		return 0.0
 
 	if _telegraph_left > 0.0:
@@ -78,10 +96,21 @@ func decide_velocity(enemy: Enemy, delta: float) -> float:
 func _start_telegraph(enemy: Enemy) -> void:
 	if enemy.hanzi_sprite == null or not is_instance_valid(enemy.hanzi_sprite):
 		return
-	# 保留參考，被打斷時要 kill 掉，否則字形會卡在放大狀態
-	_telegraph_tween = enemy.hanzi_sprite.create_tween()
-	_telegraph_tween.tween_property(enemy.hanzi_sprite, "scale", Vector2(1.25, 1.25), telegraph_time)
-	_telegraph_tween.tween_property(enemy.hanzi_sprite, "scale", Vector2.ONE, 0.15)
+	var sprite := enemy.hanzi_sprite
+	sprite.self_modulate = Color.WHITE
+	# 保留參考，被打斷時要 kill 掉，否則字形會卡在放大＋染色狀態
+	_telegraph_tween = sprite.create_tween()
+	_telegraph_tween.tween_property(sprite, "scale", CHARGE_SCALE, telegraph_time)
+	_telegraph_tween.parallel().tween_property(sprite, "self_modulate", CHARGE_COLOR, telegraph_time)
+	_telegraph_tween.chain().tween_property(sprite, "scale", Vector2.ONE, 0.15)
+	_telegraph_tween.parallel().tween_property(sprite, "self_modulate", Color.WHITE, 0.15)
+
+
+func _restore_tint(enemy: Enemy) -> void:
+	if enemy == null or not is_instance_valid(enemy):
+		return
+	if enemy.hanzi_sprite != null and is_instance_valid(enemy.hanzi_sprite):
+		enemy.hanzi_sprite.self_modulate = Color.WHITE
 
 
 ## 對範圍內的玩家造成傷害。用距離判定而非 Area2D——
