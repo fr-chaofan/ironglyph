@@ -45,6 +45,14 @@ const INK_COMPARISON_VALUES := [1.0, 0.9, 0.78, 0.65]
 const BulletScene := preload("res://scenes/projectiles/bullet_base.tscn")
 const LANE_LENGTH := 300.0
 
+## 部件 vs 敵人對照：同一個字，左邊當敵人、右邊當部件。
+## 「山石雨」三個字同時是敵人與部件，連屬性色都一樣——這排就是驗區分度的。
+const AMBIGUOUS_GLYPHS := [
+	{"glyph": "雨", "element": "water"},
+	{"glyph": "山", "element": "earth"},
+	{"glyph": "石", "element": "earth"},
+]
+
 ## 揮擊方向對照：平揮／上挑／下劈 × 面向右／面向左。
 ## 上挑一度打在正頭頂又不分左右，看起來與角色朝向脫節——這排就是拿來驗這件事的。
 const SWING_MODES := [
@@ -70,6 +78,7 @@ func _ready() -> void:
 	_build_ink_comparison()
 	_build_projectile_lanes()
 	_build_swing_directions()
+	_build_component_contrast()
 	_fit_camera()
 	_loop()
 
@@ -282,6 +291,56 @@ func _build_projectile_lanes() -> void:
 		_lane_root.position + Vector2(LANE_LENGTH * 0.5, float(ELEMENTS.size()) * 25.0),
 		Vector2(LANE_LENGTH * 0.5 + 120.0, float(ELEMENTS.size()) * 28.0 + 40.0)
 	)
+
+
+## 部件 vs 敵人對照排
+func _build_component_contrast() -> void:
+	var font: FontFile = load(FONT_PATH)
+	var root := Node2D.new()
+	root.position = Vector2(520.0, row_spacing * 1.25 + 480.0)
+	add_child(root)
+
+	var title := Label.new()
+	title.text = "同一個字：左＝敵人　右＝部件（寫字格＋淡墨＋浮動）"
+	title.add_theme_font_override(&"font", font)
+	title.add_theme_font_size_override(&"font_size", 18)
+	title.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
+	title.size = Vector2(520, 24)
+	title.position = Vector2(-120.0, -80.0)
+	root.add_child(title)
+
+	for i in AMBIGUOUS_GLYPHS.size():
+		var entry: Dictionary = AMBIGUOUS_GLYPHS[i]
+		var element := String(entry["element"])
+		var column := Node2D.new()
+		column.position = Vector2(float(i) * 190.0, 0.0)
+		root.add_child(column)
+
+		# 敵人：64 級、屬性色、無格子
+		var enemy_glyph := HanziSprite.new()
+		enemy_glyph.add_theme_font_override(&"font", font)
+		enemy_glyph.add_theme_font_size_override(&"font_size", 64)
+		enemy_glyph.size = Vector2(64, 76)
+		enemy_glyph.position = Vector2(-100, -38)
+		column.add_child(enemy_glyph)
+		enemy_glyph.set_element_color(element)
+		enemy_glyph.character_text = String(entry["glyph"])
+
+		# 部件：40 級、淡墨、套寫字格、浮動
+		var part := Label.new()
+		part.add_theme_font_override(&"font", font)
+		part.add_theme_font_size_override(&"font_size", 40)
+		part.add_theme_color_override(&"font_color", Color.WHITE)
+		part.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		part.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		part.size = Vector2(48, 52)
+		part.position = Vector2(20, -26)
+		part.text = String(entry["glyph"])
+		part.modulate = ComponentGlyph.wash(Palette.element(element))
+		column.add_child(part)
+		ComponentGlyph.wrap(part, 40.0)
+
+	_register_extent(root.position + Vector2(190.0, 0.0), Vector2(300.0, 120.0))
 
 
 ## 揮擊方向對照排

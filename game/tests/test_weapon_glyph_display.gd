@@ -61,7 +61,8 @@ func test_HELD保持令並顯示氵與水屬色() -> void:
 	assert_eq(_wm.get_current_weapon().get("id", ""), "shui")
 	assert_true(_display.visible)
 	assert_eq(_glyph.text, "氵")
-	_assert_display_rgb(Bullet.ELEMENT_COLORS["water"], "HELD 水部件")
+	_assert_display_rgb(
+		ComponentGlyph.wash(Bullet.ELEMENT_COLORS["water"]), "HELD 水部件")
 
 
 func test_FUSED顯示零並隱藏外置部件() -> void:
@@ -82,7 +83,8 @@ func test_金部使用可渲染的金而不是缺字的釒() -> void:
 	assert_eq(_sprite.text, "令")
 	assert_eq(_glyph.text, "金")
 	assert_ne(_glyph.text, "釒")
-	_assert_display_rgb(Bullet.ELEMENT_COLORS["metal"], "HELD 金部件")
+	_assert_display_rgb(
+		ComponentGlyph.wash(Bullet.ELEMENT_COLORS["metal"]), "HELD 金部件")
 
 
 func test_左右朝向只換邊不鏡像字形() -> void:
