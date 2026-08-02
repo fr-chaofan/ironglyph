@@ -102,7 +102,7 @@ theme_override_colors/font_color = Color(0.04, 0.04, 0.04, 1)
 theme_override_colors/font_outline_color = Color(0.93, 0.9, 0.83, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 18
-text = "A/D 移動  Space 跳躍  J 遠程  K 近戰  空中 S+K 下劈  E 吸收  Q 彈出  ｜ T 對話  Y 三選一  U 過場"
+text = "A/D 移動  Space 跳躍  J 遠程  K 近戰  空中S+K 下劈  W+K 上挑  E 吸收  Q 彈出  ｜ T 對話  Y 三選一  U 過場"
 
 [node name="WeaponLabel" type="Label" parent="HUD"]
 offset_left = 16.0

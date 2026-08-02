@@ -222,7 +222,7 @@ func test_下劈判定在腳下而不是前方() -> void:
 	var below_before: int = below.hp
 	var front_before: int = front.hp
 
-	_swing_through(1.0, true)
+	_swing_through(1.0, MeleeAttack.Vertical.DOWN)
 
 	assert_lt(below.hp, below_before, "下劈應打到腳下的敵人")
 	assert_eq(front.hp, front_before, "下劈不該打到正前方")
@@ -233,7 +233,7 @@ func test_下劈命中送出彈起且只送一次() -> void:
 	await _spawn_enemy(Vector2(20, 80))
 
 	watch_signals(_melee)
-	_swing_through(1.0, true)
+	_swing_through(1.0, MeleeAttack.Vertical.DOWN)
 
 	assert_signal_emit_count(
 		_melee, "pogo_bounced", 1,
@@ -243,7 +243,7 @@ func test_下劈命中送出彈起且只送一次() -> void:
 
 func test_下劈落空不彈起() -> void:
 	watch_signals(_melee)
-	_swing_through(1.0, true)
+	_swing_through(1.0, MeleeAttack.Vertical.DOWN)
 	assert_signal_not_emitted(_melee, "pogo_bounced", "沒踩到東西就該正常落下")
 
 
@@ -251,7 +251,7 @@ func test_下劈踩敵方子彈也能彈起() -> void:
 	await _spawn_enemy_bullet(Vector2(0, 80))
 
 	watch_signals(_melee)
-	_swing_through(1.0, true)
+	_swing_through(1.0, MeleeAttack.Vertical.DOWN)
 
 	assert_signal_emit_count(_melee, "pogo_bounced", 1)
 
@@ -261,7 +261,7 @@ func test_下劈傷害打八折() -> void:
 	enemy.max_hp = 999
 	enemy.hp = 999
 
-	_swing_through(1.0, true)
+	_swing_through(1.0, MeleeAttack.Vertical.DOWN)
 
 	assert_eq(enemy.hp, 999 - 13, "16 × 0.8 = 12.8，四捨五入為 13")
 
@@ -311,7 +311,7 @@ func test_下劈弧線在腳下() -> void:
 	_melee.show_arc = true
 	await wait_physics_frames(1)
 
-	_swing_through(1.0, true)
+	_swing_through(1.0, MeleeAttack.Vertical.DOWN)
 
 	var arc := _find_arc()
 	assert_not_null(arc)
@@ -395,6 +395,96 @@ func test_下劈彈起會重置跳躍次數() -> void:
 	assert_eq(_player._jumps_used, 0, "踩著敵人應重新取得二段跳")
 
 
+func test_上挑判定在頭頂() -> void:
+	# W/S 是一對修飾鍵，但效果相反：下劈抬自己、上挑抬敵人
+	var above: Enemy = await _spawn_enemy(Vector2(0, -80))
+	var front: Enemy = await _spawn_enemy(Vector2(80, 0))
+	var above_before: int = above.hp
+	var front_before: int = front.hp
+
+	_swing_through(1.0, MeleeAttack.Vertical.UP)
+
+	assert_lt(above.hp, above_before, "上挑應打到頭頂的敵人")
+	assert_eq(front.hp, front_before, "上挑不該打到正前方")
+
+
+func test_上挑把敵人擊飛() -> void:
+	var enemy: Enemy = await _spawn_enemy(Vector2(0, -80))
+	enemy.max_hp = 999
+	enemy.hp = 999
+
+	watch_signals(_melee)
+	_swing_through(1.0, MeleeAttack.Vertical.UP)
+
+	assert_lt(enemy.velocity.y, 0.0, "被挑中的敵人應該往上飛（螢幕 y 朝下，所以是負的）")
+	assert_signal_emit_count(_melee, "target_launched", 1)
+
+
+func test_上挑不會讓玩家自己彈起() -> void:
+	# 下劈抬自己、上挑抬敵人——搞反了會變成按 W 就能無限上升
+	await _spawn_enemy(Vector2(0, -80))
+
+	watch_signals(_melee)
+	_swing_through(1.0, MeleeAttack.Vertical.UP)
+
+	assert_signal_not_emitted(_melee, "pogo_bounced", "上挑不該讓玩家彈起")
+
+
+func test_下劈不會擊飛敵人() -> void:
+	var enemy: Enemy = await _spawn_enemy(Vector2(0, 80))
+	watch_signals(_melee)
+	_swing_through(1.0, MeleeAttack.Vertical.DOWN)
+
+	assert_signal_not_emitted(_melee, "target_launched", "下劈是抬自己，不是抬敵人")
+
+
+func test_上挑可以同時挑起多個敵人() -> void:
+	# 與彈起不同：彈起一次揮擊只該有一次，挑起則是每個被打到的敵人都要飛
+	var a: Enemy = await _spawn_enemy(Vector2(-20, -80))
+	var b: Enemy = await _spawn_enemy(Vector2(20, -80))
+	a.max_hp = 999
+	a.hp = 999
+	b.max_hp = 999
+	b.hp = 999
+
+	watch_signals(_melee)
+	_swing_through(1.0, MeleeAttack.Vertical.UP)
+
+	assert_signal_emit_count(_melee, "target_launched", 2)
+	assert_lt(a.velocity.y, 0.0)
+	assert_lt(b.velocity.y, 0.0)
+
+
+func test_上挑傷害略低於平揮() -> void:
+	# 它換來的是位置優勢而不是傷害
+	var upper := MeleeAttack.get_uppercut_settings()
+	assert_lt(float(upper.get("damage_scale", 1.0)), 1.0)
+
+
+func test_W綁在move_up而不是跳躍() -> void:
+	# ⚠️ W 一度打算綁成跳躍，後來留給上挑當修飾鍵，與 S 的下劈對稱。
+	# 綁成跳躍的話玩家會期待 W+K 是上挑卻得到「跳＋平揮」。
+	assert_true(InputMap.has_action(&"move_up"), "缺少 move_up action")
+	assert_eq(_physical_keycode(&"move_up"), KEY_W)
+	assert_does_not_have(
+		_physical_keycodes(&"jump"), KEY_W,
+		"W 是上挑修飾鍵，不可以同時是跳躍"
+	)
+	assert_has(_physical_keycodes(&"jump"), KEY_SPACE, "跳躍仍然是 Space")
+
+
+## 一個 action 綁的所有實體按鍵
+func _physical_keycodes(action: StringName) -> Array:
+	var codes: Array = []
+	if not InputMap.has_action(action):
+		return codes
+	for event: InputEvent in InputMap.action_get_events(action):
+		var key_event := event as InputEventKey
+		if key_event != null:
+			codes.append(key_event.physical_keycode)
+	return codes
+
+
 func test_melee與move_down綁在K與S() -> void:
 	# [input] 是手寫的，事件字串打錯會變成「action 存在但沒綁任何按鍵」
 	assert_eq(_physical_keycode(&"melee"), KEY_K)
@@ -404,8 +494,8 @@ func test_melee與move_down綁在K與S() -> void:
 # ---- helpers ----
 
 ## 走完前搖進入判定並掃一次。回傳後元件停在 ACTIVE。
-func _swing_through(direction: float, down: bool = false) -> void:
-	_melee.swing(direction, {}, down)
+func _swing_through(direction: float, vertical: int = MeleeAttack.Vertical.NONE) -> void:
+	_melee.swing(direction, {}, vertical)
 	# 前搖 0.10s（下劈 0.06s）；多推一點確保跨過去
 	_melee._physics_process(0.12)
 

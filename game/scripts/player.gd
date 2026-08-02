@@ -85,20 +85,27 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
-## K 近戰。空中按住 S 是下劈（pogo）——落地時按 S 沒有意義，
-## 腳下就是地板，判定框只會掃到地形。
+## K 近戰。W/S 是一對修飾鍵：
+## - **空中** S+K 下劈（pogo）——落地時腳下就是地板，判定框只會掃到地形，按了沒意義
+## - W+K 上挑，地面空中都可以——它打的是頭頂，不受站在地上影響
+##
+## 兩者對稱但效果相反：**下劈抬自己、上挑抬敵人**。
 func _try_melee() -> bool:
 	if is_dead or melee_attack == null:
 		return false
 
-	var wants_down := (
+	var vertical := MeleeAttack.Vertical.NONE
+	if InputMap.has_action(&"move_up") and Input.is_action_pressed(&"move_up"):
+		vertical = MeleeAttack.Vertical.UP
+	elif (
 		not is_on_floor()
 		and InputMap.has_action(&"move_down")
 		and Input.is_action_pressed(&"move_down")
-	)
+	):
+		vertical = MeleeAttack.Vertical.DOWN
 	# profile 由 GlyphLoadout 依裝備狀態分派：CORE/HELD投射類是令筆擊、
 	# FUSED 染上融合字屬性、手持「刂」則換成刀刃筆擊。
-	return melee_attack.swing(facing_dir, _get_melee_profile(), wants_down)
+	return melee_attack.swing(facing_dir, _get_melee_profile(), vertical)
 
 
 ## 近戰命中的打擊感。遠程刻意沒有——近戰要「重」，兩者才有手感上的區別。

@@ -21,6 +21,8 @@ signal bullet_blocked(bullet: Node)
 signal charge_interrupted(target: Node)
 ## 下劈命中任何東西時送出，由角色自己決定怎麼彈（見 player.gd 的順序說明）
 signal pogo_bounced(bounce_velocity: float)
+## 上挑命中時送出。與下劈對稱：下劈抬自己、上挑抬敵人。
+signal target_launched(target: Node, launch_velocity: float)
 signal swing_finished
 
 const DATA_PATH := "res://data/melee.json"
@@ -34,6 +36,13 @@ enum State {
 	WINDUP,
 	ACTIVE,
 	COOLDOWN,
+}
+
+## 揮擊的垂直方向。W/S 是一對修飾鍵：S+K 下劈、W+K 上挑。
+enum Vertical {
+	UP = -1,
+	NONE = 0,
+	DOWN = 1,
 }
 
 ## 預設使用的 profile id。Task 2.7c 起由 GlyphLoadout 依裝備狀態傳入。
@@ -59,7 +68,8 @@ enum State {
 
 var state: int = State.IDLE
 var facing: float = 1.0
-var downward: bool = false
+## 目前這一擊的垂直方向（Vertical.UP / NONE / DOWN）
+var vertical: int = Vertical.NONE
 
 ## 資料表靜態快取：每個敵人都重讀一次 JSON 是 Task 3.3 修過的問題
 static var _data: Dictionary = {}
@@ -69,6 +79,7 @@ var _timings: Dictionary = {}
 var _timer: float = 0.0
 var _hit_this_swing: Dictionary = {}
 var _bounced_this_swing: bool = false
+var _launched_this_swing: bool = false
 var _query_shape: RectangleShape2D = RectangleShape2D.new()
 
 
@@ -105,6 +116,11 @@ static func get_pogo_settings() -> Dictionary:
 	return (pogo as Dictionary).duplicate(true) if typeof(pogo) == TYPE_DICTIONARY else {}
 
 
+static func get_uppercut_settings() -> Dictionary:
+	var upper: Variant = load_data().get("uppercut", {})
+	return (upper as Dictionary).duplicate(true) if typeof(upper) == TYPE_DICTIONARY else {}
+
+
 func can_swing() -> bool:
 	return state == State.IDLE
 
@@ -119,7 +135,7 @@ func get_active_profile() -> Dictionary:
 
 ## 揮擊。`direction` 是水平朝向（±1），`down` 為真時判定框改到腳下（下劈）。
 ## 回傳是否真的開始揮擊——冷卻中會回傳 false。
-func swing(direction: float, profile: Dictionary = {}, down: bool = false) -> bool:
+func swing(direction: float, profile: Dictionary = {}, vertical_dir: int = Vertical.NONE) -> bool:
 	if not can_swing():
 		return false
 
@@ -129,15 +145,16 @@ func swing(direction: float, profile: Dictionary = {}, down: bool = false) -> bo
 		return false
 
 	_profile = resolved
-	downward = down
+	vertical = vertical_dir
 	facing = signf(direction) if not is_zero_approx(direction) else 1.0
 	_timings = _resolve_timings()
 	_hit_this_swing.clear()
 	_bounced_this_swing = false
+	_launched_this_swing = false
 
 	state = State.WINDUP
 	_timer = float(_timings.get("windup", 0.0))
-	swing_started.emit(_profile.duplicate(true), downward)
+	swing_started.emit(_profile.duplicate(true), vertical)
 
 	# 前搖為 0 的 profile 要當幀就進入判定，不能白白吃掉一幀
 	if _timer <= 0.0:
@@ -194,7 +211,7 @@ func _spawn_arc() -> void:
 		color,
 		float(_timings.get("active", 0.12)) * 1.6,
 		float(_timings.get("reach", 58.0)),
-		downward,
+		vertical,
 		element
 	)
 
@@ -210,7 +227,16 @@ func _enter_cooldown() -> void:
 		swing_finished.emit()
 
 
-## 下劈時各段時長與判定框改用 pogo 區塊的設定。
+## 是否為下劈。保留給既有呼叫端與視覺判讀。
+func is_downward() -> bool:
+	return vertical == Vertical.DOWN
+
+
+func is_upward() -> bool:
+	return vertical == Vertical.UP
+
+
+## 上下揮擊時各段時長與判定框改用 pogo / uppercut 區塊的設定。
 func _resolve_timings() -> Dictionary:
 	var timings := {
 		"windup": float(_profile.get("windup", 0.1)),
@@ -221,7 +247,18 @@ func _resolve_timings() -> Dictionary:
 		"damage_scale": 1.0,
 		"bounce": 0.0,
 	}
-	if not downward:
+	if vertical == Vertical.UP:
+		var upper := get_uppercut_settings()
+		timings["windup"] = float(upper.get("windup", timings["windup"]))
+		timings["active"] = float(upper.get("active", timings["active"]))
+		timings["cooldown"] = float(upper.get("cooldown", timings["cooldown"]))
+		timings["reach"] = float(upper.get("offset", 50.0))
+		timings["hitbox"] = upper.get("hitbox", [56, 72])
+		timings["damage_scale"] = float(upper.get("damage_scale", 0.9))
+		timings["launch"] = float(upper.get("launch", -320.0))
+		return timings
+
+	if vertical != Vertical.DOWN:
 		return timings
 
 	var pogo := get_pogo_settings()
@@ -238,7 +275,13 @@ func _resolve_timings() -> Dictionary:
 ## 判定框中心相對於本節點的位置。向前揮是水平偏移，下劈是往下。
 func get_hitbox_offset() -> Vector2:
 	var reach := float(_timings.get("reach", 58.0))
-	return Vector2(0.0, reach) if downward else Vector2(reach * facing, 0.0)
+	match vertical:
+		Vertical.DOWN:
+			return Vector2(0.0, reach)
+		Vertical.UP:
+			return Vector2(0.0, -reach)
+		_:
+			return Vector2(reach * facing, 0.0)
 
 
 func get_hitbox_size() -> Vector2:
@@ -315,6 +358,7 @@ func _apply_hit(collider: Variant) -> void:
 		hit_landed.emit(node, damage)
 		_try_interrupt(node)
 		_try_pogo()
+		_try_launch(node)
 
 
 ## 打斷目標的蓄力。只有近戰打得斷，遠程不行——這是靠近定點AOE敵人的唯一理由。
@@ -330,9 +374,29 @@ func _try_interrupt(node: Node) -> void:
 		charge_interrupted.emit(node)
 
 
+## 上挑命中才把敵人擊飛。與下劈對稱：**下劈抬自己、上挑抬敵人**。
+##
+## 一次揮擊可以挑起多個敵人（不像彈起只該有一次），但同一個目標只挑一次——
+## 去重已經由 _hit_this_swing 保證。
+func _try_launch(node: Node) -> void:
+	if vertical != Vertical.UP:
+		return
+	var launch := float(_timings.get("launch", 0.0))
+	if is_zero_approx(launch):
+		return
+	if not is_instance_valid(node) or node.is_queued_for_deletion():
+		return
+
+	var body := node as CharacterBody2D
+	if body != null:
+		body.velocity.y = launch
+	_launched_this_swing = true
+	target_launched.emit(node, launch)
+
+
 ## 下劈命中才彈起，且一次揮擊只彈一次——一刀掃到三隻敵人不該疊加成三倍彈速。
 func _try_pogo() -> void:
-	if not downward or _bounced_this_swing:
+	if vertical != Vertical.DOWN or _bounced_this_swing:
 		return
 	var bounce := float(_timings.get("bounce", 0.0))
 	if is_zero_approx(bounce):

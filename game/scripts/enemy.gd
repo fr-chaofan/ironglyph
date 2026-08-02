@@ -135,7 +135,7 @@ func has_own_melee() -> bool:
 ##
 ## ⚠️ 染色用 self_modulate：flash_hit() 受擊閃紅用的是 modulate，
 ## 共用同一個屬性的話，前搖中被打一下就會互相把對方的 tween 蓋掉。
-func _on_swing_started(profile: Dictionary, _downward: bool) -> void:
+func _on_swing_started(profile: Dictionary, _vertical: int) -> void:
 	if hanzi_sprite == null or not is_instance_valid(hanzi_sprite):
 		return
 
