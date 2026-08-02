@@ -9,6 +9,7 @@ extends GutTest
 const PlayerScene := preload("res://scenes/player.tscn")
 const EnemyScene := preload("res://scenes/enemy_base.tscn")
 const PickupScene := preload("res://scenes/component_pickup.tscn")
+const StationaryAI := preload("res://scripts/enemy_ai_stationary.gd")
 
 var _player: Node2D
 var _melee: MeleeAttack
@@ -120,6 +121,56 @@ func test_近戰打斷蓄力並復原字形縮放() -> void:
 		enemy.hanzi_sprite.scale, Vector2.ONE,
 		"打斷必須 kill 掉蓄力 tween 並復原縮放，否則敵人永遠停在放大狀態"
 	)
+
+
+func test_蓄力與硬直都有明顯的顏色回饋() -> void:
+	# 只靠 1.0→1.25 的縮放，實機上肉眼分辨不出來有沒有打斷成功
+	var enemy: Enemy = await _spawn_charging_enemy(Vector2(80, 0))
+	var sprite := enemy.hanzi_sprite
+
+	await wait_seconds(0.3)  # 讓蓄力 tween 跑一段
+	assert_ne(sprite.self_modulate, Color.WHITE, "蓄力中應該染上警示色")
+
+	_player._try_melee()
+	_melee._physics_process(0.12)
+
+	assert_eq(
+		sprite.self_modulate, StationaryAI.STAGGER_COLOR,
+		"硬直期間要染成另一個顏色，玩家才看得出現在可以免費打它"
+	)
+
+	var ai := enemy.get_node(^"AI")
+	ai.call(&"decide_velocity", enemy, 1.0)  # 推過硬直
+	assert_eq(sprite.self_modulate, Color.WHITE, "硬直結束要把顏色還原")
+
+
+func test_蓄力染色不與受擊閃紅打架() -> void:
+	# flash_hit() 用 modulate、蓄力用 self_modulate。共用同一個屬性的話，
+	# 蓄力中被打一下就會互相把對方的 tween 蓋掉。
+	var enemy: Enemy = await _spawn_charging_enemy(Vector2(80, 0))
+	await wait_seconds(0.3)
+
+	var charge_tint := enemy.hanzi_sprite.self_modulate
+	enemy.hanzi_sprite.flash_hit()
+
+	assert_eq(
+		enemy.hanzi_sprite.self_modulate, charge_tint,
+		"受擊閃紅不可以洗掉蓄力的警示色"
+	)
+
+
+func test_打斷時飄出打斷字樣() -> void:
+	var enemy: Enemy = await _spawn_charging_enemy(Vector2(80, 0))
+
+	_player._try_melee()
+	_melee._physics_process(0.12)
+
+	var found := false
+	for child: Node in enemy.get_children():
+		if child is Label and (child as Label).text == "打斷！":
+			found = true
+			break
+	assert_true(found, "打斷要有文字回饋，否則玩家只能靠比對縮放來猜")
 
 
 func test_遠程打不斷蓄力() -> void:
