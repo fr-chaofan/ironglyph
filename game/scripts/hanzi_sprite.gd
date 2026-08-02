@@ -35,6 +35,17 @@ extends Label
 ## ⚠️ 不隨筆畫數遞減的話，同一個寬度下「山」剛好、「巖」會糊成一團黑。
 @export var brush_min_width_ratio: float = 0.065
 
+## 深色襯底相對於筆畫的寬度倍率。襯底露出來的那一圈就是筆畫之間的**分隔線**，
+## 太小的話相鄰兩筆會黏在一起看不出邊界。
+@export var brush_outline_ratio: float = 1.55
+
+## 筆順濃淡：最後一筆相對於第一筆的墨色深度。
+##
+## 真毛筆蘸一次墨寫好幾筆，墨會越寫越淡。這既是水墨的本色，
+## 又順帶讓相鄰筆畫的顏色不同，眼睛自然分得開。
+## 設成 1.0 就是每一筆都一樣濃（會比較糊）。
+@export_range(0.5, 1.0, 0.01) var brush_ink_depletion: float = 0.78
+
 ## 五行屬性著色的亮度加成。
 ##
 ## `rendering/viewport/hdr_2d` 開啟後，超過 1.0 的顏色分量會被 WorldEnvironment 的
@@ -101,17 +112,31 @@ func _rebuild_brush() -> void:
 	var glyph_color := get_theme_color(&"font_color")
 	var outline_color := get_theme_color(&"font_outline_color")
 
-	# ⚠️ 兩趟畫：先把**所有**筆畫的深色襯底畫完，再畫彩色筆畫。
-	# 一筆一筆「襯底＋彩色」交錯的話，後一筆的襯底會壓進前一筆的彩色線裡，
-	# 字看起來像被切開。
-	for stroke: Array in medians:
-		var line := _make_stroke_line(stroke, center, scale_factor, origin, width * 1.5, outline_color)
-		if line != null:
-			line.z_index = -1
-			_brush_root.add_child(line)
+	# ⚠️ **按筆順交錯畫：每一筆的深色襯底緊接著自己那一筆彩色線。**
+	#
+	# 早期版本是「先畫完所有襯底、再畫所有彩色筆畫」，理由是怕交錯會把字切開。
+	# 那是錯的——那樣做等於取消了筆畫之間的所有分隔：襯底全壓在最底下，
+	# 相鄰兩筆的彩色線直接貼在一起，眼睛分不出邊界，整個字糊成一片。
+	#
+	# 交錯畫時，後寫的筆畫會在先寫的筆畫上壓出一道暗邊——這既是筆畫的分隔線，
+	# 也正是真實運筆的層次：後一筆本來就疊在前一筆上面。
+	# Godot 的同 z_index 子節點按樹的順序繪製，所以照順序 add_child 即可。
+	var count := medians.size()
+	for i in count:
+		var stroke: Array = medians[i]
+		# 筆順濃淡：越後面的筆畫墨越淡
+		var ink := lerpf(1.0, brush_ink_depletion, 0.0 if count <= 1 else float(i) / float(count - 1))
+		var stroke_color := Color(
+			glyph_color.r * ink, glyph_color.g * ink, glyph_color.b * ink, glyph_color.a
+		)
 
-	for stroke: Array in medians:
-		var line := _make_stroke_line(stroke, center, scale_factor, origin, width, glyph_color)
+		var underlay := _make_stroke_line(
+			stroke, center, scale_factor, origin, width * brush_outline_ratio, outline_color
+		)
+		if underlay != null:
+			_brush_root.add_child(underlay)
+
+		var line := _make_stroke_line(stroke, center, scale_factor, origin, width, stroke_color)
 		if line != null:
 			_brush_root.add_child(line)
 
@@ -142,6 +167,12 @@ func _make_stroke_line(
 	curve.add_point(Vector2(0.22, 1.0))
 	curve.add_point(Vector2(1.0, 0.42))
 	line.width_curve = curve
+
+	# 單筆之內也有濃淡：起筆墨飽、收筆漸乾
+	var gradient := Gradient.new()
+	gradient.set_color(0, color)
+	gradient.set_color(1, Color(color.r, color.g, color.b, color.a * 0.82))
+	line.gradient = gradient
 
 	for point: Array in stroke:
 		line.add_point(Vector2(

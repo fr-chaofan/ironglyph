@@ -41,6 +41,7 @@ func test_有筆畫資料的字改用筆畫渲染() -> void:
 
 	# 每一筆畫兩條線：深色襯底 + 彩色筆畫
 	assert_eq(lines.size(), HanziData.get_medians("令").size() * 2, "「令」5筆應畫出 5×2 條線")
+	assert_gt(lines.size(), 0)
 	assert_eq(sprite.visible_ratio, 0.0, "字型那一份不該同時畫出來，否則會與筆畫疊成雙影")
 
 
@@ -54,27 +55,57 @@ func test_筆畫帶提按而不是等寬() -> void:
 
 
 func test_襯底比彩色筆畫粗() -> void:
-	# 深色襯底就是原本 Label 描邊的替代品，沒有它字在亮背景上會糊掉
+	# 襯底露出來的那一圈就是筆畫之間的分隔線，太細的話相鄰兩筆會黏在一起
 	var sprite: HanziSprite = await _make_sprite("令")
 	var lines := _brush_lines(sprite)
-	var stroke_count := HanziData.get_medians("令").size()
 
-	var underlay: Line2D = lines[0]
-	var top: Line2D = lines[stroke_count]
-	assert_gt(underlay.width, top.width, "襯底要比彩色筆畫粗才看得到輪廓")
-	assert_lt(underlay.z_index, top.z_index, "襯底要在底下")
+	assert_gt((lines[0] as Line2D).width, (lines[1] as Line2D).width, "襯底要比彩色筆畫粗")
 
 
-func test_襯底全部畫完才畫彩色筆畫() -> void:
-	# 一筆一筆「襯底＋彩色」交錯的話，後一筆的襯底會壓進前一筆的彩色線，字看起來像被切開
+func test_按筆順交錯畫而不是先畫完所有襯底() -> void:
+	# ⚠️ 這一條是修正回歸用的。
+	# 先畫完所有襯底、再畫所有彩色筆畫的話，襯底全壓在最底下，
+	# 相鄰兩筆的彩色線直接貼在一起——**筆畫之間完全沒有分隔，整個字糊成一片**。
+	# 交錯畫時後寫的筆畫會在先寫的筆畫上壓出暗邊，那既是分隔線也是真實的運筆層次。
 	var sprite: HanziSprite = await _make_sprite("森")
 	var lines := _brush_lines(sprite)
 	var stroke_count := HanziData.get_medians("森").size()
 
+	assert_eq(lines.size(), stroke_count * 2)
 	for i in stroke_count:
-		assert_eq((lines[i] as Line2D).z_index, -1, "前半段應該全是襯底")
-	for i in range(stroke_count, lines.size()):
-		assert_eq((lines[i] as Line2D).z_index, 0, "後半段應該全是彩色筆畫")
+		var underlay: Line2D = lines[i * 2]
+		var top: Line2D = lines[i * 2 + 1]
+		assert_gt(
+			underlay.width, top.width,
+			"第 %d 組應該是「襯底、彩色」成對出現" % i
+		)
+
+
+func test_筆順越後面墨越淡() -> void:
+	# 真毛筆蘸一次墨寫好幾筆，墨會越寫越淡。這既是水墨的本色，
+	# 又順帶讓相鄰筆畫的顏色不同，眼睛自然分得開。
+	var sprite: HanziSprite = await _make_sprite("森")
+	var lines := _brush_lines(sprite)
+	var stroke_count := HanziData.get_medians("森").size()
+
+	var first: Color = (lines[1] as Line2D).default_color
+	var last: Color = (lines[(stroke_count - 1) * 2 + 1] as Line2D).default_color
+
+	assert_lt(
+		last.r + last.g + last.b, first.r + first.g + first.b,
+		"最後一筆應該比第一筆淡"
+	)
+
+
+func test_單筆之內也有濃淡() -> void:
+	var sprite: HanziSprite = await _make_sprite("令")
+	var line: Line2D = _brush_lines(sprite)[1]
+
+	assert_not_null(line.gradient, "缺少 gradient，單筆會是死板的均勻色塊")
+	assert_lt(
+		line.gradient.get_color(1).a, line.gradient.get_color(0).a,
+		"收筆要比起筆乾"
+	)
 
 
 # ---- 筆畫數與線寬 ----
@@ -149,8 +180,8 @@ func test_屬性著色會套用到筆畫上() -> void:
 	var lines := _brush_lines(enemy.hanzi_sprite)
 	assert_gt(lines.size(), 0, "敵人字形應該用筆畫畫")
 
-	# 後半段是彩色筆畫
-	var top: Line2D = lines[lines.size() - 1]
+	# 每組的第二條是彩色筆畫；取第一組，它的墨最濃（還沒被筆順濃淡衰減）
+	var top: Line2D = lines[1]
 	var expected: Color = Bullet.ELEMENT_COLORS["fire"]
 	assert_almost_eq(top.default_color.r / HanziSprite.ELEMENT_GLOW_BOOST, expected.r, 0.01)
 	assert_almost_eq(top.default_color.g / HanziSprite.ELEMENT_GLOW_BOOST, expected.g, 0.01)
