@@ -79,7 +79,7 @@ static func spawn(
 	color: Color,
 	duration: float,
 	reach: float,
-	downward: bool = false,
+	vertical: int = 0,
 	element: String = "neutral"
 ) -> MeleeArc:
 	if parent == null or not is_instance_valid(parent):
@@ -97,8 +97,8 @@ static func spawn(
 	parent.add_child(arc)
 	arc.position = offset
 	arc._build_swath(profile, color, reach)
-	arc._spawn_particles(profile, color, facing, downward)
-	arc._animate(facing, duration, downward)
+	arc._spawn_particles(profile, color, facing, vertical)
+	arc._animate(facing, duration, vertical)
 	return arc
 
 
@@ -240,7 +240,7 @@ static func _style_line(line: Line2D, width: float, color: Color, alpha: float) 
 
 ## 屬性粒子點綴：水花／火星／塵屑。用 CPUParticles2D 而不是 GPU 版本——
 ## 全部參數都能在程式碼裡設定，不必額外準備 ParticleProcessMaterial 資源。
-func _spawn_particles(profile: Dictionary, color: Color, facing: float, downward: bool) -> void:
+func _spawn_particles(profile: Dictionary, color: Color, facing: float, vertical: int) -> void:
 	var amount := int(profile.get("particles", 0))
 	if amount <= 0:
 		return
@@ -252,7 +252,7 @@ func _spawn_particles(profile: Dictionary, color: Color, facing: float, downward
 	particles.explosiveness = 0.85
 	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 	particles.emission_sphere_radius = 26.0
-	particles.direction = Vector2(0.0, 1.0) if downward else Vector2(facing, -0.25)
+	particles.direction = Vector2(0.0, float(vertical)) if vertical != 0 else Vector2(facing, -0.25)
 	particles.spread = float(profile.get("particle_spread", 60.0))
 	particles.initial_velocity_min = float(profile.get("particle_speed", 130.0)) * 0.5
 	particles.initial_velocity_max = float(profile.get("particle_speed", 130.0))
@@ -368,17 +368,18 @@ static func _deterministic_noise(index: int, salt: int) -> float:
 	return (value - floor(value)) * 2.0 - 1.0
 
 
-func _animate(facing: float, duration: float, downward: bool) -> void:
-	var base_angle := PI * 0.5 if downward else 0.0
+func _animate(facing: float, duration: float, vertical: int) -> void:
+	# 下劈往下掃、上挑往上掃、平揮水平掃
+	var base_angle := PI * 0.5 * float(vertical)
 	# 往左揮時鏡像的是**軌跡**不是字形本身，不違反「漢字不可水平鏡像」的鐵律——
 	# 這裡畫的是一道揮擊光跡，不是要讓玩家讀出是哪個字
-	scale.x = facing if not downward else 1.0
+	scale.x = facing if vertical == 0 else 1.0
 
 	# ⚠️ **鏡像的同時，掃描方向也必須跟著反過來。**
 	# 螢幕 y 軸朝下，所以角度由負掃到正 = 由上往下劈。形狀被 scale.x = -1 鏡像後，
 	# 同一組角度序列會變成由下往上「撩」——看起來就不是劈了。
 	# 只翻形狀不翻掃描方向，是鏡像動畫最容易漏掉的一半。
-	var sweep_dir := 1.0 if downward else signf(facing)
+	var sweep_dir := 1.0 if vertical != 0 else signf(facing)
 	if is_zero_approx(sweep_dir):
 		sweep_dir = 1.0
 
