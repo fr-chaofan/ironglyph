@@ -116,13 +116,21 @@ func _animate(facing: float, duration: float, downward: bool) -> void:
 	# 這裡畫的是一道揮擊光跡，不是要讓玩家讀出是哪個字
 	scale.x = facing if not downward else 1.0
 
-	rotation = base_angle - _SWEEP * 0.5
+	# ⚠️ **鏡像的同時，掃描方向也必須跟著反過來。**
+	# 螢幕 y 軸朝下，所以角度由負掃到正 = 由上往下劈。形狀被 scale.x = -1 鏡像後，
+	# 同一組角度序列會變成由下往上「撩」——看起來就不是劈了。
+	# 只翻形狀不翻掃描方向，是鏡像動畫最容易漏掉的一半。
+	var sweep_dir := 1.0 if downward else signf(facing)
+	if is_zero_approx(sweep_dir):
+		sweep_dir = 1.0
+
+	rotation = base_angle - _SWEEP * 0.5 * sweep_dir
 	modulate.a = 0.0
 
 	var visible_time := maxf(duration, 0.05)
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(self, "rotation", base_angle + _SWEEP * 0.5, visible_time) \
+	tween.tween_property(self, "rotation", base_angle + _SWEEP * 0.5 * sweep_dir, visible_time) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(self, "modulate:a", 1.0, visible_time * 0.25)
 	tween.chain().tween_property(self, "modulate:a", 0.0, visible_time * 0.75)
