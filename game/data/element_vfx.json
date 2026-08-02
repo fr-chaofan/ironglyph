@@ -1,6 +1,5 @@
 {
   "_comment": "五行之呼吸——每個屬性的揮擊刀氣造型。這裡的數字是給眼睛調的，改完不必動程式碼；用 scenes/vfx_showcase.tscn 六種並排循環播放來對照。",
-
   "defaults": {
     "layers": 3,
     "core_width": 9.0,
@@ -18,7 +17,6 @@
     "particle_spread": 60.0,
     "trail_scale": 1.0
   },
-
   "water": {
     "_note": "水之呼吸：翻卷的浪。低頻大振幅正弦，層數多、外層寬而淡，像一整片水推出去",
     "layers": 4,
@@ -31,7 +29,6 @@
     "particle_spread": 70.0,
     "trail_scale": 1.15
   },
-
   "fire": {
     "_note": "炎之呼吸：舔舐的火舌。高頻抖動 + 往上飄，尾端斷開成舌尖",
     "layers": 4,
@@ -47,7 +44,6 @@
     "particle_spread": 85.0,
     "trail_scale": 1.1
   },
-
   "metal": {
     "_note": "金之呼吸：銳利的刃光／雷。層數少、極細、折線化，斷口大——不拖泥帶水",
     "layers": 2,
@@ -60,7 +56,6 @@
     "particle_spread": 30.0,
     "trail_scale": 0.85
   },
-
   "wood": {
     "_note": "木之呼吸：抽枝。主弧線上長出短枝，緩慢的低頻起伏",
     "layers": 3,
@@ -75,7 +70,6 @@
     "particle_spread": 75.0,
     "trail_scale": 1.05
   },
-
   "earth": {
     "_note": "土之呼吸：崩落的岩塵。粗、短、碎裂成塊，幾乎不延展",
     "layers": 3,
@@ -88,7 +82,6 @@
     "particle_spread": 95.0,
     "trail_scale": 0.9
   },
-
   "neutral": {
     "_note": "無屬性：純墨。不加任何屬性造型，就是一筆書法——這是「令」自己的樣子",
     "layers": 2,
@@ -96,5 +89,93 @@
     "swath_width": 16.0,
     "particles": 0,
     "trail_scale": 1.0
+  },
+  "_projectile_comment": "遠程子彈的造型。近戰有多層刀氣，遠程原本只是一個 9×6 的實心菱形——同樣的思路搬過來：子彈本身就是一筆運動中的墨。",
+  "projectile_defaults": {
+    "trail_points": 16,
+    "trail_width": 11.0,
+    "head_length": 14.0,
+    "head_width": 7.0,
+    "wave": 0.0,
+    "wave_frequency": 3.0,
+    "spin": 0.0,
+    "particles": 0,
+    "particle_speed": 70.0,
+    "impact_bits": 5,
+    "impact_spread": 90.0
+  },
+  "projectile": {
+    "water": {
+      "_note": "水波：擺動的弧線，尾部化開成漣漪",
+      "trail_points": 20,
+      "trail_width": 13.0,
+      "head_length": 13.0,
+      "head_width": 9.0,
+      "wave": 5.0,
+      "wave_frequency": 2.4,
+      "particles": 4,
+      "particle_speed": 60.0,
+      "impact_bits": 8,
+      "impact_spread": 120.0
+    },
+    "fire": {
+      "_note": "火舌：尖端銳、尾部散開，帶火星",
+      "trail_points": 18,
+      "trail_width": 14.0,
+      "head_length": 17.0,
+      "head_width": 8.0,
+      "wave": 2.5,
+      "wave_frequency": 6.0,
+      "particles": 7,
+      "particle_speed": 110.0,
+      "impact_bits": 9,
+      "impact_spread": 140.0
+    },
+    "metal": {
+      "_note": "針刃：極細長，殘影最長，速度感",
+      "trail_points": 26,
+      "trail_width": 5.0,
+      "head_length": 26.0,
+      "head_width": 4.0,
+      "particles": 2,
+      "particle_speed": 150.0,
+      "impact_bits": 4,
+      "impact_spread": 40.0
+    },
+    "wood": {
+      "_note": "藤：緩慢起伏，尾端分叉",
+      "trail_points": 18,
+      "trail_width": 10.0,
+      "head_length": 14.0,
+      "head_width": 8.0,
+      "wave": 4.0,
+      "wave_frequency": 1.6,
+      "particles": 4,
+      "particle_speed": 55.0,
+      "impact_bits": 6,
+      "impact_spread": 110.0
+    },
+    "earth": {
+      "_note": "石塊：粗短、翻滾、掉塵",
+      "trail_points": 10,
+      "trail_width": 15.0,
+      "head_length": 13.0,
+      "head_width": 12.0,
+      "spin": 9.0,
+      "particles": 6,
+      "particle_speed": 50.0,
+      "impact_bits": 7,
+      "impact_spread": 150.0
+    },
+    "neutral": {
+      "_note": "墨箭：一筆乾淨的墨，不加屬性造型",
+      "trail_points": 16,
+      "trail_width": 9.0,
+      "head_length": 16.0,
+      "head_width": 6.0,
+      "particles": 0,
+      "impact_bits": 5,
+      "impact_spread": 80.0
+    }
   }
 }
