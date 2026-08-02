@@ -7,19 +7,40 @@
       "element": "neutral",
       "damage": 16,
       "cooldown": 0.45,
-      "windup": 0.10,
+      "windup": 0.1,
       "active": 0.12,
       "reach": 58,
-      "hitbox": [72, 56]
+      "hitbox": [
+        72,
+        56
+      ]
+    },
+    "dao_slash": {
+      "id": "dao_slash",
+      "name": "刀刃筆擊",
+      "glyph": "刂",
+      "element": "metal",
+      "damage": 24,
+      "cooldown": 0.4,
+      "windup": 0.08,
+      "active": 0.14,
+      "reach": 66,
+      "hitbox": [
+        84,
+        56
+      ]
     }
   },
   "pogo": {
     "damage_scale": 0.8,
-    "cooldown": 0.30,
+    "cooldown": 0.3,
     "windup": 0.06,
     "active": 0.16,
     "bounce": -340,
     "offset": 52,
-    "hitbox": [56, 72]
+    "hitbox": [
+      56,
+      72
+    ]
   }
 }

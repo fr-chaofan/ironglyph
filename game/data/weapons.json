@@ -5,7 +5,7 @@
   {"id":"mu","radical":"木","element":"wood","name":"藤蔓刺","damage":10,"fire_rate":0.5,"attack_type":"projectile","projectile":"vine","range":"short"},
   {"id":"tu","radical":"土","element":"earth","name":"石撞","damage":15,"fire_rate":0.8,"attack_type":"projectile","projectile":"rock","range":"short"},
   {"id":"gong","radical":"弓","element":"neutral","name":"基礎弓箭","damage":7,"fire_rate":0.3,"attack_type":"projectile","projectile":"arrow","range":"long"},
-  {"id":"dao","radical":"刂","element":"neutral","name":"近戰刀","damage":14,"fire_rate":0.35,"attack_type":"melee","projectile":"melee","range":"melee"},
+  {"id":"dao","radical":"刂","element":"neutral","name":"近戰刀","damage":14,"fire_rate":0.35,"attack_type":"melee","projectile":"melee","range":"melee","melee_profile_id":"dao_slash"},
   {"id":"shou","radical":"扌","element":"neutral","name":"手雷","damage":20,"fire_rate":1.0,"attack_type":"projectile","projectile":"grenade_aoe","range":"medium"},
   {"id":"bing","radical":"冫","element":"water","name":"冰錐","damage":9,"fire_rate":0.45,"attack_type":"projectile","projectile":"ice_shard","range":"medium"},
   {"id":"shi","radical":"石","element":"earth","name":"碎石彈","damage":11,"fire_rate":0.5,"attack_type":"projectile","projectile":"pebble","range":"medium"}

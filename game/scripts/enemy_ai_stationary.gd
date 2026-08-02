@@ -8,15 +8,55 @@ extends Node
 ## 蓄力時間：放招前先有預兆，玩家才有機會退出範圍
 @export var telegraph_time: float = 0.5
 
+## 被近戰打斷後的硬直（秒）。玩家可以在這段時間再補一下。
+@export var stagger_time: float = 0.35
+
 var _cooldown: float = 0.0
 var _telegraph_left: float = 0.0
+var _stagger_left: float = 0.0
 var _initialised: bool = false
+var _telegraph_tween: Tween
+
+
+func is_charging() -> bool:
+	return _telegraph_left > 0.0
+
+
+## 被近戰打斷蓄力（Task 2.7c）。回傳是否真的打斷了什麼。
+##
+## **只有近戰打得斷，遠程不行**——這是「為什麼要靠近錘／灶」的唯一答案，
+## 見 `docs/COMBAT.md` 3.6。
+##
+## ⚠️ 一定要 kill 掉蓄力的 tween 並把字形縮放復原。`_start_telegraph()` 用 tween
+## 把字形放大到 1.25 當預兆，被打斷時若不處理，敵人會**永遠停在放大狀態**——
+## 與 `HanziSprite.flash_hit()` 的「連續受擊要先 kill 前一個 tween」是同一類問題。
+func interrupt(enemy: Enemy) -> bool:
+	if _telegraph_left <= 0.0:
+		return false
+
+	_telegraph_left = 0.0
+	_stagger_left = stagger_time
+
+	if _telegraph_tween != null and _telegraph_tween.is_valid():
+		_telegraph_tween.kill()
+	_telegraph_tween = null
+
+	if enemy != null and enemy.hanzi_sprite != null and is_instance_valid(enemy.hanzi_sprite):
+		enemy.hanzi_sprite.scale = Vector2.ONE
+	return true
 
 
 func decide_velocity(enemy: Enemy, delta: float) -> float:
 	if not _initialised:
 		_initialised = true
 		_cooldown = randf_range(0.0, pulse_interval)
+
+	if _stagger_left > 0.0:
+		# 硬直期間不蓄力也不放招，但 pulse_interval 的冷卻照常走——
+		# 否則玩家站著無限打斷就能把敵人永久鎖死
+		_stagger_left = maxf(0.0, _stagger_left - delta)
+		_cooldown = maxf(0.0, _cooldown - delta)
+		return 0.0
 
 	if _telegraph_left > 0.0:
 		_telegraph_left = maxf(0.0, _telegraph_left - delta)
@@ -38,9 +78,10 @@ func decide_velocity(enemy: Enemy, delta: float) -> float:
 func _start_telegraph(enemy: Enemy) -> void:
 	if enemy.hanzi_sprite == null or not is_instance_valid(enemy.hanzi_sprite):
 		return
-	var tween := enemy.hanzi_sprite.create_tween()
-	tween.tween_property(enemy.hanzi_sprite, "scale", Vector2(1.25, 1.25), telegraph_time)
-	tween.tween_property(enemy.hanzi_sprite, "scale", Vector2.ONE, 0.15)
+	# 保留參考，被打斷時要 kill 掉，否則字形會卡在放大狀態
+	_telegraph_tween = enemy.hanzi_sprite.create_tween()
+	_telegraph_tween.tween_property(enemy.hanzi_sprite, "scale", Vector2(1.25, 1.25), telegraph_time)
+	_telegraph_tween.tween_property(enemy.hanzi_sprite, "scale", Vector2.ONE, 0.15)
 
 
 ## 對範圍內的玩家造成傷害。用距離判定而非 Area2D——
