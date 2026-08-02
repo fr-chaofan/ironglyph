@@ -20,6 +20,10 @@ extends Character
 func _ready() -> void:
 	super()
 	hanzi_sprite.character_text = display_char
+	# ⚠️ 假人 extends Character 而不是 Enemy，拿不到 Enemy._apply_data() 的屬性著色。
+	# 漏了這一行的話，同樣是火屬性，生成的「焰」是橙紅的、假人「焰」卻是白的——
+	# 比全部都白還糟，玩家會以為顏色代表別的意思。
+	hanzi_sprite.set_element_color(element)
 	_refresh_label()
 	hp_changed.connect(_on_hp_changed)
 
