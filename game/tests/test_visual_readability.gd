@@ -56,16 +56,44 @@ func test_著色亮度超過1才會發光() -> void:
 	)
 
 
-func test_玩家維持白色以便與敵人區分() -> void:
+func test_主角用中性洋紅而不是純白() -> void:
+	# ⚠️ 純白的主角會與金屬性敵人撞色——五行配色裡「金＝白」（GDD 2.3），
+	# 實機驗證時「劍」看起來就和主角一樣白。
 	var player: Node2D = PlayerScene.instantiate()
 	add_child_autofree(player)
 	await wait_physics_frames(1)
 
 	var sprite := player.get_node(^"HanziSprite") as HanziSprite
 	var color := sprite.get_theme_color(&"font_color")
-	assert_almost_eq(color.r, 1.0, 0.01, "主角必須一眼與敵人區分開")
-	assert_almost_eq(color.g, 1.0, 0.01)
-	assert_almost_eq(color.b, 1.0, 0.01)
+	var expected: Color = Bullet.ELEMENT_COLORS["neutral"]
+
+	assert_almost_eq(color.r / HanziSprite.ELEMENT_GLOW_BOOST, expected.r, 0.01)
+	assert_almost_eq(color.g / HanziSprite.ELEMENT_GLOW_BOOST, expected.g, 0.01)
+	assert_almost_eq(color.b / HanziSprite.ELEMENT_GLOW_BOOST, expected.b, 0.01)
+
+
+func test_主角顏色與每一種五行色都拉得開() -> void:
+	# 既有的 test_六種顏色兩兩之間有足夠差異 只管子彈的六個色，
+	# 沒有把「主角字形」納入檢查——這次的撞色就是從這個縫隙漏出去的。
+	# 門檻沿用同一個 0.45。
+	var player: Node2D = PlayerScene.instantiate()
+	add_child_autofree(player)
+	await wait_physics_frames(1)
+
+	var sprite := player.get_node(^"HanziSprite") as HanziSprite
+	var player_color := sprite.get_theme_color(&"font_color") / HanziSprite.ELEMENT_GLOW_BOOST
+
+	for element: String in ["water", "fire", "metal", "wood", "earth"]:
+		var enemy_color: Color = Bullet.ELEMENT_COLORS[element]
+		var distance := Vector3(
+			player_color.r - enemy_color.r,
+			player_color.g - enemy_color.g,
+			player_color.b - enemy_color.b
+		).length()
+		assert_gt(
+			distance, 0.45,
+			"主角與 %s 屬敵人的顏色距離只有 %.2f，畫面上會分不出來" % [element, distance]
+		)
 
 
 func test_訓練假人也要依屬性著色() -> void:

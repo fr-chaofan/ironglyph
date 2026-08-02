@@ -37,6 +37,16 @@ func _ready() -> void:
 	# 敵人AI 透過這個群組找玩家，不用寫死節點路徑——關卡場景結構改變時不會壞掉
 	add_to_group(&"player")
 
+	# ⚠️ **主角不可以用純白。** 五行配色裡「金＝白」（GDD 2.3），純白的主角會與
+	# 金屬性敵人（鋼／針／劍／錘）在畫面上撞色——實機驗證時「劍」看起來就和主角一樣白。
+	#
+	# 這與 GDD 2.3 記錄的中性子彈撞色是**同一個坑的另一半**：當初的正解是
+	# 「把中性移開白色，而不是去改金屬色破壞五行慣例」。主角是 neutral，
+	# 中性的定案色就是洋紅，走同一套色表即可，不另立第三種規則。
+	#
+	# 附帶好處：主角的中性遠程「弓」打出的子彈也是洋紅，攻擊與角色同色。
+	hanzi_sprite.set_element_color(element)
+
 	if melee_attack != null:
 		melee_attack.pogo_bounced.connect(_on_pogo_bounced)
 		melee_attack.hit_landed.connect(_on_melee_hit_landed)
