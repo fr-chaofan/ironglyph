@@ -26,12 +26,6 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 
-[rendering]
-
-; 2D glow 需要 HDR viewport：沒有它，顏色會被夾在 1.0，
-; WorldEnvironment 的 glow_hdr_threshold 永遠達不到，發光完全不會出現。
-viewport/hdr_2d=true
-
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/godotsteam/plugin.cfg", "res://addons/gut/plugin.cfg")
@@ -101,3 +95,7 @@ pause={
 2d_physics/layer_3="enemy"
 2d_physics/layer_4="player_bullet"
 2d_physics/layer_5="enemy_bullet"
+
+[rendering]
+
+viewport/hdr_2d=true

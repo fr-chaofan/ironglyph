@@ -5,11 +5,11 @@
 class_name DamagePopup
 extends RefCounted
 
-const ADVANTAGE_COLOR := Color(1.0, 0.85, 0.2)
-## 打斷蓄力的回饋色。刻意選一個不在五行配色裡的青色，
+static var ADVANTAGE_COLOR: Color = Palette.element("fire")
+## 打斷蓄力的回饋色。刻意選一個不在五行配色裡的顏色，
 ## 才不會被誤讀成某個屬性的傷害數字。
-const INTERRUPT_COLOR := Color(0.45, 0.95, 1.0)
-const DISADVANTAGE_COLOR := Color(0.55, 0.6, 0.7)
+static var INTERRUPT_COLOR: Color = Color(0.55, 0.15, 0.55)
+static var DISADVANTAGE_COLOR: Color = Palette.element("metal")
 const RISE_DISTANCE := -50.0
 const DURATION := 0.7
 
@@ -18,7 +18,7 @@ const DURATION := 0.7
 ## multiplier 決定顏色與後綴：>1 顯示「剋!」、<1 顯示「抗」。
 static func show_damage(target: Node2D, amount: int, multiplier: float) -> Label:
 	var label := str(amount)
-	var color := Color.WHITE
+	var color := Palette.ink()
 	if multiplier > 1.0:
 		label += "  剋!"
 		color = ADVANTAGE_COLOR
@@ -46,7 +46,8 @@ static func show_text(
 	popup.text = text
 	popup.add_theme_font_size_override(&"font_size", font_size)
 	popup.add_theme_constant_override(&"outline_size", 5)
-	popup.add_theme_color_override(&"font_outline_color", Color(0, 0, 0, 1))
+	# 紙上用紙色描邊，數字壓在深色角色上也讀得到
+	popup.add_theme_color_override(&"font_outline_color", Palette.paper())
 	popup.add_theme_color_override(&"font_color", color)
 
 	# 掛在目標身上，位置才會跟著目標；目標被釋放時文字也一起消失

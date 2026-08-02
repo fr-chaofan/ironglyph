@@ -20,9 +20,9 @@ func _ready() -> void:
 
 	# Forward+ 走 Vulkan。退回 Compatibility 代表驅動有問題，畫面會很卡。
 	if method == "forward_plus":
-		add_theme_color_override("font_color", Color(0.4, 1.0, 0.5))
+		add_theme_color_override("font_color", Palette.element("wood"))
 	else:
-		add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		add_theme_color_override("font_color", Palette.element("fire"))
 		text += "\n⚠️ 非 Forward+，請檢查顯示卡驅動"
 
 

@@ -40,25 +40,26 @@ func test_敵人字形依五行著色() -> void:
 		assert_almost_eq(color.b / HanziSprite.ELEMENT_GLOW_BOOST, expected.b, 0.01)
 
 
-func test_著色亮度超過1才會發光() -> void:
-	# hdr_2d + glow_hdr_threshold=1.0：分量沒超過 1.0 的話 glow 完全不會出現
-	var enemy: Enemy = EnemyScene.instantiate()
-	add_child_autofree(enemy)
-	enemy.setup({
-		"char": "焰", "element": "fire", "ai": "patrol_ranged",
-		"hp": 30, "damage": 0, "speed": 0,
-	})
-
-	var color := enemy.hanzi_sprite.get_theme_color(&"font_color")
-	assert_gt(
-		maxf(color.r, maxf(color.g, color.b)), 1.0,
-		"至少一個分量要超過 1.0，否則 WorldEnvironment 的 glow 撿不到它"
-	)
+func test_每個屬性都與紙色拉得夠開() -> void:
+	# ⚠️ 紙上的可讀性門檻是「離紙多遠」，不是「離別的屬性多遠」。
+	# 第一版色板只要求兩兩距離，金（銀灰）離紙只有 0.58——實機上淡到幾乎看不見。
+	var paper := Palette.paper()
+	for element: String in Bullet.ELEMENT_COLORS:
+		var color: Color = Bullet.ELEMENT_COLORS[element]
+		assert_gt(
+			Palette.distance(color, paper), 0.8,
+			"%s 離紙只有 %.2f，會糊進紙裡" % [element, Palette.distance(color, paper)]
+		)
 
 
-func test_主角用中性洋紅而不是純白() -> void:
-	# ⚠️ 純白的主角會與金屬性敵人撞色——五行配色裡「金＝白」（GDD 2.3），
-	# 實機驗證時「劍」看起來就和主角一樣白。
+func test_屬性著色不再調亮() -> void:
+	# 深底時把顏色調亮是為了讓 glow 撿到它；在紙上調亮只會讓墨色變淡、糊進紙裡
+	assert_almost_eq(HanziSprite.ELEMENT_GLOW_BOOST, 1.0, 0.001)
+
+
+func test_主角走同一套色表() -> void:
+	# ⚠️ 深底時期這裡踩過：主角用純白，而五行「金＝白」，於是與金屬性敵人撞色。
+	# 走同一套色表就不會再犯。
 	var player: Node2D = PlayerScene.instantiate()
 	add_child_autofree(player)
 	await wait_physics_frames(1)
@@ -153,20 +154,25 @@ func test_未知屬性退回白色而不是透明() -> void:
 	assert_gt(color.a, 0.9, "查不到屬性時不可以變成看不見的字")
 
 
-func test_專案已開啟hdr_2d() -> void:
-	# 沒開的話顏色會被夾在 1.0，glow 永遠不生效——而且畫面上完全沒有錯誤提示
-	assert_true(
-		ProjectSettings.get_setting("rendering/viewport/hdr_2d", false),
-		"rendering/viewport/hdr_2d 必須開啟，否則 2D glow 不會出現"
-	)
+func test_主角是焦墨() -> void:
+	# 主角是 neutral，紙上的 neutral 就是焦墨——全場最黑最實的一筆，
+	# 一眼與彩墨畫的敵人分開
+	var player: Node2D = PlayerScene.instantiate()
+	add_child_autofree(player)
+	await wait_physics_frames(1)
+
+	var color := (player.get_node(^"HanziSprite") as HanziSprite).get_theme_color(&"font_color")
+	assert_lt(color.r + color.g + color.b, 0.5, "主角應該是最深的墨色")
 
 
-func test_環境場景帶著啟用的glow() -> void:
+func test_宣紙底不開glow() -> void:
+	# ⚠️ 發光是為了讓亮色在深背景上跳出來。在紙上它只會把畫面糊成一片霧，
+	# 而且 bloom 會把筆畫之間那道細分隔抹平——「字看著糊」的元凶之一就是它。
 	var env_node: WorldEnvironment = EnvironmentScene.instantiate()
 	add_child_autofree(env_node)
 
 	assert_not_null(env_node.environment)
-	assert_true(env_node.environment.glow_enabled, "glow 沒開的話這個場景等於沒作用")
+	assert_false(env_node.environment.glow_enabled, "宣紙底不該開 glow")
 
 
 # ---- 打擊感 ----

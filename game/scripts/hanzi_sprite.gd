@@ -44,13 +44,18 @@ extends Label
 ## 真毛筆蘸一次墨寫好幾筆，墨會越寫越淡。這既是水墨的本色，
 ## 又順帶讓相鄰筆畫的顏色不同，眼睛自然分得開。
 ## 設成 1.0 就是每一筆都一樣濃（會比較糊）。
+##
+## ⚠️ 「淡」是**往紙色化開**，不是往黑壓暗。用「顏色乘以係數」的話，
+## 焦墨乘 0.78 還是焦墨——實機上四檔濃淡看起來一模一樣。
+## 紙上的墨色變淡就是墨裡的水變多、紙透出來，所以要往紙色 lerp。
 @export_range(0.5, 1.0, 0.01) var brush_ink_depletion: float = 0.78
 
-## 五行屬性著色的亮度加成。
+## 屬性著色的亮度加成。
 ##
-## `rendering/viewport/hdr_2d` 開啟後，超過 1.0 的顏色分量會被 WorldEnvironment 的
-## glow 撿起來發光。字形是玩家辨識屬性的**主要載體**，值得比一般 UI 更亮一點。
-const ELEMENT_GLOW_BOOST := 1.22
+## ⚠️ 宣紙底之後固定為 1.0。深底時把顏色調亮是為了讓 glow 撿到它發光；
+## 在紙上調亮只會讓墨色**變淡、糊進紙裡**，而且 bloom 還會把筆畫之間的分隔抹平——
+## 「字看著糊」的元凶之一就是它。
+const ELEMENT_GLOW_BOOST := 1.0
 
 ## 受擊閃紅的顏色
 @export var hit_color: Color = Color(1.0, 0.3, 0.3)
@@ -110,7 +115,15 @@ func _rebuild_brush() -> void:
 	var width := font_size * lerpf(brush_width_ratio, brush_min_width_ratio, density)
 
 	var glyph_color := get_theme_color(&"font_color")
-	var outline_color := get_theme_color(&"font_outline_color")
+	# ⚠️ 襯底一律用**紙色**，不讀 theme 的描邊色。
+	#
+	# 深底時襯底是近黑，與背景同色，等於完全看不見——筆畫之間沒有任何分隔，
+	# 字糊成一團。宣紙底之後改用紙色：後寫的筆畫會在先寫的筆畫上壓出一道
+	# **淺色的紙痕**，那就是筆畫之間的分隔，也正是紙上運筆的真實樣子。
+	#
+	# 寫死在這裡而不是交給各場景的 theme：顏色散落在各處就會漏改，
+	# 訓練假人漏上色那次就是這樣。
+	var outline_color := Palette.paper()
 
 	# ⚠️ **按筆順交錯畫：每一筆的深色襯底緊接著自己那一筆彩色線。**
 	#
@@ -126,9 +139,9 @@ func _rebuild_brush() -> void:
 		var stroke: Array = medians[i]
 		# 筆順濃淡：越後面的筆畫墨越淡
 		var ink := lerpf(1.0, brush_ink_depletion, 0.0 if count <= 1 else float(i) / float(count - 1))
-		var stroke_color := Color(
-			glyph_color.r * ink, glyph_color.g * ink, glyph_color.b * ink, glyph_color.a
-		)
+		# 往紙色化開，而不是往黑壓暗（見 brush_ink_depletion 的說明）
+		var stroke_color := glyph_color.lerp(outline_color, 1.0 - ink)
+		stroke_color.a = glyph_color.a
 
 		var underlay := _make_stroke_line(
 			stroke, center, scale_factor, origin, width * brush_outline_ratio, outline_color
@@ -168,10 +181,11 @@ func _make_stroke_line(
 	curve.add_point(Vector2(1.0, 0.42))
 	line.width_curve = curve
 
-	# 單筆之內也有濃淡：起筆墨飽、收筆漸乾
+	# 單筆之內也有濃淡：起筆墨飽、收筆漸乾。
+	# 同樣是往紙色化開——降 alpha 也可以，但那會讓筆畫下方的襯底透出來變髒。
 	var gradient := Gradient.new()
 	gradient.set_color(0, color)
-	gradient.set_color(1, Color(color.r, color.g, color.b, color.a * 0.82))
+	gradient.set_color(1, color.lerp(Palette.paper(), 0.22))
 	line.gradient = gradient
 
 	for point: Array in stroke:
