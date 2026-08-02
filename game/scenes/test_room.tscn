@@ -94,19 +94,20 @@ offset_bottom = 40.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 18
-text = "A/D 移動  Space 跳躍(可二段)  J 開火  E 吸收部件  Q 彈出部件  ｜ T 對話  Y 三選一  U 終章過場"
+text = "A/D 移動  Space 跳躍  J 遠程  K 近戰  空中 S+K 下劈  E 吸收  Q 彈出  ｜ T 對話  Y 三選一  U 過場"
 
 [node name="WeaponLabel" type="Label" parent="HUD"]
 offset_left = 16.0
 offset_top = 44.0
 offset_right = 900.0
-offset_bottom = 76.0
+offset_bottom = 116.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 24
 text = "（武器）"
 script = ExtResource("2_wlabel")
 weapon_manager_path = NodePath("../../Player/WeaponManager")
+melee_attack_path = NodePath("../../Player/MeleeAttack")
 
 [node name="InfoLabel" type="Label" parent="HUD"]
 anchors_preset = 1
@@ -150,3 +151,9 @@ position = Vector2(620, 236)
 script = ExtResource("5_spawner")
 enemy_char = "樹"
 respawn_delay = 3.0
+
+[node name="SpawnMeleeBlade" type="Node2D" parent="EnemySpawners"]
+position = Vector2(-560, 236)
+script = ExtResource("5_spawner")
+enemy_char = "劍"
+respawn_delay = 4.0

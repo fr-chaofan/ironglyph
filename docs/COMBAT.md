@@ -222,10 +222,15 @@
 
 | | 玩家 | 敵人 |
 |---|---|---|
-| 判定框 layer | `player_melee`(6) | `enemy_melee`(7) |
-| 判定框 mask | enemy(3) + enemy_bullet(5) | player(2) |
+| `target_mask`（打傷） | enemy(4) | player(2) |
+| `block_mask`（消彈） | enemy_bullet(16) | 0 |
 | 消彈 | ✅ | ❌（敵人不消玩家子彈，否則遠程完全失效） |
 | 打斷 | ✅ | ❌ |
+
+> **實作修正（2.7b）：判定不需要新增碰撞層。** 原本規劃 `player_melee`(6) / `enemy_melee`(7)
+> 兩層給常駐 Area2D 用；改成即時形狀查詢後，判定框不再是場景裡的碰撞體，只是一次
+> `intersect_shape` 的 mask，因此 `project.godot` 的 `[layer_names]` 完全不必動。
+> 理由見 6.2。
 
 **這是本設計最重要的結構決策**：戰鬥規則對雙方對稱，前搖／判定／後搖三段式是同一份程式碼。
 日後調整「判定框要不要跟著角色移動」這類手感問題時只需要改一處，也讓 Boss（階段五）
@@ -265,8 +270,11 @@
 ### 6.1 檔案清單
 
 **新增**
-- `game/scripts/melee_attack.gd`（`class_name MeleeAttack`，extends `Area2D`）— 三段式揮擊
+- `game/scripts/melee_attack.gd`（`class_name MeleeAttack`，extends `Node2D`）— 三段式揮擊
   生命週期、同一次揮擊去重、消彈、打斷、下劈彈起；玩家與敵人共用
+- `game/data/melee.json` — 近戰 profile（傷害／前搖／判定／冷卻／reach／判定框）與下劈修正值。
+  **不放進 `weapons.json`**：那是十把部首武器的 catalog，階段六 Task 6.2 的武器圖鑑直接讀它，
+  混進「令筆擊」這種非部首武器會讓圖鑑多出不該存在的條目
 - `game/scripts/melee_arc.gd` — 揮擊視覺：用 `HanziData` 的 `medians` 甩出「令」的一撇一捺
   弧線（複用 Task 3.4 筆畫崩解的 `Line2D` 技術，不需要美術素材）
 
@@ -281,17 +289,32 @@
 - `game/scripts/enemy.gd` — `_check_touch_damage()` 對 `chase_melee` 回傳 0
 - `game/scripts/bullet.gd` — 讀 `range` 換算飛行距離上限
 - `game/scripts/player.gd` — `melee` 路由、前搖狀態、下劈彈起
-- `game/scenes/player.tscn` / `enemy_base.tscn` — 各掛一個 `MeleeHitbox`
-- `game/project.godot` — `[input]` 追加 `melee`(K)、`move_down`(S)；
-  `[layer_names]` 追加 layer 6 `player_melee`、layer 7 `enemy_melee`
+- `game/scenes/player.tscn` / `enemy_base.tscn` — 各掛一個 `MeleeAttack` 節點
+- `game/scripts/debug_weapon_label.gd` — 同時顯示 J 與 K 兩個動詞
+- `game/project.godot` — `[input]` 追加 `melee`(K)、`move_down`(S)。
+  **不需要動 `[layer_names]`**（見 4.3 的實作修正）
 
 ### 6.2 關鍵實作注意事項
 
-⚠️ **判定框開關必須 deferred。** `Enemy.die()` 的註解已經踩過：物理查詢 flush 期間不可同步
-修改碰撞狀態。揮擊在 `_physics_process` 開關 `CollisionShape2D.disabled`，一律 `set_deferred()`。
+⚠️ **判定改用即時形狀查詢，不用常駐 Area2D（2.7b 定案，與原規劃不同）。**
+原本打算掛一個 Area2D、在判定期間開關 `CollisionShape2D.disabled`。實作時改成
+`PhysicsDirectSpaceState2D.intersect_shape()`，三個理由：
 
-⚠️ **同一次揮擊只結算一次。** 判定框在 0.12s 內橫跨多個物理影格，需要 `_hit_this_swing`
-去重，不能依賴 `body_entered` 的觸發次數（多個敵人、揮擊中進入的敵人都是漏網情境）。
+1. 開關碰撞形狀必須走 `set_deferred()`（物理查詢 flush 期間不可同步改碰撞狀態，
+   `Enemy.die()` 已經踩過），代表判定框「真正生效」比程式碼寫的晚一幀——
+   0.12s 的判定窗實際只有 0.10s，而且時長會隨影格率漂移。
+2. `get_overlapping_bodies()` 要等物理步進後才更新，判定的第一幀必然是空的。
+3. 即時查詢**當幀就有結果**：測試不必猜要 await 幾幀，也不需要為近戰新增碰撞層。
+
+⚠️ **查詢必須同時 `collide_with_areas`。** 子彈是 Area2D，只查 bodies 的話永遠消不到彈。
+這與 Task 2.3 的「Area2D 的 `area_entered` 對 PhysicsBody2D 不觸發」是同一個坑的反面。
+
+⚠️ **同一次揮擊只結算一次。** 判定窗在 0.12s 內橫跨多個物理影格，每幀都會掃到同一個目標，
+需要 `_hit_this_swing` 以 instance id 去重——否則貼身揮一次會打出七、八下。
+
+⚠️ **測試裡敵人的位置要在 `add_child` 之前設好。** 先 add_child 再移動的話，敵人會有一瞬間
+出現在原點、與玩家完全重疊，物理去穿透會把玩家往旁邊推開整整一個身寬（52px），之後所有
+距離斷言都是從錯誤的座標量出來的。2.7b 實作時就是這樣讓「正前方 80px 必中」變成落空。
 
 ⚠️ **傷害一律走 `Character.take_damage()`。** 基類已處理相剋倍率、hp 夾值、訊號與死亡去重；
 `Enemy.take_damage()` 的註解說明了為什麼「先 super() 再閃紅」的順序不能改。
@@ -352,4 +375,5 @@
 | 日期 | 變更 |
 |---|---|
 | 2026-08-02 | 初版：J 遠程／K 近戰兩個動詞、部件決定強化哪一邊的分派表、68px 安全揮擊窗口、Task 2.7 落地順序 |
+| 2026-08-02 | 2.7b 實作定案：判定改用 `intersect_shape` 即時形狀查詢而非常駐 Area2D（避開 deferred 開關導致判定窗縮水、以及 `get_overlapping_bodies()` 第一幀必空兩個問題），因此**不需要新增碰撞層**；近戰 profile 獨立成 `data/melee.json` 不汙染武器圖鑑的資料來源；補上測試裡「敵人位置要在 add_child 之前設好」的去穿透陷阱 |
 | 2026-08-02 | 定案三項待決事項並擴充敵人側：①近戰可打斷 `stationary_aoe` 蓄力（含 tween 復原陷阱）；②新增下劈 pogo（含對關卡垂直設計的約束）；③刀刃筆擊吃金屬性（金剋木專武、火山關應換掉）；④`chase_melee` 從「會走路的接觸傷害」改造為前搖／判定／後搖三段式揮擊，五隻近戰敵字以純資料差異化，玩家與敵人共用同一個 `MeleeAttack` 元件 |

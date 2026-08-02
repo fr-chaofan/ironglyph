@@ -1042,14 +1042,15 @@ git add -A && git commit -m "phase2: radical weapon system, five-element damage 
 | PR | 內容 | 可獨立驗證 |
 |---|---|---|
 | 2.7a ✅ | `attack_type` 資料欄位 + `Bullet` 讀 `range` 換算射程上限（short 180／medium 420／long 720 px）；近戰武器按 J 退回基礎弓而不是丟出飛刀 | 武器射程開始有差別，近戰刀不再是飛的 |
-| 2.7b | `MeleeAttack` 元件 + `melee`(K) + 令筆擊 + 揮擊視覺 + 下劈 | test_room 按 K 打死假人；空中 S+K 踩著假人彈起 |
+| 2.7b ✅ | `MeleeAttack` 元件（三段式、即時形狀查詢）+ `melee`(K) + `move_down`(S) + 令筆擊 + 筆畫揮擊視覺 + 下劈彈起 | test_room 按 K 打死假人；空中 S+K 踩著敵人彈起 |
 | 2.7c | `GlyphLoadout` 的 J/K 分派 + 刀刃筆擊(金) + 消彈 + 打斷蓄力 + 掉落吸附 | 撿「刂」後 K 變強且 J 退回弓；揮擊能消「河」的子彈、打斷「錘」的蓄力 |
 | 2.7d | 敵人三段式近戰 + `enemies.json` 的 `melee` 區塊 | 「劍」揮擊前有明顯預兆，後搖可以免費反打一下 |
 
 **需要新增的 Input Action：** `melee`(K)、`move_down`(S)。
 S 與 Task 4.0 的 `menu_down` 不衝突——對話期間整棵樹暫停，玩家無法揮擊。
 
-**需要新增的碰撞層：** layer 6 `player_melee`、layer 7 `enemy_melee`。
+**需要新增的碰撞層：** 無。2.7b 實作時判定改用即時形狀查詢，判定框不再是場景裡的碰撞體，
+`[layer_names]` 完全不必動——原規劃的 layer 6/7 取消，理由見 `docs/COMBAT.md` 6.2。
 
 **⚠️ 對後續Task的連鎖影響：**
 - **Task 4.1a** 教學動線增加 K 與下劈；近戰對峙用「劍」（0.45s前搖）教，水域關再用「針」

@@ -1,0 +1,25 @@
+{
+  "profiles": {
+    "ling_slash": {
+      "id": "ling_slash",
+      "name": "令筆擊",
+      "glyph": "令",
+      "element": "neutral",
+      "damage": 16,
+      "cooldown": 0.45,
+      "windup": 0.10,
+      "active": 0.12,
+      "reach": 58,
+      "hitbox": [72, 56]
+    }
+  },
+  "pogo": {
+    "damage_scale": 0.8,
+    "cooldown": 0.30,
+    "windup": 0.06,
+    "active": 0.16,
+    "bounce": -340,
+    "offset": 52,
+    "hitbox": [56, 72]
+  }
+}
