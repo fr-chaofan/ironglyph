@@ -6,7 +6,7 @@
 ;    直接掛在 Node2D 根節點下的 Control 是**世界座標**，會跟著鏡頭一起捲動，
 ;    而且鏡頭跟隨玩家時會被推到畫面外看不見。CanvasLayer 底下才是螢幕座標。
 
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
@@ -17,6 +17,7 @@
 [ext_resource type="Script" uid="uid://b0impobsbtvvl" path="res://scripts/test_room_controller.gd" id="7_controller"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="8_dialogue"]
 [ext_resource type="PackedScene" path="res://scenes/world_environment.tscn" id="10_env"]
+[ext_resource type="Script" path="res://scripts/ink_parallax.gd" id="11_parallax"]
 [ext_resource type="Script" uid="uid://tpryqay3iiyc" path="res://scripts/cutscene_player.gd" id="9_cutscene"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
@@ -36,6 +37,9 @@ offset_top = -1400.0
 offset_right = 2400.0
 offset_bottom = 1400.0
 color = Color(0.93, 0.9, 0.83, 1)
+
+[node name="InkParallax" type="Parallax2D" parent="."]
+script = ExtResource("11_parallax")
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(0, 340)
