@@ -1020,6 +1020,10 @@ git add -A && git commit -m "phase2: radical weapon system, five-element damage 
 
 ### Task 2.7: 近戰／遠程分離（Phase 4.0.5 gate）
 
+> **✅ 全部完成（2.7a／2.7b／2.7c／2.7d）。** 測試累計254項2426個assert全過。
+> 實作與設計的差異都記在 `docs/COMBAT.md` 的變更記錄：判定改用即時形狀查詢因此不需要新增碰撞層、
+> 近戰 profile 獨立成 `data/melee.json`、`chase_melee` 實際有八隻而非設計初版寫的五隻。
+
 **Objective:** 把玩家的單一攻擊動詞拆成「J 遠程（借來的部件能力）＋ K 近戰（令自己的字核能力）」，
 並把敵人的 `chase_melee` 從「會走路的接觸傷害」改造為前搖／判定／後搖三段式揮擊。
 
@@ -1044,7 +1048,7 @@ git add -A && git commit -m "phase2: radical weapon system, five-element damage 
 | 2.7a ✅ | `attack_type` 資料欄位 + `Bullet` 讀 `range` 換算射程上限（short 180／medium 420／long 720 px）；近戰武器按 J 退回基礎弓而不是丟出飛刀 | 武器射程開始有差別，近戰刀不再是飛的 |
 | 2.7b ✅ | `MeleeAttack` 元件（三段式、即時形狀查詢）+ `melee`(K) + `move_down`(S) + 令筆擊 + 筆畫揮擊視覺 + 下劈彈起 | test_room 按 K 打死假人；空中 S+K 踩著敵人彈起 |
 | 2.7c ✅ | `GlyphLoadout` 的 J/K 分派 + 刀刃筆擊(金) + 打斷蓄力 + 掉落吸附（消彈已在 2.7b 隨判定一起完成） | 撿「刂」後 K 變強且 J 退回弓；揮擊能消「河」的子彈、打斷「錘」的蓄力 |
-| 2.7d | 敵人三段式近戰 + `enemies.json` 的 `melee` 區塊 | 「劍」揮擊前有明顯預兆，後搖可以免費反打一下 |
+| 2.7d ✅ | 敵人三段式近戰 + `enemies.json` 的 `melee` 區塊（八隻 `chase_melee`）+ 取消接觸傷害 | 「劍」揮擊前有明顯預兆，後搖可以免費反打一下 |
 
 **需要新增的 Input Action：** `melee`(K)、`move_down`(S)。
 S 與 Task 4.0 的 `menu_down` 不衝突——對話期間整棵樹暫停，玩家無法揮擊。
