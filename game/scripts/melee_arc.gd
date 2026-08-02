@@ -18,10 +18,16 @@ const _SWEEP := deg_to_rad(110.0)
 
 ## 生成一道揮擊弧線並自動釋放。
 ##
-## `origin` 是角色中心的世界座標，`facing` ±1，`downward` 為真時整段往下掃。
+## `offset` 是**相對於 `parent` 的局部座標**（判定框中心），`facing` ±1，
+## `downward` 為真時整段往下掃。
+##
+## ⚠️ **位置一定要在 `add_child()` 之後才設，而且設的是 `position` 不是 `global_position`。**
+## 節點還沒進場景樹時沒有父變換，Godot 的 `global_position` setter 會退化成 `set_position()`
+## ——那個世界座標會被當成局部座標，加進場景樹後變成「父節點位置 + 世界座標」，偏移量直接翻倍。
+## 2.7b 就是這樣讓揮擊弧線跑到腳下 120px 的位置，而且玩家走得越遠偏得越多。
 static func spawn(
 	parent: Node,
-	origin: Vector2,
+	offset: Vector2,
 	facing: float,
 	glyph: String,
 	color: Color,
@@ -40,9 +46,9 @@ static func spawn(
 	arc.joint_mode = Line2D.LINE_JOINT_ROUND
 	arc.z_index = 6
 	arc.points = _build_points(glyph, reach)
-	arc.global_position = origin
 
 	parent.add_child(arc)
+	arc.position = offset
 	arc._animate(facing, duration, downward)
 	return arc
 

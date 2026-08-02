@@ -174,9 +174,10 @@ func _spawn_arc() -> void:
 	if not show_arc:
 		return
 	var color: Color = Bullet.ELEMENT_COLORS.get(get_element(), Color.WHITE)
+	# 傳局部偏移而不是世界座標：弧線掛在本節點底下，本節點就在角色中心
 	MeleeArc.spawn(
 		self,
-		global_position + get_hitbox_offset(),
+		get_hitbox_offset(),
 		facing,
 		String(_profile.get("glyph", "")),
 		color,
