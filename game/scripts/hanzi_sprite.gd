@@ -15,6 +15,12 @@ extends Label
 		character_text = value
 		text = value
 
+## 五行屬性著色的亮度加成。
+##
+## `rendering/viewport/hdr_2d` 開啟後，超過 1.0 的顏色分量會被 WorldEnvironment 的
+## glow 撿起來發光。字形是玩家辨識屬性的**主要載體**，值得比一般 UI 更亮一點。
+const ELEMENT_GLOW_BOOST := 1.22
+
 ## 受擊閃紅的顏色
 @export var hit_color: Color = Color(1.0, 0.3, 0.3)
 
@@ -29,6 +35,31 @@ func _ready() -> void:
 	# 讓字以自身中心為錨點，角色定位/旋轉/縮放才不會偏移
 	horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+
+
+## 依五行屬性替字形上色。
+##
+## ⚠️ **這是可讀性功能，不是裝飾。** 在此之前敵人字形一律是白的——子彈有顏色、
+## 傷害數字有「剋／抗」，唯獨敵人本體沒有任何屬性線索，玩家只能靠背
+## 「河＝水、焰＝火」才知道該換哪個部件。對一個以五行相剋為核心的遊戲，
+## 這是最大的一個資訊缺口。
+##
+## 顏色取自 `Bullet.ELEMENT_COLORS`（GDD 2.3 定案，且已有測試把關任兩色的
+## RGB 距離必須大於 0.45），全專案共用同一份色表，不另立第二套。
+##
+## 玩家的「令」**刻意維持白色**：主角必須在畫面上一眼與敵人區分開，
+## 而且玩家的 element 永遠是 neutral，染色沒有資訊量。
+func set_element_color(element_name: String) -> void:
+	var color: Color = Bullet.ELEMENT_COLORS.get(element_name, Color.WHITE)
+	add_theme_color_override(
+		&"font_color",
+		Color(
+			color.r * ELEMENT_GLOW_BOOST,
+			color.g * ELEMENT_GLOW_BOOST,
+			color.b * ELEMENT_GLOW_BOOST,
+			color.a
+		)
+	)
 
 
 ## 受擊回饋：短暫閃紅再復原。

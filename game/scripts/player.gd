@@ -39,6 +39,7 @@ func _ready() -> void:
 
 	if melee_attack != null:
 		melee_attack.pogo_bounced.connect(_on_pogo_bounced)
+		melee_attack.hit_landed.connect(_on_melee_hit_landed)
 
 
 func _physics_process(delta: float) -> void:
@@ -93,6 +94,12 @@ func _try_melee() -> bool:
 	return melee_attack.swing(facing_dir, _get_melee_profile(), wants_down)
 
 
+## 近戰命中的打擊感。遠程刻意沒有——近戰要「重」，兩者才有手感上的區別。
+func _on_melee_hit_landed(_target: Node, _damage: int) -> void:
+	GameFeel.hit_stop(self)
+	GameFeel.shake(self, 5.0)
+
+
 func _get_melee_profile() -> Dictionary:
 	if glyph_loadout == null or not glyph_loadout.has_method(&"get_melee_profile"):
 		return {}
@@ -126,6 +133,8 @@ func take_damage(amount: int, attacker_element: String) -> void:
 	super(amount, attacker_element)
 	if hp > 0:
 		hanzi_sprite.flash_hit()
+		# 自己被打到震得比打到別人更重——玩家要立刻知道「這下是我在挨打」
+		GameFeel.shake(self, 9.0, 0.24)
 
 
 func die() -> void:

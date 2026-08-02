@@ -1,0 +1,169 @@
+## 字形可讀性與打擊感（視覺第一輪）
+##
+## 這裡驗證的都是**資訊傳達**而不是好不好看：敵人身上看不看得出屬性、
+## 主角能不能一眼與敵人區分、命中停頓會不會把遊戲卡在慢動作。
+## 好不好看只有在有畫面的機器上才判斷得了。
+extends GutTest
+
+const PlayerScene := preload("res://scenes/player.tscn")
+const EnemyScene := preload("res://scenes/enemy_base.tscn")
+const EnvironmentScene := preload("res://scenes/world_environment.tscn")
+
+
+func after_each() -> void:
+	# 停頓沒還原的話，後面每一支測試都會在慢動作裡跑
+	Engine.time_scale = 1.0
+	GameFeel.enabled = true
+
+
+# ---- 屬性著色 ----
+
+func test_敵人字形依五行著色() -> void:
+	# 在此之前敵人一律是白的：子彈有顏色、傷害數字有剋/抗，
+	# 唯獨敵人本體沒有屬性線索，玩家只能靠背字表
+	for element: String in ["water", "fire", "metal", "wood", "earth"]:
+		var enemy: Enemy = EnemyScene.instantiate()
+		add_child_autofree(enemy)
+		enemy.setup({
+			"char": "河", "element": element, "ai": "patrol_ranged",
+			"hp": 30, "damage": 0, "speed": 0,
+		})
+
+		var color := enemy.hanzi_sprite.get_theme_color(&"font_color")
+		var expected: Color = Bullet.ELEMENT_COLORS[element]
+		assert_almost_eq(
+			color.r / HanziSprite.ELEMENT_GLOW_BOOST, expected.r, 0.01,
+			"%s 屬敵人的字形顏色不對" % element
+		)
+		assert_almost_eq(color.g / HanziSprite.ELEMENT_GLOW_BOOST, expected.g, 0.01)
+		assert_almost_eq(color.b / HanziSprite.ELEMENT_GLOW_BOOST, expected.b, 0.01)
+
+
+func test_著色亮度超過1才會發光() -> void:
+	# hdr_2d + glow_hdr_threshold=1.0：分量沒超過 1.0 的話 glow 完全不會出現
+	var enemy: Enemy = EnemyScene.instantiate()
+	add_child_autofree(enemy)
+	enemy.setup({
+		"char": "焰", "element": "fire", "ai": "patrol_ranged",
+		"hp": 30, "damage": 0, "speed": 0,
+	})
+
+	var color := enemy.hanzi_sprite.get_theme_color(&"font_color")
+	assert_gt(
+		maxf(color.r, maxf(color.g, color.b)), 1.0,
+		"至少一個分量要超過 1.0，否則 WorldEnvironment 的 glow 撿不到它"
+	)
+
+
+func test_玩家維持白色以便與敵人區分() -> void:
+	var player: Node2D = PlayerScene.instantiate()
+	add_child_autofree(player)
+	await wait_physics_frames(1)
+
+	var sprite := player.get_node(^"HanziSprite") as HanziSprite
+	var color := sprite.get_theme_color(&"font_color")
+	assert_almost_eq(color.r, 1.0, 0.01, "主角必須一眼與敵人區分開")
+	assert_almost_eq(color.g, 1.0, 0.01)
+	assert_almost_eq(color.b, 1.0, 0.01)
+
+
+func test_未知屬性退回白色而不是透明() -> void:
+	var sprite := HanziSprite.new()
+	add_child_autofree(sprite)
+	sprite.set_element_color("no_such_element")
+
+	var color := sprite.get_theme_color(&"font_color")
+	assert_gt(color.a, 0.9, "查不到屬性時不可以變成看不見的字")
+
+
+func test_專案已開啟hdr_2d() -> void:
+	# 沒開的話顏色會被夾在 1.0，glow 永遠不生效——而且畫面上完全沒有錯誤提示
+	assert_true(
+		ProjectSettings.get_setting("rendering/viewport/hdr_2d", false),
+		"rendering/viewport/hdr_2d 必須開啟，否則 2D glow 不會出現"
+	)
+
+
+func test_環境場景帶著啟用的glow() -> void:
+	var env_node: WorldEnvironment = EnvironmentScene.instantiate()
+	add_child_autofree(env_node)
+
+	assert_not_null(env_node.environment)
+	assert_true(env_node.environment.glow_enabled, "glow 沒開的話這個場景等於沒作用")
+
+
+# ---- 打擊感 ----
+
+func test_命中停頓結束後時間一定還原() -> void:
+	# Engine.time_scale 是全域的，任何沒還原的路徑都會讓整個遊戲卡在慢動作
+	var node := Node.new()
+	add_child_autofree(node)
+
+	await GameFeel.hit_stop(node, 0.02)
+
+	assert_almost_eq(Engine.time_scale, 1.0, 0.001, "停頓結束必須把時間還原")
+
+
+func test_停頓期間確實放慢() -> void:
+	var node := Node.new()
+	add_child_autofree(node)
+
+	GameFeel.hit_stop(node, 0.05)
+	await wait_frames(1)
+
+	assert_lt(Engine.time_scale, 1.0, "停頓期間應該處於慢動作")
+	await wait_seconds(0.2)
+	assert_almost_eq(Engine.time_scale, 1.0, 0.001)
+
+
+func test_停頓不會疊加() -> void:
+	# 多個敵人同幀被打到時，不該疊成一次長停頓
+	var node := Node.new()
+	add_child_autofree(node)
+
+	GameFeel.hit_stop(node, 0.05)
+	GameFeel.hit_stop(node, 0.05)
+	GameFeel.hit_stop(node, 0.05)
+	await wait_seconds(0.25)
+
+	assert_almost_eq(Engine.time_scale, 1.0, 0.001)
+
+
+func test_關閉開關後不影響時間() -> void:
+	var node := Node.new()
+	add_child_autofree(node)
+
+	GameFeel.enabled = false
+	await GameFeel.hit_stop(node, 0.05)
+
+	assert_almost_eq(Engine.time_scale, 1.0, 0.001)
+
+
+func test_鏡頭震動會偏移並自動歸零() -> void:
+	var player: Node2D = PlayerScene.instantiate()
+	add_child_autofree(player)
+	await wait_physics_frames(1)
+
+	var camera := player.get_node(^"Camera2D") as CameraBounds
+	camera.shake(10.0, 0.1)
+	camera._process(0.016)
+
+	assert_ne(camera.offset, Vector2.ZERO, "震動期間鏡頭應該偏移")
+
+	camera._process(0.2)
+	assert_eq(camera.offset, Vector2.ZERO, "震動結束必須把 offset 歸零，否則鏡頭永遠歪著")
+
+
+func test_連續震動取較強的而不是累加() -> void:
+	# 累加的話一秒內打三下會震到畫面完全看不清
+	var player: Node2D = PlayerScene.instantiate()
+	add_child_autofree(player)
+	await wait_physics_frames(1)
+
+	var camera := player.get_node(^"Camera2D") as CameraBounds
+	camera.shake(4.0, 0.1)
+	camera.shake(4.0, 0.1)
+	camera.shake(4.0, 0.1)
+	camera._process(0.016)
+
+	assert_lt(camera.offset.length(), 4.0 * 2.0, "三次震動不該疊成三倍強度")
