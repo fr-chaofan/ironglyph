@@ -8,6 +8,7 @@ extends GutTest
 const PlayerScene := preload("res://scenes/player.tscn")
 const EnemyScene := preload("res://scenes/enemy_base.tscn")
 const EnvironmentScene := preload("res://scenes/world_environment.tscn")
+const DummyScene := preload("res://scenes/training_dummy.tscn")
 
 
 func after_each() -> void:
@@ -65,6 +66,54 @@ func test_玩家維持白色以便與敵人區分() -> void:
 	assert_almost_eq(color.r, 1.0, 0.01, "主角必須一眼與敵人區分開")
 	assert_almost_eq(color.g, 1.0, 0.01)
 	assert_almost_eq(color.b, 1.0, 0.01)
+
+
+func test_訓練假人也要依屬性著色() -> void:
+	# 假人 extends Character 而不是 Enemy，拿不到 Enemy._apply_data() 的著色。
+	# 漏掉的話，同樣是火屬性，生成的「焰」是橙紅、假人「焰」卻是白的——
+	# 比全部都白還糟，玩家會以為顏色代表別的意思。
+	var dummy: Node2D = DummyScene.instantiate()
+	dummy.element = "fire"
+	dummy.display_char = "焰"
+	add_child_autofree(dummy)
+	await wait_physics_frames(1)
+
+	var sprite := dummy.get_node(^"HanziSprite") as HanziSprite
+	var color := sprite.get_theme_color(&"font_color")
+	var expected: Color = Bullet.ELEMENT_COLORS["fire"]
+
+	assert_almost_eq(color.r / HanziSprite.ELEMENT_GLOW_BOOST, expected.r, 0.01)
+	assert_almost_eq(color.g / HanziSprite.ELEMENT_GLOW_BOOST, expected.g, 0.01)
+	assert_almost_eq(color.b / HanziSprite.ELEMENT_GLOW_BOOST, expected.b, 0.01)
+
+
+func test_場上每一種可攻擊目標都會著色() -> void:
+	# 掃過所有 extends Character 的場景，確保沒有第三種「忘了上色」的角色。
+	# 這次就是靠人工發現假人漏掉的——測試要能自己抓到才行。
+	const SCENES := {
+		"res://scenes/enemy_base.tscn": "enemy",
+		"res://scenes/training_dummy.tscn": "dummy",
+	}
+	for path: String in SCENES:
+		var scene := load(path) as PackedScene
+		assert_not_null(scene, "載入失敗：%s" % path)
+		var instance: Node2D = scene.instantiate()
+		instance.element = "wood"
+		add_child_autofree(instance)
+		if instance.has_method(&"setup"):
+			instance.call(&"setup", {
+				"char": "樹", "element": "wood", "ai": "stationary_aoe",
+				"hp": 30, "damage": 0, "speed": 0,
+			})
+		await wait_physics_frames(1)
+
+		var sprite := instance.get_node(^"HanziSprite") as HanziSprite
+		var color := sprite.get_theme_color(&"font_color")
+		assert_almost_eq(
+			color.g / HanziSprite.ELEMENT_GLOW_BOOST,
+			float(Bullet.ELEMENT_COLORS["wood"].g), 0.01,
+			"%s 沒有依屬性著色" % path
+		)
 
 
 func test_未知屬性退回白色而不是透明() -> void:
