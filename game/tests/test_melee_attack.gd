@@ -319,6 +319,48 @@ func test_下劈弧線在腳下() -> void:
 	assert_almost_eq(arc.global_position.y, _player.global_position.y + 52.0, 1.0)
 
 
+func test_左右揮擊都是由上往下劈() -> void:
+	# ⚠️ 鏡像動畫最容易漏掉的一半：形狀被 scale.x = -1 翻過去後，
+	# 若掃描方向沒跟著翻，左揮就變成由下往上「撩」而不是劈。
+	# 只斷言起訖角度的話看不出這件事——要量弧線實際掃過的方向。
+	for facing: float in [1.0, -1.0]:
+		_player.global_position = Vector2(400, -200)
+		_melee.show_arc = true
+		_melee.cancel()
+		await wait_physics_frames(1)
+
+		_swing_through(facing)
+		var arc := _find_arc()
+		assert_not_null(arc, "朝 %s 揮擊應生成弧線" % ("右" if facing > 0.0 else "左"))
+		var start_y := _arc_mean_y(arc)
+
+		# 掃描動畫是 tween，等它跑完再量一次（弧線總壽命更長，量測時還活著）
+		await wait_seconds(0.25)
+		assert_true(is_instance_valid(arc), "量測時弧線應該還沒被釋放")
+		var end_y := _arc_mean_y(arc)
+
+		assert_gt(
+			end_y, start_y,
+			"朝%s揮擊必須由上往下劈：起點 y=%.1f 應高於終點 y=%.1f"
+				% ["右" if facing > 0.0 else "左", start_y, end_y]
+		)
+		arc.queue_free()
+
+
+func test_左右揮擊的弧線各在對應側() -> void:
+	for facing: float in [1.0, -1.0]:
+		_player.global_position = Vector2(400, -200)
+		_melee.show_arc = true
+		_melee.cancel()
+		await wait_physics_frames(1)
+
+		_swing_through(facing)
+		var arc := _find_arc()
+		var expected_x: float = _player.global_position.x + 58.0 * facing
+		assert_almost_eq(arc.global_position.x, expected_x, 1.0)
+		arc.queue_free()
+
+
 func test_沒有筆畫資料的字退回幾何弧線() -> void:
 	# 「刂」不在 Make Me a Hanzi 資料集裡（Task 2.7c 的刀刃筆擊會用到）。
 	# 沒有退路的話揮擊會變成一個看不見的攻擊。
@@ -397,6 +439,17 @@ func _spawn_enemy_bullet(offset: Vector2) -> Bullet:
 	bullet.setup(5, "fire", _player.global_position + offset, Vector2.RIGHT)
 	await wait_physics_frames(1)
 	return bullet
+
+
+## 弧線所有點在世界座標的平均高度。整段掃過去時這個值會單調變化，
+## 比只看某一個端點穩定——筆畫本身的形狀不對稱，單點會被形狀干擾。
+func _arc_mean_y(arc: MeleeArc) -> float:
+	if arc.points.is_empty():
+		return 0.0
+	var total := 0.0
+	for point: Vector2 in arc.points:
+		total += arc.to_global(point).y
+	return total / float(arc.points.size())
 
 
 func _find_arc() -> MeleeArc:
