@@ -41,6 +41,7 @@
 | **武器與五行系統** | 二 | `scripts/element_system.gd`, `scripts/weapon_manager.gd`, `scripts/bullet.gd`, `scripts/weapon_glyph_display.gd`, `data/weapons.json`, `data/elements.json` | 依賴核心角色系統的`Character`基類 |
 | **音核合體與部件掉落** | 二（Task 2.6；Phase 3.5 gate） | `scripts/fusion_resolver.gd`, `scripts/glyph_loadout.gd`, `scripts/component_pickup.gd`, `scripts/component_dropper.gd`, `data/components.json`, `data/fusion_recipes.json`；在`data/enemies.json`只新增`drop_component_id` | 依賴武器系統 + 階段三的敵人死亡signal；必須在階段四前整合 |
 | **敵人與AI** | 三 | `scripts/enemy.gd`, `scripts/enemy_ai_*.gd`, `scripts/enemy_spawner.gd`, `data/enemies.json` | 依賴核心角色系統 + 武器系統（`take_damage`介面） |
+| **近戰系統** | 二（Task 2.7；Phase 4.0.5 gate） | `scripts/melee_attack.gd`, `scripts/melee_arc.gd`；在 `data/weapons.json` 新增 `attack_type` 與近戰 profile、在 `data/enemies.json` 新增 `melee` 區塊 | 依賴武器系統與敵人AI；**玩家與敵人共用同一個 `MeleeAttack` 元件**，必須在階段四關卡設計前完成，見 `docs/COMBAT.md` |
 | **關卡系統** | 四 | `scripts/level_manager.gd`, `scripts/checkpoint.gd`, `data/`關卡相關設定 | 依賴敵人系統（放置EnemySpawner） |
 | **Boss系統** | 五 | `scripts/boss.gd`, `scripts/boss_attack_patterns.gd`, `data/bosses.json`；終Boss「仁」額外負責 `scripts/boss_ren.gd`（Phase 2.1「命」機制、賜俸招式判定） | 依賴敵人系統（Boss繼承Enemy）+ 對話/演出框架（開場白、賜俸台詞、Phase 2.1選擇UI） |
 | **對話／演出框架** | 四（序章／終章）+ 五（Boss台詞） | `scripts/dialogue_box.gd`, `scripts/cutscene_player.gd`, `data/dialogue/*.json`（各關卡/Boss台詞資料表，繁體中文） | 依賴核心角色系統（暫停玩家輸入時的介面）；序章教程NPC、仁的開場白／賜俸／Phase 2.1三選一、終章「主」降臨訓誡，共用同一套對話演出元件 |
@@ -100,6 +101,10 @@ feat/weapon-elemental     — 武器與五行系統
 feat/weapon-glyph-display — Task 2.5 場景內武器字形顯示
 feat/task-2.6-glyph-fusion — Task 2.6「令」× 部件vertical slice
 feat/dialogue-framework   — Task 4.0 對話／演出框架
+feat/task-2.7a-attack-type — Task 2.7a 攻擊型別欄位與射程
+feat/task-2.7b-melee       — Task 2.7b 近戰元件與下劈
+feat/task-2.7c-loadout     — Task 2.7c J/K分派與消彈打斷
+feat/task-2.7d-enemy-melee — Task 2.7d 敵人三段式近戰
 feat/enemy-ai             — 敵人與AI
 feat/level-system         — 關卡系統
 feat/boss-system          — Boss系統
@@ -197,6 +202,7 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 | `GlyphLoadout` | `scripts/glyph_loadout.gd` | 音核合體與部件掉落 |
 | `ComponentPickup` | `scripts/component_pickup.gd` | 音核合體與部件掉落 |
 | `ComponentDropper` | `scripts/component_dropper.gd` | 音核合體與部件掉落 |
+| `MeleeAttack` | `scripts/melee_attack.gd` | 近戰系統（玩家與敵人共用） |
 | `Enemy` | `scripts/enemy.gd` | 敵人與AI |
 | `Boss` | `scripts/boss.gd` | Boss系統 |
 | `BossAttackPatterns` | `scripts/boss_attack_patterns.gd` | Boss系統 |
