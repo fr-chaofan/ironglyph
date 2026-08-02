@@ -7,6 +7,14 @@ extends Area2D
 
 @export_range(0.0, 1.0, 0.01) var exchange_lock_duration: float = 0.2
 
+## 近戰擊殺時掉落物飛向玩家的最高速度（像素/秒）與加速度（Task 2.7c）。
+## 飛過去之後**仍然要按 E 才會裝備**——「借」是玩家的主動選擇，
+## 自動裝備會把 Task 2.6 整套「借與還」的分寸感洗掉。
+@export var attract_speed: float = 460.0
+@export var attract_acceleration: float = 1400.0
+## 靠得夠近就停下，不要在玩家身上抖動
+@export var attract_stop_distance: float = 20.0
+
 ## 同一幀有多個拾取物與玩家重疊時，只允許場景樹中先收到 input 的一個完成交換。
 static var _interaction_claim_frame: int = -1
 
@@ -17,6 +25,8 @@ var component: Dictionary = {}
 var _nearby_player: Node2D
 var _nearby_loadout: Node
 var _exchange_lock_left: float = 0.0
+var _attract_target: Node2D
+var _attract_speed_current: float = 0.0
 
 
 func _ready() -> void:
@@ -30,6 +40,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_exchange_lock_left = maxf(0.0, _exchange_lock_left - delta)
+	_update_attraction(delta)
 	if _nearby_loadout == null or not is_instance_valid(_nearby_loadout):
 		return
 	if _exchange_lock_left > 0.0 or not InputMap.has_action(&"interact"):
@@ -46,6 +57,35 @@ func setup(component_data: Dictionary) -> void:
 	component = component_data.duplicate(true)
 	if is_node_ready():
 		_refresh_visuals()
+
+
+## 讓掉落物飛向目標（Task 2.7c）。近戰擊殺的獎勵：不必走過去撿。
+##
+## 只是移動，**不會自動裝備**——按 E 交換仍然是玩家的主動選擇。
+func attract_to(target: Node2D) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	_attract_target = target
+	_attract_speed_current = 0.0
+
+
+func is_attracting() -> bool:
+	return _attract_target != null and is_instance_valid(_attract_target)
+
+
+func _update_attraction(delta: float) -> void:
+	if not is_attracting():
+		return
+
+	var offset: Vector2 = _attract_target.global_position - global_position
+	if offset.length() <= attract_stop_distance:
+		_attract_target = null
+		return
+
+	_attract_speed_current = minf(
+		attract_speed, _attract_speed_current + attract_acceleration * delta
+	)
+	global_position += offset.normalized() * _attract_speed_current * delta
 
 
 ## 讓新彈出的部件短暫不可被拾取，避免玩家仍在碰撞範圍內時立刻吸回去。

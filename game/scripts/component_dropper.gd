@@ -47,11 +47,15 @@ func _on_enemy_defeated(enemy: Enemy) -> void:
 	if component_id.is_empty():
 		return
 
+	# 近戰擊殺的記號由 MeleeAttack 在造成傷害**之前**留下——掉落物是在 die()
+	# 裡同步生成的，死後才標記就來不及了。
+	var killed_by_melee := enemy.has_meta(MeleeAttack.MELEE_HIT_META)
+
 	var component: Dictionary = _resolver.get_component(component_id)
 	if component.is_empty():
 		push_warning("ComponentDropper: 未知的 drop_component_id「%s」" % component_id)
 		return
-	_spawn_pickup(component, world_position)
+	_spawn_pickup(component, world_position, false, killed_by_melee)
 
 
 func _on_component_ejected(component: Dictionary, world_position: Vector2) -> void:
@@ -63,7 +67,8 @@ func _on_component_ejected(component: Dictionary, world_position: Vector2) -> vo
 func _spawn_pickup(
 	component: Dictionary,
 	world_position: Vector2,
-	lock_on_spawn: bool = false
+	lock_on_spawn: bool = false,
+	attract_to_player: bool = false
 ) -> Node2D:
 	var resource := load(PICKUP_SCENE_PATH)
 	if resource is not PackedScene:
@@ -87,7 +92,8 @@ func _spawn_pickup(
 		pickup,
 		component.duplicate(true),
 		world_position,
-		lock_on_spawn
+		lock_on_spawn,
+		attract_to_player
 	)
 	return pickup
 
@@ -96,7 +102,8 @@ func _attach_pickup(
 	pickup: Node2D,
 	component: Dictionary,
 	world_position: Vector2,
-	lock_on_spawn: bool
+	lock_on_spawn: bool,
+	attract_to_player: bool = false
 ) -> void:
 	if pickup == null or not is_instance_valid(pickup) or pickup.get_parent() != null:
 		return
@@ -106,6 +113,23 @@ func _attach_pickup(
 		pickup.call(&"arm_exchange_lock")
 	add_child(pickup)
 	pickup.global_position = world_position
+
+	# 近戰擊殺的獎勵：掉落物自己飛過來，不必走過去撿。
+	# 仍然要按 E 才會裝備——「借」是玩家的主動選擇。
+	if attract_to_player and pickup.has_method(&"attract_to"):
+		var player := _find_player()
+		if player != null:
+			pickup.call(&"attract_to", player)
+
+
+func _find_player() -> Node2D:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	for player: Node in tree.get_nodes_in_group(&"player"):
+		if is_instance_valid(player) and player is Node2D:
+			return player as Node2D
+	return null
 
 
 func _find_player_loadout() -> Node:

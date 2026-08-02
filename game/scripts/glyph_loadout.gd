@@ -17,6 +17,8 @@ enum Mode {
 }
 
 const CORE_WEAPON_ID := "gong"
+## 「令」自己的字核近戰，永遠可用（Task 2.7c）
+const CORE_MELEE_PROFILE_ID := "ling_slash"
 const FUSION_RESOLVER_SCRIPT := preload("res://scripts/fusion_resolver.gd")
 
 @export var core_glyph: String = "令"
@@ -131,7 +133,42 @@ func get_snapshot() -> Dictionary:
 		"recipe": current_recipe.duplicate(true),
 		"external_weapon": _external_weapon.duplicate(true),
 		"active_weapon": _active_weapon.duplicate(true),
+		"melee_weapon": get_melee_profile(),
 	}.duplicate(true)
+
+
+## K 近戰用的 profile（Task 2.7c）。
+##
+## 分派規則見 `docs/COMBAT.md` 3.2：部件不是在近戰與遠程之間二選一，
+## 而是決定**強化哪一邊**——玩家永遠同時握有一個遠程與一個近戰選項。
+##
+## - CORE / HELD・投射類 → 令筆擊（neutral）
+## - FUSED → 令筆擊，但**染上融合字的屬性**，這是合體除了換遠程武器之外的第二層價值
+## - HELD・近戰類（刂）→ 換成該部件指定的近戰 profile（刀刃筆擊・金屬性）
+func get_melee_profile() -> Dictionary:
+	if mode == Mode.HELD:
+		var external_id := String(_external_weapon.get("melee_profile_id", "")).strip_edges()
+		if not external_id.is_empty():
+			var external_profile := MeleeAttack.get_profile(external_id)
+			if not external_profile.is_empty():
+				return external_profile
+
+	var profile := MeleeAttack.get_profile(CORE_MELEE_PROFILE_ID)
+	if profile.is_empty():
+		return {}
+	profile["glyph"] = core_glyph
+
+	if mode == Mode.FUSED:
+		var element := String(_get_recipe_attack(current_recipe).get("element", "")).strip_edges()
+		if not element.is_empty():
+			profile["element"] = element
+	return profile
+
+
+## J 遠程用的 profile。近戰類部件在此退回 CORE 基礎弓——
+## 這樣手持「刂」的玩家仍然打得到遠處的敵人。
+func get_ranged_profile() -> Dictionary:
+	return _active_weapon.duplicate(true)
 
 
 func _enter_core() -> void:
@@ -164,7 +201,12 @@ func _enter_held() -> void:
 	_set_main_glyph(core_glyph)
 
 	var fallback := _get_fallback_weapon(current_component)
-	_set_active_weapon(fallback)
+	# 近戰類部件（刂）強化的是 K，J 退回基礎弓——否則手持它就完全沒有遠程手段。
+	# 外置顯示仍用 fallback，玩家看到的還是自己手上那個部件。
+	if String(fallback.get("attack_type", "projectile")) == "melee":
+		_set_active_weapon_by_id(CORE_WEAPON_ID)
+	else:
+		_set_active_weapon(fallback)
 	_external_weapon = _make_external_weapon(current_component, fallback)
 	_emit_loadout_changed()
 

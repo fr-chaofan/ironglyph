@@ -102,6 +102,22 @@ func get_contact_damage() -> int:
 	return int(char_data.get("damage", 5))
 
 
+## 被近戰打斷蓄力（Task 2.7c）。回傳是否真的打斷了什麼。
+##
+## 只有 `stationary_aoe` 有蓄力可打斷；其他 AI 沒有 `interrupt()` 就安靜回傳 false。
+func interrupt_charge() -> bool:
+	if _ai == null or not is_instance_valid(_ai) or not _ai.has_method(&"interrupt"):
+		return false
+	return _ai.call(&"interrupt", self)
+
+
+## 目前是否在蓄力。供近戰判定與測試查詢。
+func is_charging() -> bool:
+	if _ai == null or not is_instance_valid(_ai) or not _ai.has_method(&"is_charging"):
+		return false
+	return _ai.call(&"is_charging")
+
+
 func take_damage(amount: int, attacker_element: String) -> void:
 	var multiplier := get_element_multiplier(attacker_element, element)
 	var before := hp

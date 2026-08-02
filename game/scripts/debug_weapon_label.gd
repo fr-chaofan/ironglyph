@@ -10,22 +10,32 @@ extends Label
 
 ## 指向 Player 底下的 WeaponManager
 @export var weapon_manager_path: NodePath
-## 指向 Player 底下的 MeleeAttack
+## 指向 Player 底下的 MeleeAttack（沒有 GlyphLoadout 時的退路）
 @export var melee_attack_path: NodePath
+## 指向 Player 底下的 GlyphLoadout。Task 2.7c 起它才是 J/K 分派的真相源。
+@export var glyph_loadout_path: NodePath
 
 var _weapon_manager: Node
 var _melee_attack: MeleeAttack
+var _glyph_loadout: Node
 
 
 func _ready() -> void:
 	_weapon_manager = get_node_or_null(weapon_manager_path)
 	_melee_attack = get_node_or_null(melee_attack_path) as MeleeAttack
+	_glyph_loadout = get_node_or_null(glyph_loadout_path)
 
 	if _weapon_manager == null:
 		text = "（找不到 WeaponManager）"
 		return
 
 	_weapon_manager.weapon_changed.connect(_on_weapon_changed)
+	if _glyph_loadout != null and _glyph_loadout.has_signal(&"loadout_changed"):
+		_glyph_loadout.connect(&"loadout_changed", _on_loadout_changed)
+	_refresh()
+
+
+func _on_loadout_changed(_snapshot: Dictionary) -> void:
 	_refresh()
 
 
@@ -56,9 +66,14 @@ func _ranged_text() -> String:
 
 
 func _melee_text() -> String:
-	if _melee_attack == null:
-		return "K 近戰：（未掛載）"
-	var profile := MeleeAttack.get_profile(_melee_attack.profile_id)
+	# Task 2.7c 起近戰 profile 由裝備狀態分派（手持「刂」是刀刃筆擊），
+	# 讀 MeleeAttack 的預設 profile_id 只會永遠顯示令筆擊
+	var profile: Dictionary = {}
+	if _glyph_loadout != null and _glyph_loadout.has_method(&"get_melee_profile"):
+		profile = _glyph_loadout.call(&"get_melee_profile")
+	elif _melee_attack != null:
+		profile = MeleeAttack.get_profile(_melee_attack.profile_id)
+
 	if profile.is_empty():
 		return "K 近戰：（無 profile）"
 	return "K 近戰：%s" % _describe(profile)

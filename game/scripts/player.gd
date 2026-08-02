@@ -11,6 +11,8 @@ extends Character
 @onready var weapon_glyph_display: WeaponGlyphDisplay = get_node_or_null(^"WeaponGlyphDisplay")
 ## Task 2.7b：近戰揮擊。K 是「令」自己的字核能力，與 J 的部件遠程互不取代。
 @onready var melee_attack: MeleeAttack = get_node_or_null(^"MeleeAttack") as MeleeAttack
+## Task 2.6 的裝備狀態真相源；Task 2.7c 起也負責分派 J/K 兩個動詞的 profile。
+@onready var glyph_loadout: Node = get_node_or_null(^"GlyphLoadout")
 
 ## 面向：1 = 右、-1 = 左。開火方向與朝向指示器都看這個值。
 var facing_dir: float = 1.0
@@ -86,9 +88,15 @@ func _try_melee() -> bool:
 		and InputMap.has_action(&"move_down")
 		and Input.is_action_pressed(&"move_down")
 	)
-	# Task 2.7c 起 profile 由 GlyphLoadout 依裝備狀態決定；
-	# 現在一律是「令」自己的筆擊。
-	return melee_attack.swing(facing_dir, {}, wants_down)
+	# profile 由 GlyphLoadout 依裝備狀態分派：CORE/HELD投射類是令筆擊、
+	# FUSED 染上融合字屬性、手持「刂」則換成刀刃筆擊。
+	return melee_attack.swing(facing_dir, _get_melee_profile(), wants_down)
+
+
+func _get_melee_profile() -> Dictionary:
+	if glyph_loadout == null or not glyph_loadout.has_method(&"get_melee_profile"):
+		return {}
+	return glyph_loadout.call(&"get_melee_profile")
 
 
 ## 下劈命中後彈起。

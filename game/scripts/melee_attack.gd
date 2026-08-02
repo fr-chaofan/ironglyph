@@ -18,11 +18,14 @@ extends Node2D
 signal swing_started(profile: Dictionary, downward: bool)
 signal hit_landed(target: Node, damage: int)
 signal bullet_blocked(bullet: Node)
+signal charge_interrupted(target: Node)
 ## 下劈命中任何東西時送出，由角色自己決定怎麼彈（見 player.gd 的順序說明）
 signal pogo_bounced(bounce_velocity: float)
 signal swing_finished
 
 const DATA_PATH := "res://data/melee.json"
+## 留在被近戰打到的目標身上，供 ComponentDropper 判斷掉落物要不要吸附
+const MELEE_HIT_META := &"_ironglyph_melee_hit"
 ## 單次查詢最多回傳幾個碰撞體。一次揮擊同時掃到十幾個目標已經是極端情況。
 const MAX_HITS := 16
 
@@ -46,6 +49,13 @@ enum State {
 
 ## 是否生成揮擊軌跡。元件測試關掉可以省下每次揮擊的 tween 與節點。
 @export var show_arc: bool = true
+
+## 命中時是否打斷目標的蓄力。**只有玩家可以**——敵人也能打斷的話，
+## 玩家的每一次遠程攻擊都會被貼身敵人打斷，遊戲會變成互相鎖死。
+@export var can_interrupt: bool = true
+
+## 命中時是否在目標身上留下「被近戰打到」的記號，供掉落物判斷要不要吸附。
+@export var marks_melee_hits: bool = true
 
 var state: int = State.IDLE
 var facing: float = 1.0
@@ -294,10 +304,28 @@ func _apply_hit(collider: Variant) -> void:
 	if node is Character and (layer & target_mask) != 0:
 		_hit_this_swing[key] = true
 		var damage := get_damage()
+		# ⚠️ 記號要在 take_damage **之前**留。這一下可能直接打死目標，
+		# 而掉落物是在 die() 裡同步生成的——死後才標記就來不及了。
+		if marks_melee_hits:
+			node.set_meta(MELEE_HIT_META, true)
 		# 傷害一律走基類：相剋倍率、hp 夾值、hp_changed/died 訊號與死亡去重都在那裡
 		(node as Character).take_damage(damage, get_element())
 		hit_landed.emit(node, damage)
+		_try_interrupt(node)
 		_try_pogo()
+
+
+## 打斷目標的蓄力。只有近戰打得斷，遠程不行——這是靠近定點AOE敵人的唯一理由。
+func _try_interrupt(node: Node) -> void:
+	if not can_interrupt:
+		return
+	# 這一下可能已經把目標打死了；對正在銷毀的節點不必再打斷
+	if not is_instance_valid(node) or node.is_queued_for_deletion():
+		return
+	if not node.has_method(&"interrupt_charge"):
+		return
+	if node.call(&"interrupt_charge"):
+		charge_interrupted.emit(node)
 
 
 ## 下劈命中才彈起，且一次揮擊只彈一次——一刀掃到三隻敵人不該疊加成三倍彈速。

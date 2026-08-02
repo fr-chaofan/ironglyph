@@ -108,6 +108,7 @@ text = "（武器）"
 script = ExtResource("2_wlabel")
 weapon_manager_path = NodePath("../../Player/WeaponManager")
 melee_attack_path = NodePath("../../Player/MeleeAttack")
+glyph_loadout_path = NodePath("../../Player/GlyphLoadout")
 
 [node name="InfoLabel" type="Label" parent="HUD"]
 anchors_preset = 1
