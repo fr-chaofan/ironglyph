@@ -395,21 +395,41 @@ func test_下劈彈起會重置跳躍次數() -> void:
 	assert_eq(_player._jumps_used, 0, "踩著敵人應重新取得二段跳")
 
 
-func test_上挑判定在頭頂() -> void:
-	# W/S 是一對修飾鍵，但效果相反：下劈抬自己、上挑抬敵人
-	var above: Enemy = await _spawn_enemy(Vector2(0, -80))
+func test_上挑打得到站在面前的敵人() -> void:
+	# ⚠️ 判定一度放在**正頭頂**，實機上揮出去總是空的、像沒打中——
+	# 敵人幾乎不會站在玩家正上方。斜前上方才打得到站在面前的敵人，
+	# 也才與平揮、下劈一樣分左右。
 	var front: Enemy = await _spawn_enemy(Vector2(80, 0))
-	var above_before: int = above.hp
-	var front_before: int = front.hp
+	var before: int = front.hp
 
 	_swing_through(1.0, MeleeAttack.Vertical.UP)
 
-	assert_lt(above.hp, above_before, "上挑應打到頭頂的敵人")
-	assert_eq(front.hp, front_before, "上挑不該打到正前方")
+	assert_lt(front.hp, before, "上挑必須打得到站在面前同高度的敵人")
+
+
+func test_上挑分左右() -> void:
+	var behind: Enemy = await _spawn_enemy(Vector2(-80, 0))
+	var before: int = behind.hp
+
+	_swing_through(1.0, MeleeAttack.Vertical.UP)  # 朝右挑
+
+	assert_eq(behind.hp, before, "上挑只在面向側，背後打不到")
+
+
+func test_上挑判定偏向斜前上方() -> void:
+	_melee.swing(1.0, {}, MeleeAttack.Vertical.UP)
+	var offset := _melee.get_hitbox_offset()
+
+	assert_gt(offset.x, 0.0, "朝右挑時判定要往右偏，不是正頭頂")
+	assert_lt(offset.y, 0.0, "同時要往上偏")
+
+	_melee.cancel()
+	_melee.swing(-1.0, {}, MeleeAttack.Vertical.UP)
+	assert_lt(_melee.get_hitbox_offset().x, 0.0, "朝左挑時判定要往左偏")
 
 
 func test_上挑把敵人擊飛() -> void:
-	var enemy: Enemy = await _spawn_enemy(Vector2(0, -80))
+	var enemy: Enemy = await _spawn_enemy(Vector2(60, -40))
 	enemy.max_hp = 999
 	enemy.hp = 999
 
@@ -422,7 +442,7 @@ func test_上挑把敵人擊飛() -> void:
 
 func test_上挑不會讓玩家自己彈起() -> void:
 	# 下劈抬自己、上挑抬敵人——搞反了會變成按 W 就能無限上升
-	await _spawn_enemy(Vector2(0, -80))
+	await _spawn_enemy(Vector2(60, -40))
 
 	watch_signals(_melee)
 	_swing_through(1.0, MeleeAttack.Vertical.UP)
@@ -440,8 +460,8 @@ func test_下劈不會擊飛敵人() -> void:
 
 func test_上挑可以同時挑起多個敵人() -> void:
 	# 與彈起不同：彈起一次揮擊只該有一次，挑起則是每個被打到的敵人都要飛
-	var a: Enemy = await _spawn_enemy(Vector2(-20, -80))
-	var b: Enemy = await _spawn_enemy(Vector2(20, -80))
+	var a: Enemy = await _spawn_enemy(Vector2(50, -40))
+	var b: Enemy = await _spawn_enemy(Vector2(75, -30))
 	a.max_hp = 999
 	a.hp = 999
 	b.max_hp = 999

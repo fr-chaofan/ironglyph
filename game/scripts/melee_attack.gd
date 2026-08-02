@@ -252,8 +252,9 @@ func _resolve_timings() -> Dictionary:
 		timings["windup"] = float(upper.get("windup", timings["windup"]))
 		timings["active"] = float(upper.get("active", timings["active"]))
 		timings["cooldown"] = float(upper.get("cooldown", timings["cooldown"]))
-		timings["reach"] = float(upper.get("offset", 50.0))
-		timings["hitbox"] = upper.get("hitbox", [56, 72])
+		timings["offset_forward"] = float(upper.get("offset_forward", 42.0))
+		timings["offset_up"] = float(upper.get("offset_up", 46.0))
+		timings["hitbox"] = upper.get("hitbox", [66, 70])
 		timings["damage_scale"] = float(upper.get("damage_scale", 0.9))
 		timings["launch"] = float(upper.get("launch", -320.0))
 		return timings
@@ -279,7 +280,12 @@ func get_hitbox_offset() -> Vector2:
 		Vertical.DOWN:
 			return Vector2(0.0, reach)
 		Vertical.UP:
-			return Vector2(0.0, -reach)
+			# ⚠️ 斜**前**上方，不是正頭頂。敵人幾乎不會站在玩家正上方，
+			# 判定放頭頂的話揮出去總是空的，看起來像沒打中。
+			return Vector2(
+				float(_timings.get("offset_forward", 42.0)) * facing,
+				-float(_timings.get("offset_up", 46.0))
+			)
 		_:
 			return Vector2(reach * facing, 0.0)
 
