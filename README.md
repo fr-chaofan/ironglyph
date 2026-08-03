@@ -19,7 +19,7 @@
 目前 `game/scenes/test_room.tscn` 已是可操作的垂直切片：移動／二段跳／開火、敵人掉落部件、
 「雨」＋「令」合體成「零」並解鎖八方向水屬彈幕、不相容部件外置手持、敵人死亡按真實筆順崩解。
 
-**測試基線：407項測試 / 2858個assert 全過**（含字型字形涵蓋與簡體字的CI檢查）：
+**測試基線：422項測試 / 2885個assert 全過**（含字型字形涵蓋與簡體字的CI檢查）：
 
 ```bash
 godot4 --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit

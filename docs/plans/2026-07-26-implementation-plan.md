@@ -1666,6 +1666,13 @@ enemy_spawner.drop_rate_multiplier = 2.0  # 稀有部件掉率提升為其他關
 
 ### Task 4.3: 關卡管理器 LevelManager (autoload)
 
+> **✅ 腳本邏輯已完成**（PR #58）。`game/scripts/level_manager.gd`已建立，額外提供
+> `get_current_level_path()`與`reset_to_prologue()`兩個擴充點；`_change_scene()`用
+> `ResourceLoader.exists()`擋掉尚未建立的場景檔路徑，避免在Task 4.1a/4.1/4.2/4.4場景
+> 尚未全數落地前跑測試就崩潰。**⚠️ 尚未在`project.godot`的`[autoload]`註冊**——
+> 這一步依協作紀律留給Integrator手動追加一行：`LevelManager="*res://scripts/level_manager.gd"`，
+> 註冊後才能被其他系統以`/root/LevelManager`存取。
+
 **Objective:** 統一管理關卡切換、存檔點復活、關卡間過渡動畫，**範圍擴充為序章+4關+終章共6個場景**
 
 **Files:**
@@ -1763,6 +1770,12 @@ git add -A && git commit -m "phase4: prologue + four themed levels + final altar
 
 ### Task 5.1: Boss基類 + 多階段狀態機
 
+> **✅ 已完成**（PR #57）。`game/scripts/boss.gd`已建立，`class_name Boss extends Enemy`；
+> 與Task 5.2（`BossAttackPatterns`）平行開發時用`get_node_or_null()`+`has_method()`安全呼叫，
+> 不對其型別做靜態標注，避免對方腳本尚未併入時整專案編譯失敗——兩個PR合併後測試通過，
+> 型別標注可留待後續優化補回。門檻判定用「hp_after <= threshold」（含等於），並用
+> `clampi`避免陣列越界；只允許階段前進不允許倒退。
+
 **Objective:** Boss不同於普通敵人——有階段轉換、拆解出子武器攻擊玩家
 
 **Files:**
@@ -1832,6 +1845,12 @@ func enter_phase(p: int) -> void:
 ---
 
 ### Task 5.2: 三種Boss彈幕/攻擊模式
+
+> **✅ 已完成**（PR #56）。`game/scripts/boss_attack_patterns.gd`已建立。`spawn_tracking_attack`
+> 由於既有`Bullet`不支援逐幀轉向玩家（那屬於`bullet.gd`本身的功能範圍，本Task刻意不修改），
+> 改用「朝玩家方向的小扇形散射」模擬追蹤感；`spawn_ground_spike_attack`復用`Bullet`場景搭配
+> `Vector2.UP`方向與`get_tree().create_timer`依序延遲，模擬地刺依序彈出。這兩處都是為了不越界
+> 修改`bullet.gd`（不屬本Task職責）而做的設計取舍，已在程式碼註解中說明。
 
 **Objective:** 淼(水彈幕環形)、焱(火焰追蹤彈)、森(藤蔓地刺)，各階段強度遞增
 
@@ -2550,6 +2569,7 @@ git tag v0.1.0-milestone-complete
 
 | 日期 | 變更 |
 |---|---|
+| 2026-08-03 | **Wave A三路並行完成**：委派3個子agent同時開發`Task 4.3（LevelManager）`/`Task 5.1（Boss基類）`/`Task 5.2（Boss彈幕攻擊）`，三者互不依賴、皆不碰場景檔案，PR #58/#57/#56本地合併測試無衝突後依序squash合併。`LevelManager`已提供`get_current_level_path()`/`reset_to_prologue()`擴充點，`_change_scene()`用`ResourceLoader.exists()`擋掉尚未建立的場景路徑；`Boss`與`BossAttackPatterns`平行開發時用`get_node_or_null()`+`has_method()`安全銜接，避免對方腳本未併入時整專案編譯失敗；Boss彈幕的追蹤彈/地刺因不修改`bullet.gd`（越界職責）而採用扇形散射/依序延遲的設計取捨。全專案累計**422項測試/2885個assert 100%通過**。`project.godot`的`[autoload]`尚未註冊`LevelManager`，留給Integrator手動追加一行。Wave A實際完成4.0b/4.3/5.1/5.2共四路，Wave B（4.1/4.2/5.3/5.3b/5.4資料準備）現在可以開工 |
 | 2026-08-03 | **全面代碼審查與100%測試通過率修復**：對照Godot官方風格指南與社群最佳實踐（autoload設計、data-driven JSON schema一致性、signal連接生命週期、狀態機模式、`await`後狀態複驗）逐項核對現有~30,800行GDScript，結論是工程品質整體扎實——`is_connected()`守衛、`is_instance_valid()`檢查、`call_deferred`避開物理查詢期間改碰撞狀態、非疊加型debuff（`BurnEffect`）、enum-based狀態機（`GlyphLoadout`/`MeleeAttack`）等模式已一致套用；11份JSON資料表交叉引用（`fusion_recipes`↔`components`↔`weapons`↔`melee.json`↔`enemies`↔`hanzi_decomposition`）全數驗證無斷鏈。**唯一發現並修復的實際bug**：`test_component_flow.gd`的「防重拾鎖結束後應可正常再次吸收」長期失敗（複查前基線391/392、393/394等皆同一項失敗），實機除錯後定位根本原因——測試驗證的是`ComponentPickup`的防重拾鎖計時，但等待期間玩家物理程序仍在跑，重力把玩家帶出拾取物的碰撞範圍，觸發真實`body_exited`把`_nearby_loadout`清空，導致第二次`try_collect()`因「範圍內沒有玩家」而非「鎖還沒解除」失敗——與防重拾鎖邏輯本身無關，是測試沒有隔離重力這個無關變數。修法：等待期間呼叫`_player.set_physics_process(false)`。修復後全專案**407項測試/2858個assert 100%通過**，是本專案至今第一次達成零失敗 |
 | 2026-08-03 | Task 4.0b（存檔基礎切片）完成。新增`game/scripts/save_system.gd`、15項測試（`test_save_system.gd`），`project.godot`的`[autoload]`追加`SaveSystem`一行。與原始草稿相比補了兩處：①`checkpoint`獨立成記憶體欄位並隨`load_game()`/`save_game()`同步，不只是寫入傳入的`data`字典；②`_read_save_data()`額外處理「JSON內容合法但型別不是Dictionary（例如`[]`）」的情況，原文只防了「檔案不存在」與「格式錯誤」。全專案累計407項2857個assert，406項通過（唯一失敗項是`test_component_flow.gd`既有時序問題，與本Task無關）。Wave A剩餘3路可並行，Task 4.1（水域關）現在可以直接開工 |
 | 2026-08-03 | **新增「剩餘工作並行矩陣」**：複查發現原文「4.0→4.0b→4.1a→4.1→4.2→4.3→4.4」全序列執行順序過度保守——4.1a（序章）不碰SaveSystem可與4.0b並行；4.3（LevelManager）只需場景路徑字串可提前寫腳本；6.1/6.2（主選單/圖鑑）只依賴階段二武器系統，實際與階段四/五無關，可提前到Wave A/B插入分派。重新劃分Wave A（4.0b/4.1a/4.3/5.1+5.2，4路並行）→Wave B（4.1/4.2/5.3/5.3b/5.4資料準備，5路並行）→Wave C（5.4程式碼主體/4.4/6.1+6.2/6.3）→Wave D（6.4/7.x/8.x收尾）。同時修正Task 4.2文檔與代碼脫節：`fusion_recipes.json`的9條配方（含`grass→苓`）已在PR #44/#45/#48提前完成，原文「新增苓配方」段落已刪除，避免重複分派造成資料衝突 |
