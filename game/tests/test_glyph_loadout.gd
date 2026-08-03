@@ -51,7 +51,7 @@ func test_開局是core令並使用gong且外置字隱藏() -> void:
 	assert_eq(_external_glyph.text, "")
 
 
-func test_rain進入fused零並裝備reset_burst且外置字隱藏() -> void:
+func test_rain進入fused零並裝備零落且外置字隱藏() -> void:
 	var replaced: Dictionary = _loadout.equip_component_id("rain")
 	var snapshot: Dictionary = _loadout.get_snapshot()
 
@@ -60,9 +60,9 @@ func test_rain進入fused零並裝備reset_burst且外置字隱藏() -> void:
 	assert_eq(snapshot.get("mode_id", -1), GlyphLoadoutScript.Mode.FUSED)
 	assert_eq(snapshot.get("visible_glyph", ""), "零")
 	assert_eq((snapshot.get("component", {}) as Dictionary).get("id", ""), "rain")
-	assert_eq((snapshot.get("recipe", {}) as Dictionary).get("ability_id", ""), "reset_burst")
-	assert_eq((snapshot.get("active_weapon", {}) as Dictionary).get("id", ""), "reset_burst")
-	assert_eq(_weapon_manager.get_current_weapon().get("id", ""), "reset_burst")
+	assert_eq((snapshot.get("recipe", {}) as Dictionary).get("ability_id", ""), "scattering_rain")
+	assert_eq((snapshot.get("active_weapon", {}) as Dictionary).get("id", ""), "scattering_rain")
+	assert_eq(_weapon_manager.get_current_weapon().get("id", ""), "scattering_rain")
 	assert_eq(_main_glyph.text, "零")
 	assert_false(_display.visible, "完整融合字應顯示在主字，不可再顯示外置「雨」")
 	assert_eq(_external_glyph.text, "")
@@ -120,12 +120,12 @@ func test_snapshot是深拷貝且外部修改不污染loadout() -> void:
 	var fresh: Dictionary = _loadout.get_snapshot()
 	assert_eq(fresh.get("visible_glyph", ""), "零")
 	assert_eq((fresh.get("component", {}) as Dictionary).get("id", ""), "rain")
-	assert_eq((fresh.get("recipe", {}) as Dictionary).get("ability_id", ""), "reset_burst")
+	assert_eq((fresh.get("recipe", {}) as Dictionary).get("ability_id", ""), "scattering_rain")
 	assert_eq(
 		((fresh.get("recipe", {}) as Dictionary).get("attack", {}) as Dictionary).get("id", ""),
-		"reset_burst"
+		"scattering_rain"
 	)
-	assert_eq((fresh.get("active_weapon", {}) as Dictionary).get("id", ""), "reset_burst")
+	assert_eq((fresh.get("active_weapon", {}) as Dictionary).get("id", ""), "scattering_rain")
 
 
 func test_每次有效狀態轉換只發出一次loadout_changed() -> void:

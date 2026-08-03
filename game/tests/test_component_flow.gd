@@ -93,7 +93,7 @@ func test_rain拾取物顯示令加雨融合成零的預覽() -> void:
 	assert_eq(preview.get("visible_glyph", ""), "零")
 	assert_eq(
 		(preview.get("active_weapon", {}) as Dictionary).get("id", ""),
-		"reset_burst"
+		"scattering_rain"
 	)
 
 

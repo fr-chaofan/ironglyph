@@ -91,7 +91,7 @@ func test_子彈從角色前方生成不會立刻打到自己() -> void:
 func test_零的環形彈幕不會打到玩家自己() -> void:
 	_loadout.equip_component_id("rain")
 	assert_eq(_player.get_node(^"HanziSprite").text, "零")
-	assert_eq(_wm.get_current_weapon().get("id", ""), "reset_burst")
+	assert_eq(_wm.get_current_weapon().get("id", ""), "scattering_rain")
 
 	var before: int = _player.hp
 	_wm.fire(1.0)

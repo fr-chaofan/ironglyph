@@ -108,6 +108,21 @@ func fire(direction: float = 1.0) -> void:
 	var origin: Node2D = get_parent() as Node2D
 	var center: Vector2 = Vector2.ZERO if origin == null else origin.global_position
 
+	# 零落：從上方落下，覆蓋身前一片。
+	# 「零」的本義就是落雨（零 = 雨 + 令），這是全場唯一從天而降的攻擊——
+	# 打得到直射打不到的東西。
+	if String(weapon.get("pattern", "single")) == "rain":
+		var drops := clampi(int(weapon.get("projectile_count", 7)), 1, 32)
+		var span := 260.0
+		for index in drops:
+			var t := 0.0 if drops <= 1 else float(index) / float(drops - 1)
+			var offset := Vector2(
+				lerpf(-40.0, span, t) * dir.x,
+				-260.0 - fmod(float(index) * 37.0, 70.0)
+			)
+			_spawn_bullet(weapon, center + offset, Vector2.DOWN)
+		return
+
 	if String(weapon.get("pattern", "single")) == "radial":
 		var projectile_count := clampi(int(weapon.get("projectile_count", 1)), 1, 64)
 		for index in projectile_count:
@@ -145,6 +160,11 @@ func _spawn_bullet(weapon: Dictionary, spawn_pos: Vector2, direction: Vector2) -
 	# 且角色死亡 queue_free 時會把空中的子彈一起帶走。
 	_get_projectile_parent().add_child(bullet)
 	bullet.set_range(String(weapon.get("range", "")))
+	# 特殊技能與射手一併帶上：技能寫在資料裡，由 Bullet 統一結算
+	var ability: Variant = weapon.get("ability", {})
+	if typeof(ability) == TYPE_DICTIONARY:
+		bullet.ability = (ability as Dictionary).duplicate(true)
+	bullet.shooter = get_parent()
 	bullet.setup(
 		int(weapon.get("damage", 0)),
 		String(weapon.get("element", "neutral")),

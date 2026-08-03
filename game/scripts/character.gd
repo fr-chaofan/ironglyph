@@ -30,11 +30,13 @@ func apply_gravity(delta: float) -> void:
 		velocity.y += gravity * delta
 
 
-func take_damage(amount: int, attacker_element: String) -> void:
+## `min_multiplier` 給「無視五行劣勢」用（砱穴）：把倍率的下限抬到 1.0，
+## 優勢仍然吃得到。預設 0.0 等於不干預，既有呼叫端不受影響。
+func take_damage(amount: int, attacker_element: String, min_multiplier: float = 0.0) -> void:
 	if hp <= 0:
 		return  # 已經死了，避免同一幀多發子彈重複觸發 die()
 
-	var multiplier := get_element_multiplier(attacker_element, element)
+	var multiplier := maxf(get_element_multiplier(attacker_element, element), min_multiplier)
 	hp -= int(amount * multiplier)
 	hp = maxi(hp, 0)
 	hp_changed.emit(hp, max_hp)

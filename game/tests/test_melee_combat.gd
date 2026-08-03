@@ -43,7 +43,7 @@ func test_CORE時J是基礎弓K是令筆擊() -> void:
 func test_FUSED時K染上融合字的屬性() -> void:
 	_loadout.equip_component_id("rain")
 
-	assert_eq(_loadout.get_ranged_profile().get("id", ""), "reset_burst")
+	assert_eq(_loadout.get_ranged_profile().get("id", ""), "scattering_rain")
 
 	var melee: Dictionary = _loadout.get_melee_profile()
 	assert_eq(melee.get("id", ""), "ling_slash", "合體不改變近戰招式本身")
