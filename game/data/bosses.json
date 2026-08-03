@@ -1,0 +1,5 @@
+[
+  {"char":"淼","element":"water","hp":300,"phases":3,"sub_radicals":["水","水","水"],"level":1},
+  {"char":"焱","element":"fire","hp":350,"phases":3,"sub_radicals":["火","火","火"],"level":2},
+  {"char":"森","element":"wood","hp":400,"phases":3,"sub_radicals":["木","木","木"],"level":3}
+]
