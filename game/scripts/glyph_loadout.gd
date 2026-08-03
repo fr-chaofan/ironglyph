@@ -146,6 +146,16 @@ func get_snapshot() -> Dictionary:
 ## - FUSED → 令筆擊，但**染上融合字的屬性**，這是合體除了換遠程武器之外的第二層價值
 ## - HELD・近戰類（刂）→ 換成該部件指定的近戰 profile（刀刃筆擊・金屬性）
 func get_melee_profile() -> Dictionary:
+	# ⚠️ FUSED 也要能升級近戰。「刂」融合成「刢」之後如果只看 HELD，
+	# 刀刃筆擊就會憑空消失——玩家拿到更完整的字反而變弱了。
+	if mode == Mode.FUSED:
+		var recipe_melee := String(current_recipe.get("melee_profile_id", "")).strip_edges()
+		if not recipe_melee.is_empty():
+			var recipe_profile := MeleeAttack.get_profile(recipe_melee)
+			if not recipe_profile.is_empty():
+				recipe_profile["glyph"] = _visible_glyph
+				return recipe_profile
+
 	if mode == Mode.HELD:
 		var external_id := String(_external_weapon.get("melee_profile_id", "")).strip_edges()
 		if not external_id.is_empty():

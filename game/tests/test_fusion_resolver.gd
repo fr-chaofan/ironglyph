@@ -103,7 +103,10 @@ func test_金部來源正規化為metal且畫面顯示金() -> void:
 
 func test_唯一配方為令加雨融合成零() -> void:
 	var recipes: Array = _resolver.get_all_recipes()
-	assert_eq(recipes.size(), 5, "五條形聲配方：雨/氵/金/艹/木 各配一個「令」")
+	assert_eq(
+		recipes.size(), 9,
+		"九條形聲配方。十個部件裡只有「山」拼不出字——繁體沒有 ⿰山令"
+	)
 
 	var recipe: Dictionary = _resolver.resolve("令", "rain")
 	assert_false(recipe.is_empty())

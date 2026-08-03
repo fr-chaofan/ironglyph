@@ -53,26 +53,37 @@ func test_FUSED時K染上融合字的屬性() -> void:
 	)
 
 
-func test_HELD投射類部件不影響K() -> void:
-	_loadout.equip_component_id("fire")
+func test_HELD山部件不影響K() -> void:
+	_loadout.equip_component_id("mountain")
 
-	assert_eq(_loadout.get_ranged_profile().get("id", ""), "huo", "J 換成火球")
+	assert_eq(_loadout.get_ranged_profile().get("id", ""), "tu", "J 換成石撞")
 	var melee: Dictionary = _loadout.get_melee_profile()
 	assert_eq(melee.get("id", ""), "ling_slash")
 	assert_eq(melee.get("element", ""), "neutral", "投射類部件不該染到近戰")
 
 
-func test_HELD近戰類刂強化K並讓J退回基礎弓() -> void:
+func test_刂融合成刢後J與K同時升級() -> void:
+	# ⚠️ 「刂」原本是 HELD、J 退回基礎弓；補上 ⿰令刂＝刢 的配方之後改為融合。
+	# 若配方只帶遠程，刀刃筆擊會憑空消失——玩家拿到更完整的字反而變弱。
+	# 因此配方支援 melee_profile_id，讓 FUSED 也能升級 K。
 	_loadout.equip_component_id("blade")
 
+	assert_eq(_loadout.get_snapshot().get("visible_glyph", ""), "刢")
+
 	var ranged: Dictionary = _loadout.get_ranged_profile()
-	assert_eq(ranged.get("id", ""), "gong", "手持「刂」仍要有遠程手段，不能完全打不到遠處")
-	assert_eq(_weapon_manager.get_current_weapon().get("id", ""), "gong")
+	assert_eq(ranged.get("id", ""), "whetted", "J 換成刢刃，不再退回基礎弓")
 
 	var melee: Dictionary = _loadout.get_melee_profile()
-	assert_eq(melee.get("id", ""), "dao_slash", "「刂」強化的是 K")
+	assert_eq(melee.get("id", ""), "dao_slash", "K 仍然是刀刃筆擊")
 	assert_eq(melee.get("element", ""), "metal", "刀刃筆擊吃金屬性（金剋木）")
 	assert_eq(int(melee.get("damage", 0)), 24)
+
+
+func test_一般配方不會誤升級近戰() -> void:
+	# 只有帶 melee_profile_id 的配方才升級 K，其餘維持令筆擊
+	_loadout.equip_component_id("rain")
+	var melee: Dictionary = _loadout.get_melee_profile()
+	assert_eq(melee.get("id", ""), "ling_slash")
 
 
 func test_彈出刂之後K回到令筆擊() -> void:

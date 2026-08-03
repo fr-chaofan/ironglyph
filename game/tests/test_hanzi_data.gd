@@ -9,9 +9,9 @@ func test_singleton_已載入資料() -> void:
 	assert_gt(HanziData.data.size(), 0, "應載入至少一個字")
 
 
-func test_收錄字數為29() -> void:
+func test_收錄字數為33() -> void:
 	# 原有23字加上Task 2.6的字核「令」與融合字「零」
-	assert_eq(HanziData.data.size(), 29, "應收錄29字")
+	assert_eq(HanziData.data.size(), 33, "應收錄33字")
 
 
 func test_焚已取代查無的燄() -> void:
@@ -63,6 +63,9 @@ func test_get_radical() -> void:
 
 func test_medians_筆數與strokes一致() -> void:
 	for ch: String in HanziData.get_all_characters():
+		# 拼出來的字只有 medians，沒有 SVG path——我們從不用 path 畫字
+		if HanziData.is_composed(ch):
+			continue
 		assert_eq(
 			HanziData.get_medians(ch).size(),
 			HanziData.get_strokes(ch).size(),

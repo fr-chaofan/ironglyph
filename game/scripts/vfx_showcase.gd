@@ -80,6 +80,7 @@ func _ready() -> void:
 	_build_projectile_lanes()
 	_build_swing_directions()
 	_build_component_contrast()
+	_build_composed_glyphs()
 	_fit_camera()
 	_loop()
 
@@ -292,6 +293,44 @@ func _build_projectile_lanes() -> void:
 		_lane_root.position + Vector2(LANE_LENGTH * 0.5, float(ELEMENTS.size()) * 25.0),
 		Vector2(LANE_LENGTH * 0.5 + 120.0, float(ELEMENTS.size()) * 28.0 + 40.0)
 	)
+
+
+## 拼出來的合體字 vs 資料集收錄的真字。
+## 資料集沒收「坽炩砱刢」，但它們的**部件都有筆畫資料**——既然字形是用筆畫畫的，
+## 就可以自己把字拼出來。這排是用來判斷「拼出來的像不像字」。
+func _build_composed_glyphs() -> void:
+	var font: FontFile = load(FONT_PATH)
+	var root := Node2D.new()
+	root.position = Vector2(520.0, row_spacing * 1.25 + 620.0)
+	add_child(root)
+
+	var rows := [
+		{"label": "資料集收錄的真字", "glyphs": ["零", "泠", "鈴", "苓", "柃"]},
+		{"label": "用部件拼出來的", "glyphs": ["坽", "炩", "砱", "刢"]},
+	]
+	for r in rows.size():
+		var entry: Dictionary = rows[r]
+		var caption := Label.new()
+		caption.text = String(entry["label"])
+		caption.add_theme_font_override(&"font", font)
+		caption.add_theme_font_size_override(&"font_size", 16)
+		caption.add_theme_color_override(&"font_color", Color(0.35, 0.33, 0.30))
+		caption.size = Vector2(200, 22)
+		caption.position = Vector2(-150.0, float(r) * 130.0 - 12.0)
+		root.add_child(caption)
+
+		var glyphs: Array = entry["glyphs"]
+		for i in glyphs.size():
+			var g := HanziSprite.new()
+			g.add_theme_font_override(&"font", font)
+			g.add_theme_font_size_override(&"font_size", 64)
+			g.add_theme_color_override(&"font_color", Palette.ink())
+			g.size = Vector2(64, 76)
+			g.position = Vector2(float(i) * 90.0 - 32.0, float(r) * 130.0 - 38.0)
+			root.add_child(g)
+			g.character_text = String(glyphs[i])
+
+	_register_extent(root.position + Vector2(160.0, 65.0), Vector2(340.0, 160.0))
 
 
 ## 部件 vs 敵人對照排

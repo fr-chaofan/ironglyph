@@ -29,6 +29,54 @@ import urllib.request
 # 「岭」只作為「嶺」的簡化形存在。因此山屬部件無法融合，維持外置手持。
 NEEDED_CHARS = "我令零淼焱森河海湖雨焰炎灶焚鋼針劍錘樹藤林巖石山塵泠苓鈴柃"
 
+# ─── 組字：資料集沒收錄的合體字，用部件的筆畫自己拼出來 ───
+#
+# 「坽炩砱刢」四個字生僻到 Make Me a Hanzi 沒有收錄，但它們的**部件都有筆畫資料**。
+# 既然本專案的字形是用 medians 畫成 Line2D 筆畫（不是交給字型平塗），就可以自己把字拼出來
+# ——形聲字本來就是拼出來的，這正是「字界」的立意。
+#
+# ⚠️ 附帶好處：**字型缺不缺變得無關緊要**。「炩」與「刢」不在霞鶩文楷裡，
+#    但我們從不用字型畫它們，因此不必為了它們換字型。
+#
+# ⚠️ 代價：拼出來的字比資料集的真字略遜——真正的偏旁會變形（提土旁末筆上挑、
+#    火字旁末筆收短），這裡只是把原字壓窄。遠看過得去，並排細看得出來。
+#
+# 每筆：(合體字, 左/上部件, 右/下部件, 版面)
+COMPOSED_CHARS = [
+    ("坽", "土", "令", "left_right"),
+    ("炩", "火", "令", "left_right"),
+    ("砱", "石", "令", "left_right"),
+    ("刢", "令", "刂", "blade_right"),
+]
+
+# 版面框（1024 字身框，y 軸朝上）：(x0, y0, x1, y1, 橫向擠壓)
+COMPOSE_BOXES = {
+    # 左偏旁壓到約三分之一寬並再橫向擠壓，中縫收緊——真偏旁比原字窄得多
+    "left_right": ((90, 200, 420, 860, 0.82), (430, 110, 985, 935, 1.0)),
+    # 立刀旁極窄且貼右緣
+    "blade_right": ((80, 110, 700, 935, 1.0), (720, 140, 980, 900, 1.0)),
+}
+
+
+def _bounds(medians):
+    xs = [p[0] for s in medians for p in s]
+    ys = [p[1] for s in medians for p in s]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _place(medians, box):
+    """把一個部件的筆畫等比縮放後放進指定的框裡。"""
+    x0, y0, x1, y1, squeeze = box
+    bx0, by0, bx1, by1 = _bounds(medians)
+    bw = max(1.0, bx1 - bx0)
+    bh = max(1.0, by1 - by0)
+    scale = min((x1 - x0) / bw, (y1 - y0) / bh)
+    sx = scale * squeeze
+    ox = x0 + ((x1 - x0) - bw * sx) / 2 - bx0 * sx
+    oy = y0 + ((y1 - y0) - bh * scale) / 2 - by0 * scale
+    return [[[p[0] * sx + ox, p[1] * scale + oy] for p in stroke] for stroke in medians]
+
+
 DICT_URL = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt"
 GRAPHICS_URL = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/graphics.txt"
 
@@ -100,12 +148,35 @@ def main() -> int:
             "medians": gfx_data.get(ch, {}).get("medians", []),
         }
 
+    # ---- 組字：資料集沒有的合體字，用部件拼出來 ----
+    parts_needed = {p for _, a, b, _ in COMPOSED_CHARS for p in (a, b)}
+    parts_gfx = load_by_char(gfx_path, parts_needed, {"medians": ("medians", [])})
+    composed_ok, composed_fail = [], []
+    for ch, left, right, layout in COMPOSED_CHARS:
+        lm = parts_gfx.get(left, {}).get("medians", [])
+        rm = parts_gfx.get(right, {}).get("medians", [])
+        if not lm or not rm:
+            composed_fail.append(ch)
+            continue
+        lbox, rbox = COMPOSE_BOXES[layout]
+        merged[ch] = {
+            "decomposition": "⿰%s%s" % (left, right),
+            "radical": left,
+            "strokes": [],
+            "medians": _place(lm, lbox) + _place(rm, rbox),
+            # 標記給字型覆蓋測試用：這些字從不經過字型渲染
+            "composed": True,
+        }
+        composed_ok.append(ch)
+
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         json.dump(merged, f, ensure_ascii=False, indent=2)
 
     # ---- Task 1.2b 覆蓋率報告 ----
-    print(f"\n寫入 {OUT_PATH}：{len(merged)}/{len(needed)} 字")
+    print(f"\n寫入 {OUT_PATH}：{len(merged)} 字（其中 {len(composed_ok)} 個是拼出來的：{''.join(composed_ok)}）")
+    if composed_fail:
+        print(f"  ⚠️ 缺部件筆畫、拼不出來：{''.join(composed_fail)}")
     if missing_entirely:
         print(f"  ⚠️ 資料集查無此字（已跳過）：{''.join(missing_entirely)}")
     if missing_strokes:

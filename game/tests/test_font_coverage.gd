@@ -26,7 +26,26 @@ func test_字型檔載入成功() -> void:
 
 func test_全部HanziData字都有字形() -> void:
 	for ch: String in HanziData.get_all_characters():
+		# ⚠️ 拼出來的字（坽炩砱刢）從不經過字型渲染——字形一律用 medians 畫成筆畫。
+		# 「炩」「刢」確實不在霞鶩文楷裡，但那不影響遊戲，不該因此換字型。
+		if HanziData.is_composed(ch):
+			continue
 		assert_true(_font.has_char(ch.unicode_at(0)), "字型缺「%s」的字形，會顯示成豆腐方框" % ch)
+
+
+func test_拼出來的字有筆畫而且不依賴字型() -> void:
+	# 這些字的存在理由就是「資料集沒收錄，但部件有筆畫，所以自己拼」
+	var composed: Array = []
+	for ch: String in HanziData.get_all_characters():
+		if HanziData.is_composed(ch):
+			composed.append(ch)
+
+	assert_gt(composed.size(), 0, "應該有拼出來的合體字")
+	for ch: String in composed:
+		assert_gt(
+			HanziData.get_medians(ch).size(), 1,
+			"拼出來的「%s」必須有筆畫，否則畫不出來" % ch
+		)
 
 
 func test_全部武器部首都有字形() -> void:
