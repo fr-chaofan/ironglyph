@@ -66,5 +66,16 @@ func get_radical(character: String) -> String:
 
 
 ## 目前收錄的所有字，供除錯/覆蓋率檢查用
+## 這個字是不是用部件拼出來的（資料集沒收錄）。
+##
+## 拼出來的字**從不經過字型渲染**——字形一律用 medians 畫成筆畫，
+## 所以字型缺不缺無關緊要（「炩」「刢」就不在霞鶩文楷裡）。
+## 字型覆蓋測試要據此跳過它們，否則會誤報缺字。
+func is_composed(character: String) -> bool:
+	if not data.has(character):
+		return false
+	return bool(data[character].get("composed", false))
+
+
 func get_all_characters() -> Array:
 	return data.keys()

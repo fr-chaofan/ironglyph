@@ -92,5 +92,80 @@
       "projectile": "vine",
       "range": "short"
     }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "earth",
+    "result_glyph": "坽",
+    "layout": "left_right",
+    "ability_id": "rampart",
+    "attack": {
+      "id": "rampart",
+      "radical": "土",
+      "name": "坽壘",
+      "element": "earth",
+      "attack_type": "projectile",
+      "damage": 18,
+      "fire_rate": 0.85,
+      "projectile": "rock",
+      "range": "short"
+    }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "fire",
+    "result_glyph": "炩",
+    "layout": "left_right",
+    "ability_id": "kindle",
+    "attack": {
+      "id": "kindle",
+      "radical": "火",
+      "name": "炩明",
+      "element": "fire",
+      "attack_type": "projectile",
+      "damage": 9,
+      "fire_rate": 0.4,
+      "projectile": "fireball_aoe",
+      "range": "medium",
+      "pattern": "radial",
+      "projectile_count": 5
+    }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "stone",
+    "result_glyph": "砱",
+    "layout": "left_right",
+    "ability_id": "cavern",
+    "attack": {
+      "id": "cavern",
+      "radical": "石",
+      "name": "砱穴",
+      "element": "earth",
+      "attack_type": "projectile",
+      "damage": 13,
+      "fire_rate": 0.5,
+      "projectile": "pebble",
+      "range": "medium"
+    }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "blade",
+    "result_glyph": "刢",
+    "layout": "left_right",
+    "ability_id": "whetted",
+    "melee_profile_id": "dao_slash",
+    "attack": {
+      "id": "whetted",
+      "radical": "刂",
+      "name": "刢刃",
+      "element": "metal",
+      "attack_type": "projectile",
+      "damage": 8,
+      "fire_rate": 0.3,
+      "projectile": "blade",
+      "range": "medium"
+    }
   }
 ]
