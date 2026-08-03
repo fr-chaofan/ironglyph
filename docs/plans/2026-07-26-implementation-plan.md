@@ -1306,7 +1306,14 @@ git add -A && git commit -m "phase3: enemy system, 4 AI behaviors, 20 enemy char
 > 擺位都建立在戰鬥動詞之上；下劈（pogo）一旦存在，「敵人站在深淵上方」就等於一條過關捷徑。
 > 詳見 Task 2.7 與 [`docs/COMBAT.md`](../COMBAT.md)。
 
-> **⚠️ 範圍更新（隨主線劇情定版同步修改）：** 原計劃只有「4關」，未涵蓋`docs/STORY.md`第4節章節流程表定案的**序章「字界殘頁」**（教程關）與**終章「崩筆祭壇」**（終Boss「仁」戰鬥關）。本階段新增Task 4.0（對話/演出框架，序章與終章共同依賴的阻斷性前置任務）、Task 4.0b（存檔基礎切片，水域存檔點與終Boss旗標共同依賴）、Task 4.1a（序章關卡）、Task 4.4（終章關卡）。執行順序：**4.0 → 4.0b → 4.1a → 4.1 → 4.2 → 4.3 → 4.4**（4.0b必須早於第一個checkpoint；4.4需等Task 4.3的LevelManager與階段五Task 5.4的Boss「仁」都就緒才能整合，實際上是「Phase 5.4 integration gate」，見階段五說明）。
+> **⚠️ 範圍更新（隨主線劇情定版同步修改）：** 原計劃只有「4關」，未涵蓋`docs/STORY.md`第4節章節流程表定案的**序章「字界殘頁」**（教程關）與**終章「崩筆祭壇」**（終Boss「仁」戰鬥關）。本階段新增Task 4.0（對話/演出框架，序章與終章共同依賴的阻斷性前置任務）、Task 4.0b（存檔基礎切片，水域存檔點與終Boss旗標共同依賴）、Task 4.1a（序章關卡）、Task 4.4（終章關卡）。
+>
+> **⚠️ 2026-08-03複查修正：原文標註的「4.0 → 4.0b → 4.1a → 4.1 → 4.2 → 4.3 → 4.4」全序列執行順序過度保守，實際依賴沒有這麼線性。** 逐一檢查場景結構後發現：
+> - **Task 4.1a（序章）不依賴Task 4.0b。** 序章場景結構（見Task 4.1a）沒有`Checkpoints`節點、不呼叫`SaveSystem.set_checkpoint()`，只依賴已完成的Task 4.0對話框架。可以與Task 4.0b**完全並行**。
+> - **Task 4.3（LevelManager）不需要等Task 4.1/4.2的場景檔實際做完。** `LevelManager.levels`陣列只是一份場景路徑字串清單（`res://scenes/levels/level_0X_xxx.tscn`），只要團隊先**口頭/文件約定好6個場景的檔名**，Task 4.3的腳本邏輯就可以立即開工，不必等對應`.tscn`真正落地。真正的整合（把`LevelExit`接到`LevelManager.next_level()`）才需要場景已存在，那一步本來就是Integrator職責。
+> - 真正的硬性順序只有兩條：**Task 4.0b必須早於Task 4.1的第一個checkpoint**（`checkpoint.gd`直接呼叫`SaveSystem`）；**Task 4.4的終章整合需等Task 4.3的`LevelManager`與階段五Task 5.4的Boss「仁」都就緒**（「Phase 5.4 integration gate」，見階段五說明）。
+>
+> 完整的並行分派建議（含跨階段的Wave劃分）見文末「## 執行方式建議」章節新增的「剩餘工作並行矩陣」。
 
 ### Task 4.0: 對話／演出框架（阻斷性前置依賴）
 
@@ -1601,7 +1608,13 @@ func _on_body_entered(body: Node) -> void:
 
 ### Task 4.2: 火山關 / 森林關 / 礦山關
 
-**Objective:** 複製Task 4.1結構，替換tileset美術+enemy_char+背景音樂，共3關；**礦山關為無Boss過渡關**（見`docs/STORY.md`第4節章節流程表），不放置Boss戰場景，改為稀有部件掉率提升
+> **⚠️ 計劃與代碼已脫節（2026-08-03複查發現）：** 本Task原文把`艹＋令→苓`配方／`ling_bind`
+> attack profile／`hanzi_decomposition.json`重建列為本Task待辦，但實際上這些已經在Task 2.6之後
+> 的後續PR（#44「形聲合體配方擴充到5條」、#45「補上土/火/石/刂的合體字，配方擴到9條」、#48
+> 「九條形聲配方各自的特殊技能」）**提前完成**——`game/data/fusion_recipes.json`目前已有全部
+> 9條配方（含`grass→苓`、其`herb_scatter`攻擊與`heal:3`回復效果），`hanzi_decomposition.json`
+> 也已收錄「苓」。**若再次分派「新增苓配方」會與既有資料衝突或做重複勞動**，本Task的Files/Step 1
+> 對應段落請按下方更新後的範圍執行，不要照抄已刪除的原始JSON片段。
 
 **Files:**
 - Create: `game/scenes/levels/level_02_fire.tscn`
@@ -1610,47 +1623,17 @@ func _on_body_entered(body: Node) -> void:
 - Create: `game/data/dialogue/story_fire_father_echo.json`（仁第一次以「朕」回家）
 - Create: `game/data/dialogue/story_wood_ling_echo.json`（祖母、最後一劑苓草與空藥床）
 - Create: `game/data/dialogue/story_mine_ming_echo.json`（父親「銘→名」與賜俸鑄印真相）
-- Modify: `game/data/fusion_recipes.json`（以既有`component_id: "grass"`加入完整配方`艹＋令→苓`與`ling_bind` attack profile）
-- Modify: `tools/build_hanzi_data.py`、`game/data/hanzi_decomposition.json`（將「苓」加入生成字表與產物）
-- Modify: `game/tests/test_fusion_resolver.gd`、`game/tests/test_glyph_loadout.gd`、`game/tests/test_weapon_manager.gd`、`game/tests/test_component_flow.gd`（配方數、HanziData、FUSED顯示、有效攻擊與Q彈出回歸）
+- ~~Modify: `game/data/fusion_recipes.json`~~ **✅ 已完成（PR #44/#45/#48），本Task不再需要修改**
+- ~~Modify: `tools/build_hanzi_data.py`、`game/data/hanzi_decomposition.json`~~ **✅ 已完成，「苓」已在產物中**
+- Modify: `game/tests/test_dialogue_data.gd`（新增森林關證物對話的schema／繁中／字形覆蓋測試；`ling_bind`攻擊本身的回歸測試已隨PR #44/#48提交，本Task不必重跑）
 
 **Step 1:** 每關的EnemySpawner全部指向對應五行的敵字（火山關全用fire系4個字，以此類推），保證「關卡主題=五行區塊」貫徹到底。
 
 同時加入不可漏收的線性證物鏈，每章最多一段8–12秒無操作墨影，避免長篇說明：
 
 - 火山：父親未寄出的信／回聲——仁第一次自稱「朕」，父親答「你叫我父親，不必叫臣」。
-- 森林：苓草藥方、祖母等待與下一房間的空床；玩家以`艹＋令→苓`救助仍活著的病人後Q歸還，空床不發生變化。
+- 森林：苓草藥方、祖母等待與下一房間的空床；玩家以`艹＋令→苓`（配方與`ling_bind`攻擊已隨PR #44/#48提前完成，本Task只需在關卡場景裡放置對應的部件掉落點，不用再碰`fusion_recipes.json`）救助仍活著的病人後Q歸還，空床不發生變化。
 - 礦山：父親主動阻止、二親手按住亻的真相；作坊由「銘」剝成「名」，賜俸錢幣正面保留「520」、翻面露出同一枚「銘」印。
-
-森林關的「苓」不是只有演出、沒有戰鬥能力的半成品。沿用現有resolver資料契約新增完整配方：
-
-```json
-{
-  "core_glyph": "令",
-  "component_id": "grass",
-  "result_glyph": "苓",
-  "layout": "top_bottom",
-  "ability_id": "ling_bind",
-  "attack": {
-    "id": "ling_bind",
-    "radical": "艹",
-    "name": "苓草束",
-    "element": "wood",
-    "attack_type": "projectile",
-    "damage": 7,
-    "fire_rate": 0.65,
-    "projectile": "vine",
-    "range": "medium",
-    "pattern": "single",
-    "projectile_count": 1
-  }
-}
-```
-
-`grass`已存在於`components.json`，不新增第二個部件ID。`苓`必須先加入`tools/build_hanzi_data.py`的
-`NEEDED_CHARS`並重建`hanzi_decomposition.json`；測試不再斷言「唯一配方」，改為精確驗證「零」與「苓」
-兩條curated recipe。`GlyphLoadout`進入FUSED時主字顯示「苓」、外置艹隱藏且J可正常發射`ling_bind`；
-Q後彈出同一個grass部件並恢復「令」。把苓交給醫者是森林場景的專用Q結果，不讓一般戰鬥Q具備全域治療效果。
 
 **Step 2（礦山關差異化）：** 礦山關（`level_04_earth.tscn`）的`EnemySpawner`額外設定`drop_rate_multiplier`（沿用Task 2.6/`component_dropper.gd`既有的部件掉落機制，只加一個倍率參數，不新增掉落系統）：
 ```gdscript
@@ -1659,7 +1642,7 @@ enemy_spawner.drop_rate_multiplier = 2.0  # 稀有部件掉率提升為其他關
 ```
 `component_dropper.gd`需要新增讀取此倍率的邏輯（`drop_chance *= spawner.drop_rate_multiplier if spawner else 1.0`），其餘3關維持預設倍率1.0不受影響。**礦山關不建立Boss戰場景**，`LevelExit`直接觸發`LevelManager.next_level()`進入終章，不經過Task 5.3的Boss arena流程。
 
-**Verify:** 依次通關3關，每關敵人元素與關卡主題一致，武器剋制策略在對應關卡內明顯生效（用剋制武器一擊傷害肉眼可辨高於非剋制武器）；三段核心證物均不可繞過；`艹＋令→苓`能進入FUSED、使用有效的`ling_bind`並Q回令，森林劇情歸還能幫助活人但不改變祖母空床；礦山能清楚讀出「銘→名」；額外驗證礦山關部件掉落頻率肉眼可辨高於其他關卡，且關卡末尾無Boss戰觸發
+**Verify:** 依次通關3關，每關敵人元素與關卡主題一致，武器剋制策略在對應關卡內明顯生效（用剋制武器一擊傷害肉眼可辨高於非剋制武器）；三段核心證物均不可繞過；森林關能撿到`grass`部件並進入FUSED使用`ling_bind`（沿用既有實作，本Task只做關卡放置驗證，不重跑融合系統回歸測試）、劇情歸還能幫助活人但不改變祖母空床；礦山能清楚讀出「銘→名」；額外驗證礦山關部件掉落頻率肉眼可辨高於其他關卡，且關卡末尾無Boss戰觸發
 
 ---
 
@@ -2480,10 +2463,73 @@ git tag v0.1.0-milestone-complete
 
 ---
 
+## 剩餘工作並行矩陣（2026-08-03新增，供多人/多agent並行分派）
+
+> 現況：階段一～三已全部完成，階段四僅Task 4.0（對話框架）完成。以下只列**尚未開始**的Task，
+> 按真實的檔案級/資料級依賴重新分組為Wave（波次），而非機械照抄「階段一定要序列做完才能開始下一階段」。
+> 同一Wave內的Task互相沒有阻斷依賴，可以分派給不同agent/開發者同時開工；Wave之間才需要等待。
+> 場景檔（`.tscn`）與`project.godot`的獨占規則仍遵循`docs/COLLABORATION.md`第1、2節，本矩陣不改變那套機制，
+> 只是在其基礎上標出「誰可以現在就開工」。
+
+### Wave A（可立即開工，彼此無依賴，最多同時4路並行）
+
+| Task | 內容 | 為什麼現在能做 | 產出檔案類型 |
+|---|---|---|---|
+| **4.0b** | 存檔基礎切片`SaveSystem` | 只依賴已完成的核心角色系統，不依賴任何場景 | 純`.gd`+測試 |
+| **4.1a** | 序章「字界殘頁」 | 只依賴Task 4.0（已完成），場景結構本身沒有`Checkpoints`節點，不碰`SaveSystem` | 新場景（獨立`.tscn`，不修改既有場景） |
+| **4.3** | LevelManager腳本邏輯 | `levels`陣列只是路徑字串，不需要對應`.tscn`真的存在才能寫腳本與單元測試；只有「接上`project.godot`的`[autoload]`」這一步需要Integrator，且該步很小 | 純`.gd`+測試 |
+| **5.1 + 5.2** | Boss基類/狀態機 + 3種一般Boss彈幕模式 | 只依賴已完成的敵人系統（`Enemy`基類），與階段四完全獨立 | 純`.gd`+`bosses.json` |
+
+**建議此時同時分派4個Logic Worker**，各自開分支`feat/save-system`、`feat/prologue-level`、`feat/level-manager`、`feat/boss-base`。
+
+### Wave B（依賴Wave A部分產出，Wave A完成後即可開工）
+
+| Task | 依賴 | 內容 |
+|---|---|---|
+| **4.1（水域關）** | 4.0b（checkpoint要呼叫`SaveSystem`） | 場景+證物對話資料，與4.2完全獨立 |
+| **4.2（火山/森林/礦山關）** | 4.0b（同上） | 三關場景+證物對話+`drop_rate_multiplier`；**不再需要碰`fusion_recipes.json`**（已提前完成，見Task 4.2文中警示），可與4.1並行由不同worker各自負責 |
+| **5.3** | 5.1（Boss基類需先存在） | 螢幕震動/粒子，純視覺加成，可與5.4的資料準備並行 |
+| **5.3b** | 4.0b（複驗同一份`SaveSystem`契約） | 純測試/驗證，不寫新功能，工作量很小，可插空做 |
+| **5.4的資料準備部分**（`boss_ren.json`、`boss_ren_shangfeng.json`、`boss_ren_phase21_ming.json`、`ending_ming_final.json`、`ending_two_epilogue.json`等純JSON/dialogue資料） | 4.0（已完成）+ `docs/BOSS-仁.md`定案文本 | **這部分不需要等5.1/5.2的程式碼完成**，是純文字資料表，可以現在就讓「對話／資料worker」提前寫，等`boss_ren.gd`真正接線時直接讀取，不必臨到Task 5.4才開工 |
+
+**建議此時4.1/4.2/5.3/5.3b/5.4資料準備 最多同時5路並行**（5.4的程式碼主體`boss_ren.gd`/`shangfeng_coin.gd`留到Wave C，因為它真正依賴5.1/5.2的程式碼介面，不只是資料）。
+
+### Wave C（依賴Wave A+B的程式碼介面就緒）
+
+| Task | 依賴 | 內容 |
+|---|---|---|
+| **5.4（`boss_ren.gd`/`shangfeng_coin.gd`程式碼主體）** | 4.0 + 4.0b + 5.1 + 5.2 + 5.3b + Wave B已準備好的敘事資料 | 本計劃份量最重的Task，建議繼續拆給3個並行subagent：①戰鬥數值/狀態機②`ShangfengCoin`彈反判定③`ending_epilogue_controller.gd`尾聲控制器——三者都能各自寫完`.gd`與測試後再統一交給Integrator組裝 |
+| **4.4（終章關卡骨架）** | 4.3（LevelManager需就緒）+ 5.4進度（Boss「仁」要能實例化到場景裡） | 見原文「Phase 5.4 integration gate」說明；`level_06_epilogue.tscn`可以提前建立空場景骨架（不含邏輯）讓Integrator不必等5.4全部寫完才開工 |
+| **6.1／6.2（主選單/圖鑑）** | 只依賴已完成的武器系統 | **完全可以提前到Wave A/B就開工**，本計劃原文把它放在階段六純粹是編號順序，實際沒有依賴階段四/五，建議儘早插入任一Wave分派出去，不要浪費Logic Worker的閒置產能 |
+| **6.3（存檔擴充：關卡索引/武器解鎖）** | 4.0b+5.3b已建立的`SaveSystem`基礎 | 只是在既有`save_system.gd`上增量擴充欄位，工作量小，可與6.1/6.2同時做 |
+
+### Wave D（收尾，必須等前面都完成）
+
+| Task | 依賴 |
+|---|---|
+| 6.4（音效/BGM） | 各關卡/Boss場景需已存在才能掛`AudioStreamPlayer2D` |
+| 7.0-7.3（Steam整合/打包） | 遊戲功能大致完整，才有意義去測打包 |
+| 8.1（全流程測試） | 全部功能完成 |
+| 8.2（Steam店鋪素材） | 需要8.1測試通過後的實機截圖/錄影 |
+
+### 一個容易被忽略的並行機會：Task 6.1/6.2應提前
+
+現況把「UI與存檔」整個模組排在階段六，但**主選單、暫停選單、武器圖鑑**三者只依賴已經完成的武器系統（階段二），跟階段四/五的關卡與Boss進度完全無關。目前唯一让它們排在後面的原因是原計劃的線性編號，不是真實依賴。**建議從Wave A開始就可以插入分派**，能多讓1-2個Logic Worker不用等待階段四/五進度。
+
+### 小結：現在（複查當下）最多可並行的路數
+
+- 立即可開工（Wave A）：**4路**（4.0b / 4.1a / 4.3 / 5.1+5.2）
+- 若把6.1/6.2也提前一併算入：**Wave A可擴大到6路並行**
+- Wave B峰值：**5路並行**（4.1 / 4.2 / 5.3 / 5.3b / 5.4資料準備，其中4.1與4.2要注意`fusion_recipes.json`已經沒有剩餘工作，不要重複分派）
+- 全計劃的關鍵路徑（critical path）實際上只有：`4.0(已完成)→4.0b→4.1→...`與`5.1+5.2→5.4程式碼主體→4.4→8.1`兩條線收斂於Task 4.4；其餘都是可以塞進閒置產能的並行工作
+
+---
+
 ## 變更記錄
 
 | 日期 | 變更 |
 |---|---|
+| 2026-08-03 | **新增「剩餘工作並行矩陣」**：複查發現原文「4.0→4.0b→4.1a→4.1→4.2→4.3→4.4」全序列執行順序過度保守——4.1a（序章）不碰SaveSystem可與4.0b並行；4.3（LevelManager）只需場景路徑字串可提前寫腳本；6.1/6.2（主選單/圖鑑）只依賴階段二武器系統，實際與階段四/五無關，可提前到Wave A/B插入分派。重新劃分Wave A（4.0b/4.1a/4.3/5.1+5.2，4路並行）→Wave B（4.1/4.2/5.3/5.3b/5.4資料準備，5路並行）→Wave C（5.4程式碼主體/4.4/6.1+6.2/6.3）→Wave D（6.4/7.x/8.x收尾）。同時修正Task 4.2文檔與代碼脫節：`fusion_recipes.json`的9條配方（含`grass→苓`）已在PR #44/#45/#48提前完成，原文「新增苓配方」段落已刪除，避免重複分派造成資料衝突 |
 | 2026-08-02 | **隨主線劇情v3同步實施計劃**：①序章至礦山加入不可漏收的家庭證物鏈與四份對話資料，森林加入完整配方`艹＋令→苓`；②Task 4.4新增不走LevelManager的`level_06_epilogue.tscn`；③Task 5.4加入正面520／背面銘的實體`ShangfengCoin`，貪／爭／棄由拾取／近戰彈反／全閃避決定而非選單，並把結局改為主只取回亻、可選「命」只影響令，之後所有路線控制二完成苓草／金／空物品欄三次Q並進入「還沒天明」語言循環；④Task 4.0b在首個checkpoint前建立唯一`SaveSystem`與隱藏旗標，Task 5.3b只做Boss接線前契約複驗，Task 6.3沿用並擴充；⑤Task 8.1新增共同尾聲與無赦免驗收，避免隱藏路線跳過二的後果 |
 | 2026-08-01 | Task 4.0（對話／演出框架）完成。**草稿的 `DialogueBox` 有一個會讓遊戲永久卡死的錯誤**：`play()` 暫停整棵樹卻沒把對話框自己設成 `PROCESS_MODE_ALWAYS`，推進鍵與打字機跟著停擺，第一句話之後就再也動不了；另補上「結束時還原原本的暫停狀態」避免解除階段六的暫停選單。實作上補齊草稿只寫在文字裡的打字機（含「先補完整句、再換句」兩段式推進）、做出可直接用的選項UI（W/S移游標、J確認；選項是直向清單，實機驗證後新增`menu_up`/`menu_down`兩個action，A/D一併保留），並把 `CutscenePlayer` 從硬編函式改為「步驟資料＋cue signal」——特效由關卡端接cue，Task 4.4/5.4的白光與筆畫反向崩解不會反過來寫死進框架。新增 `test_dialogue_data.gd` 把台詞的schema／字型字形涵蓋／簡體字擋在CI（缺字形只會安靜顯示成豆腐方框，簡體字完全不報錯）。`test_room.tscn` 加上 T/Y/U 三個除錯捷徑供實機驗證 |
 | 2026-07-30 | **隨主線劇情定版（`docs/STORY.md`/`docs/BOSS-仁.md`/`docs/PROTAGONIST-令.md`）同步更新開發計劃**：①階段四新增Task 4.0（對話/演出框架，阻斷性前置依賴）、Task 4.1a（序章「字界殘頁」教程關）、Task 4.4（終章「崩筆祭壇」關卡骨架）；Task 4.2礦山關明確定調為無Boss過渡關，改為稀有部件掉率提升；Task 4.3的LevelManager場景清單擴充為序章+4關+終章共6個場景，並補充終章結局分支不走一般`next_level()`流程的說明。②階段五新增Task 5.4（終極Boss「仁」完整實作：雙元素三階段、開場五連頭銜白、「賜俸」三選一x2、Phase 2.1「命」中途顯現、「主」降臨結局），標註為本計劃份量最重的單一Task；`bosses.json`與「仁」的資料表明確分離，避免schema混用。③Task 6.3的SaveSystem新增`has_ever_hoarded`隱藏結局判定旗標的讀寫與持久化，並註明與Task 5.4範例程式碼的`GameState`命名需在整合時對齊。④Task 8.1測試checklist新增序章教學、礦山關掉率、終Boss「仁」完整流程與隱藏結局路徑的驗收項。⑤執行方式建議新增兩項關鍵風險點（Task 5.4建議拆分並行、Task 4.0是雙向阻斷依賴需優先排期） |

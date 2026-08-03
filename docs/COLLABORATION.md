@@ -50,6 +50,10 @@
 
 **並行策略：** 「核心角色系統」必須第一個完成（其他所有模組都繼承`Character`或依賴`HanziData`/`ElementSystem`兩個autoload）。完成後，「武器系統」「敵人與AI」「UI與存檔」三個模組**互相獨立、可以完全並行**（它們互不依賴彼此的具體實作，只依賴核心角色系統暴露的介面）。「關卡系統」「Boss系統」需等敵人系統的`Enemy`基類穩定後才能開工。
 
+**2026-08-03複查更新：** 上述並行策略是階段層級的粗粒度劃分，實際到了階段四/五會出現「同一階段內也有大量可並行任務」被計劃原文的線性Task編號（4.0→4.0b→4.1a→4.1→4.2→4.3→4.4）掩蓋的情況。詳細的Task級並行矩陣（Wave A/B/C/D劃分）見`docs/plans/2026-07-26-implementation-plan.md`文末「## 剩餘工作並行矩陣」章節；核心結論：
+- Task 4.1a（序章）、4.3（LevelManager腳本）、4.0b（存檔）、5.1+5.2（Boss基類/彈幕）四者互不依賴，可以現在就同時分派給4個Logic Worker
+- 「UI與存檔」模組裡的6.1/6.2（主選單/圖鑑）只依賴武器系統，實際上從階段二完成後就可以開工，不需要等到階段四/五都做完；不要被模組表的階段編號誤導成「必須等前面幾個階段全部完成」
+
 ### 2.1 Task 2.6本PR的Integrator邊界
 
 Task 2.6會同時接上Player、武器、敵人死亡signal與測試場景，因此本PR指定**root agent為唯一
@@ -249,6 +253,7 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 
 | 日期 | 變更 |
 |---|---|
+| 2026-08-03 | 新增第2節「並行策略」複查更新，指向實施計劃文末新增的Task級並行矩陣（Wave A/B/C/D）；標註6.1/6.2（主選單/圖鑑）可提前到階段二完成後即開工，不受階段四/五進度阻塞 |
 | 2026-08-02 | 對齊主線劇情v3：對話／演出模組納入逐章證物、主取回亻與`ending_epilogue_controller.gd`；尾聲控制器只負責二的三個Q節點與時間跳切，`level_06_epilogue.tscn`仍屬整合者獨占的場景檔；Task 4.0b須在首個checkpoint前建立唯一`SaveSystem`與旗標源，Task 5.3b只做Boss接線前契約複驗；Task 5.4的520／銘實體錢幣場景由Integrator掛載，Boss Logic Worker只寫腳本；苓配方產生器與產物由單一Data Worker獨占 |
 | 2026-08-01 | 加入Task 4.0協作邊界（第2.2節）：對話框場景是新增檔案而非修改既有場景，但掛進`test_room.tscn`仍由root獨占；`project.godot`只在`[input]`追加`menu_up`(W)/`menu_down`(S)供直向選項清單使用，其餘推進／選項沿用既有action，測試場景的除錯捷徑改用原始keycode |
 | 2026-07-30 | 新增「對話／演出框架」模組（序章教程NPC、終Boss「仁」開場白/賜俸/Phase 2.1三選一、終章「主」降臨訓誡共用同一套元件），登記`DialogueBox`/`CutscenePlayer`/`BossRen`三個`class_name`；Boss系統模組職責擴充納入終Boss「仁」專屬腳本；UI與存檔模組補充`has_ever_hoarded`隱藏結局旗標職責 |
