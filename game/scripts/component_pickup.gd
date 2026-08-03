@@ -7,6 +7,13 @@ extends Area2D
 
 @export_range(0.0, 1.0, 0.01) var exchange_lock_duration: float = 0.2
 
+## 沒被撿走的部件多久後消失（秒）。0 表示永不消失。
+##
+## 敵人會不斷重生，不設上限的話地上很快堆滿部件，玩家分不出哪個是剛掉的。
+@export var lifetime: float = 14.0
+## 最後幾秒開始閃爍預告。直接消失的話玩家會以為是 bug。
+@export var expire_warning: float = 3.5
+
 ## 近戰擊殺時掉落物飛向玩家的最高速度（像素/秒）與加速度（Task 2.7c）。
 ## 飛過去之後**仍然要按 E 才會裝備**——「借」是玩家的主動選擇，
 ## 自動裝備會把 Task 2.6 整套「借與還」的分寸感洗掉。
@@ -27,11 +34,15 @@ var _nearby_loadout: Node
 var _exchange_lock_left: float = 0.0
 var _attract_target: Node2D
 var _attract_speed_current: float = 0.0
+var _life_left: float = 0.0
 var _frame: ComponentGlyph
 
 
 func _ready() -> void:
 	add_to_group(&"component_pickup")
+	# ⚠️ 一定要在這裡初始化倒數，不能只靠 setup()。
+	# 沒呼叫 setup 就進場景樹的拾取物會拿到 _life_left = 0，第一幀就消失。
+	reset_lifetime()
 	# 部件套寫字格＋淡墨＋浮動，與敵人的字形分開。
 	# 「山石雨」三個字同時是敵人與部件，光看字形分不出來。
 	if _glyph != null:
@@ -46,6 +57,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_exchange_lock_left = maxf(0.0, _exchange_lock_left - delta)
 	_update_attraction(delta)
+	_update_lifetime(delta)
 	if _nearby_loadout == null or not is_instance_valid(_nearby_loadout):
 		return
 	if _exchange_lock_left > 0.0 or not InputMap.has_action(&"interact"):
@@ -60,8 +72,37 @@ func _process(delta: float) -> void:
 
 func setup(component_data: Dictionary) -> void:
 	component = component_data.duplicate(true)
+	reset_lifetime()
 	if is_node_ready():
 		_refresh_visuals()
+
+
+## 重新開始倒數。
+##
+## ⚠️ **交換部件時一定要呼叫。** 交換是就地把同一個節點換成舊部件（不銷毀重生成），
+## 不重置的話換下來的部件會繼承前一個快到期的倒數，一放下就消失。
+func reset_lifetime() -> void:
+	_life_left = lifetime
+	modulate.a = 1.0
+
+
+## 倒數消失。最後幾秒閃爍預告，讓玩家知道還來得及去撿。
+func _update_lifetime(delta: float) -> void:
+	if lifetime <= 0.0:
+		return
+
+	_life_left -= delta
+	if _life_left <= 0.0:
+		queue_free()
+		return
+
+	if _life_left <= expire_warning:
+		# 越接近消失閃得越快
+		var urgency := 1.0 - (_life_left / expire_warning)
+		var speed := lerpf(6.0, 18.0, urgency)
+		modulate.a = 0.35 + 0.65 * absf(sin(_life_left * speed))
+	else:
+		modulate.a = 1.0
 
 
 ## 讓掉落物飛向目標（Task 2.7c）。近戰擊殺的獎勵：不必走過去撿。
@@ -121,6 +162,8 @@ func try_collect() -> bool:
 
 	# 單槽交換：同一個世界拾取物改成舊部件，不額外生成第二個節點。
 	component = old_component.duplicate(true)
+	# 換下來的是另一個部件，倒數要從頭算
+	reset_lifetime()
 	_exchange_lock_left = exchange_lock_duration
 	_refresh_visuals()
 	return true
