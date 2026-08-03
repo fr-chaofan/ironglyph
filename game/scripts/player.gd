@@ -27,6 +27,7 @@ var facing_dir: float = 1.0
 @export var air_jump_multiplier: float = 0.9
 
 var _jumps_used: int = 0
+var _blink_tween: Tween
 ## 死亡後保留 Player 節點，讓筆畫崩解與未來的關卡 controller 能完成收尾；
 ## 但此狀態是 terminal，不可再移動、跳躍、開火或參與碰撞。
 var is_dead: bool = false
@@ -43,6 +44,10 @@ func _ready() -> void:
 	# ⚠️ 深底時期這裡踩過一個坑：主角用純白，而五行「金＝白」，於是與金屬性敵人
 	# （鋼／針／劍／錘）撞色，實機上「劍」看起來就和主角一樣白。走同一套色表就不會再犯。
 	hanzi_sprite.set_element_color(element)
+
+	# 受擊後的短暫無敵。沒有它的話，幾隻敵人同時打中就是直接刪檔。
+	invulnerable_duration = 0.6
+	invulnerability_started.connect(_on_invulnerability_started)
 
 	if melee_attack != null:
 		melee_attack.pogo_bounced.connect(_on_pogo_bounced)
@@ -141,6 +146,23 @@ func _try_fire() -> void:
 	# 階段一還沒有 WeaponManager，靜默略過；階段二 Task 2.2 接上後自動生效
 	if weapon_manager != null and weapon_manager.has_method(&"fire"):
 		weapon_manager.fire(facing_dir)
+
+
+## 無敵期間閃爍。
+##
+## ⚠️ 用 self_modulate 而不是 modulate——flash_hit() 的受擊閃紅用的是 modulate，
+## 共用同一個屬性會互相把對方的 tween 蓋掉。
+func _on_invulnerability_started(duration: float) -> void:
+	if hanzi_sprite == null or not is_instance_valid(hanzi_sprite):
+		return
+	if _blink_tween != null and _blink_tween.is_valid():
+		_blink_tween.kill()
+
+	var blinks := maxi(1, int(duration / 0.12))
+	_blink_tween = hanzi_sprite.create_tween()
+	for i in blinks:
+		_blink_tween.tween_property(hanzi_sprite, "self_modulate:a", 0.25, 0.06)
+		_blink_tween.tween_property(hanzi_sprite, "self_modulate:a", 1.0, 0.06)
 
 
 func take_damage(amount: int, attacker_element: String, min_multiplier: float = 0.0) -> void:
