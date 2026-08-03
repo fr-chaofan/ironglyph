@@ -202,6 +202,12 @@ func test_Q輸入會彈出目前部件並回到CORE() -> void:
 			bool(pickup.call(&"try_collect")),
 			"Q彈出的部件必須有短暫防重拾鎖，不能在同一位置立即吸回"
 		)
+		# ⚠️ 這裡驗證的是「防重拾鎖計時」本身，不是玩家的物理行為。
+		# 停用玩家物理，避免等待期間重力把玩家帶出拾取範圍、觸發真實的
+		# body_exited 把 _nearby_loadout 清空——那樣第二次 try_collect() 會
+		# 因為「範圍內沒有玩家」而失敗，跟防重拾鎖是否解除完全無關，
+		# 曾經在這裡誤判成鎖定邏輯本身的bug。
+		_player.set_physics_process(false)
 		await wait_seconds(0.25)
 		assert_true(
 			bool(pickup.call(&"try_collect")),
