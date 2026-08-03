@@ -24,6 +24,11 @@ const RANGE_DISTANCES := {
 	"long": 720.0,
 }
 
+## 被回鋒彈反後要換到的層。layer_4 = player_bullet；mask = ground(1) + enemy(4)。
+## 與 bullet_base.tscn 的預設值一致——那份場景就是玩家子彈。
+const PLAYER_BULLET_LAYER := 8
+const PLAYER_BULLET_MASK := 5
+
 @export var speed: float = 500.0
 
 ## 存活上限（秒）。沒有這個的話，打空的子彈會一直往畫面外飛且永不釋放，
@@ -152,6 +157,125 @@ static func _get_projectile_profile(element_name: String) -> Dictionary:
 ## 真的走到了也讓它照舊飛，不要靜默變成射程 0 的啞彈。
 func set_range(range_name: String) -> void:
 	max_distance = float(RANGE_DISTANCES.get(range_name, 0.0))
+
+
+## 回鋒（彈反）：把這一發變成 `by` 打出去的子彈。
+##
+## 由 `MeleeAttack` 在判定窗前段打到敵彈時呼叫。三件事同時發生——
+## **調頭、改屬性、改陣營**——缺一個都會出事：只調頭的話子彈還在 enemy_bullet 層，
+## 打回去對敵人毫無作用；不改屬性的話把火彈打回火敵沒有相剋加成，而那是最常見的情況。
+##
+## ⚠️ 碰撞層一律走 `set_deferred`。這裡是在 `MeleeAttack._resolve_hits()` 的
+## `intersect_shape` 結果迴圈裡被呼叫的，物理查詢期間同步改碰撞狀態會出事——
+## 與 `Enemy.die()`、`Player.die()` 是同一條規則。層要**下一幀**才真的換過去，
+## 但子彈當幀就已經朝反方向飛，中間這一幀不會誤傷任何人。
+func reflect(by: Node2D, new_element: String, damage_scale: float, speed_scale: float) -> void:
+	# 優先打回原射手。純粹反向的話，斜射的子彈會被彈進地板，
+	# 「以彼之道還施彼身」的爽感也沒了。射手已死才退回反向。
+	var back := -direction
+	if shooter != null and is_instance_valid(shooter) and shooter is Node2D:
+		var target := (shooter as Node2D).global_position - global_position
+		if not target.is_zero_approx():
+			back = target.normalized()
+
+	direction = back
+	element = new_element
+	damage = maxi(1, int(round(float(damage) * damage_scale)))
+	speed *= speed_scale
+	shooter = by
+
+	# ⚠️ 敵人的 ability 不可以跟著彈回去。目前敵彈沒有技能，但階段五的 Boss 會有，
+	# 屆時「打斷蓄力」之類的效果會帶著新的 shooter 反過來作用在敵人身上，
+	# 變成無法預期的白送。回鋒還回去的是**一筆乾淨的墨**。
+	ability.clear()
+
+	# 射程與存活計時歸零：不重置的話，飛了大半程才被彈反的子彈會半路蒸發
+	_age = 0.0
+	_travelled = 0.0
+	_pierced = 0
+	_chained = 0
+
+	set_deferred(&"collision_layer", PLAYER_BULLET_LAYER)
+	set_deferred(&"collision_mask", PLAYER_BULLET_MASK)
+
+	_rebuild_visual()
+	_parry_flash()
+
+
+## 換屬性之後整組筆頭、拖尾、粒子都要重造——只改 modulate 的話，
+## 金的細長針被彈反成土屬仍然是細長針，屬性讀不出來。
+func _rebuild_visual() -> void:
+	if _trail != null and is_instance_valid(_trail):
+		_trail.queue_free()
+		_trail = null
+	for child: Node in get_children():
+		if child is CPUParticles2D:
+			child.queue_free()
+
+	modulate = ELEMENT_COLORS.get(element, Color.WHITE)
+	_build_visual()
+
+
+## 彈反的視覺回饋。屬性換色是慢讀，這一下是快讀——玩家要當幀就知道
+## 自己是彈反了還是普通消彈，兩者的差別不能只有一行傷害數字。
+##
+## ⚠️ **用墨不用光。** 第一版做成接近白色的閃光，實機截圖上幾乎看不見——
+## 宣紙底本來就是亮的，亮上加亮等於沒有對比。在這套美術方向裡會「閃」的是墨：
+## 一圈炸開的墨環加一蓬濺墨，在紙上才是最強的對比。
+## 墨環的尺寸刻意壓在**與主角字形相當**（峰值直徑約 56px）。第一版是 26／1.6，
+## 炸開後比主角還大一圈，三發同時彈反時整個畫面被墨環蓋住，反而看不清子彈飛去哪。
+const PARRY_RING_RADIUS := 20.0
+const PARRY_RING_MAX_SCALE := 1.4
+const PARRY_RING_SEGMENTS := 24
+
+
+func _parry_flash() -> void:
+	var ink := Palette.ink()
+	var parent := _get_effect_parent()
+
+	# 墨環：瞬間炸開再化開，給出「叮」的那一下
+	var ring := Line2D.new()
+	ring.width = 5.0
+	ring.default_color = ink
+	ring.closed = true
+	ring.z_index = 6
+	var points := PackedVector2Array()
+	for i in PARRY_RING_SEGMENTS:
+		var angle := TAU * float(i) / float(PARRY_RING_SEGMENTS)
+		points.append(Vector2(cos(angle), sin(angle)) * PARRY_RING_RADIUS)
+	ring.points = points
+	ring.scale = Vector2(0.3, 0.3)
+	parent.add_child(ring)
+	ring.global_position = global_position
+
+	var tween := ring.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(
+		ring, "scale", Vector2(PARRY_RING_MAX_SCALE, PARRY_RING_MAX_SCALE), 0.22
+	).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring, "modulate:a", 0.0, 0.22)
+	tween.chain().tween_callback(ring.queue_free)
+
+	# 濺墨
+	var splash := CPUParticles2D.new()
+	splash.amount = 16
+	splash.lifetime = 0.35
+	splash.one_shot = true
+	splash.explosiveness = 1.0
+	splash.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	splash.emission_sphere_radius = 7.0
+	splash.spread = 180.0
+	splash.initial_velocity_min = 120.0
+	splash.initial_velocity_max = 320.0
+	splash.gravity = Vector2(0.0, 180.0)
+	splash.scale_amount_min = 2.0
+	splash.scale_amount_max = 5.0
+	splash.color = ink
+	splash.z_index = 6
+	splash.emitting = true
+	parent.add_child(splash)
+	splash.global_position = global_position
+	splash.get_tree().create_timer(splash.lifetime * 2.0).timeout.connect(splash.queue_free)
 
 
 func _physics_process(delta: float) -> void:

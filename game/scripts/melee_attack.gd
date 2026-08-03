@@ -18,6 +18,8 @@ extends Node2D
 signal swing_started(profile: Dictionary, downward: bool)
 signal hit_landed(target: Node, damage: int)
 signal bullet_blocked(bullet: Node)
+## 回鋒成功：判定窗前段打到敵彈，子彈調頭變成玩家的。第二個參數是反彈後的屬性。
+signal bullet_parried(bullet: Node, reflected_element: String)
 signal charge_interrupted(target: Node)
 ## 下劈命中任何東西時送出，由角色自己決定怎麼彈（見 player.gd 的順序說明）
 signal pogo_bounced(bounce_velocity: float)
@@ -63,6 +65,11 @@ enum Vertical {
 ## 玩家的每一次遠程攻擊都會被貼身敵人打斷，遊戲會變成互相鎖死。
 @export var can_interrupt: bool = true
 
+## 是否能回鋒（彈反）。與 `can_interrupt` 同理，**只有玩家可以**——
+## 近戰敵人能把玩家的子彈打回來的話，遠程流直接報廢。
+## 敵人側的 `block_mask` 本來就是 0，這個開關是把意圖寫明。
+@export var can_parry: bool = true
+
 ## 命中時是否在目標身上留下「被近戰打到」的記號，供掉落物判斷要不要吸附。
 @export var marks_melee_hits: bool = true
 
@@ -77,6 +84,9 @@ static var _data: Dictionary = {}
 var _profile: Dictionary = {}
 var _timings: Dictionary = {}
 var _timer: float = 0.0
+## 判定窗已經走了多久。回鋒只認前段，所以需要「進 ACTIVE 之後過了幾秒」，
+## 而 `_timer` 是倒數的剩餘時間——上下揮擊的 active 時長不同，不能拿它反推。
+var _active_elapsed: float = 0.0
 var _hit_this_swing: Dictionary = {}
 var _bounced_this_swing: bool = false
 var _launched_this_swing: bool = false
@@ -119,6 +129,11 @@ static func get_pogo_settings() -> Dictionary:
 static func get_uppercut_settings() -> Dictionary:
 	var upper: Variant = load_data().get("uppercut", {})
 	return (upper as Dictionary).duplicate(true) if typeof(upper) == TYPE_DICTIONARY else {}
+
+
+static func get_parry_settings() -> Dictionary:
+	var parry: Variant = load_data().get("parry", {})
+	return (parry as Dictionary).duplicate(true) if typeof(parry) == TYPE_DICTIONARY else {}
 
 
 func can_swing() -> bool:
@@ -166,6 +181,7 @@ func swing(direction: float, profile: Dictionary = {}, vertical_dir: int = Verti
 func cancel() -> void:
 	state = State.IDLE
 	_timer = 0.0
+	_active_elapsed = 0.0
 	_hit_this_swing.clear()
 
 
@@ -179,6 +195,7 @@ func _physics_process(delta: float) -> void:
 			# 先判定再扣時間：判定窗的第一幀與最後一幀都要真的掃一次
 			_resolve_hits()
 			_timer -= delta
+			_active_elapsed += delta
 			if _timer <= 0.0:
 				_enter_cooldown()
 		State.COOLDOWN:
@@ -191,6 +208,8 @@ func _physics_process(delta: float) -> void:
 func _enter_active() -> void:
 	state = State.ACTIVE
 	_timer = float(_timings.get("active", 0.1))
+	# 判定窗的第一幀就是回鋒窗的第一幀
+	_active_elapsed = 0.0
 	_spawn_arc()
 	_resolve_hits()
 
@@ -246,6 +265,9 @@ func _resolve_timings() -> Dictionary:
 		"hitbox": _profile.get("hitbox", [72, 56]),
 		"damage_scale": 1.0,
 		"bounce": 0.0,
+		# 回鋒窗跟著 profile 走，上下揮擊不覆寫：下劈／上挑的 active 較長，
+		# 同樣的回鋒窗在裡面就相對更緊——空中彈反本來就該比平地難一點。
+		"parry_window": float(_profile.get("parry_window", 0.0)),
 	}
 	if vertical == Vertical.UP:
 		var upper := get_uppercut_settings()
@@ -347,9 +369,13 @@ func _apply_hit(collider: Variant) -> void:
 
 	if node is Bullet and (layer & block_mask) != 0:
 		_hit_this_swing[key] = true
-		bullet_blocked.emit(node)
+		# 消彈與彈反都算「踩到東西」，下劈照樣彈起來
 		_try_pogo()
-		node.queue_free()
+		if _in_parry_window():
+			_parry(node as Bullet)
+		else:
+			bullet_blocked.emit(node)
+			node.queue_free()
 		return
 
 	if node is Character and (layer & target_mask) != 0:
@@ -365,6 +391,39 @@ func _apply_hit(collider: Variant) -> void:
 		_try_interrupt(node)
 		_try_pogo()
 		_try_launch(node)
+
+
+## 回鋒窗（秒）。0 表示這個 profile 不能彈反。
+func get_parry_window() -> float:
+	return float(_timings.get("parry_window", 0.0))
+
+
+## 現在打到敵彈算不算彈反。
+##
+## 判定窗**前段**才算——按太早的話子彈會落在後段（只消彈），按太晚則早就吃到了。
+## 前搖有 0.1s，代表玩家實際上是在子彈還沒飛到時就得出手，讀的是彈道不是碰撞。
+func _in_parry_window() -> bool:
+	return can_parry and _active_elapsed < get_parry_window()
+
+
+## 把敵彈變成自己的。
+##
+## 屬性用**這一擊的屬性**而不是保留敵人的：把火彈原封不動打回火敵完全沒有相剋
+## 加成，而那正是最常見的情況。改成筆擊的屬性，刀刃筆擊（金）彈反木屬敵彈打回去
+## 就吃得到 金剋木——這是「刂」除了穿透之外的第二層價值。
+func _parry(bullet: Bullet) -> void:
+	if not is_instance_valid(bullet) or bullet.is_queued_for_deletion():
+		return
+
+	var settings := get_parry_settings()
+	var element := get_element()
+	bullet.reflect(
+		get_parent() as Node2D,
+		element,
+		float(settings.get("damage_scale", 2.0)),
+		float(settings.get("speed_scale", 1.25))
+	)
+	bullet_parried.emit(bullet, element)
 
 
 ## 打斷目標的蓄力。只有近戰打得斷，遠程不行——這是靠近定點AOE敵人的唯一理由。

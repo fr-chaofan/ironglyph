@@ -36,4 +36,5 @@ script = ExtResource("4_melee")
 target_mask = 2
 block_mask = 0
 can_interrupt = false
+can_parry = false
 marks_melee_hits = false
