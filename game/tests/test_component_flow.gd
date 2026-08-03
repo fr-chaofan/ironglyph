@@ -11,7 +11,7 @@ const ComponentPickupScript := preload("res://scripts/component_pickup.gd")
 
 const SPAWNER_CASES := [
 	[&"SpawnFusionRain", "rain"],
-	[&"SpawnHeldWater", "water"],
+	[&"SpawnHeldFire", "fire"],
 	[&"SpawnHeldWood", "wood"],
 ]
 
@@ -136,7 +136,7 @@ func test_E輸入會吸收範圍內的rain() -> void:
 
 func test_替換時同一pickup變成舊rain而不增加節點() -> void:
 	_loadout.equip_component_id("rain")
-	var pickup: Variant = await _spawn_pickup("water", Vector2(80, 120))
+	var pickup: Variant = await _spawn_pickup("fire", Vector2(80, 120))
 	assert_not_null(pickup)
 	if pickup == null:
 		return
@@ -153,13 +153,13 @@ func test_替換時同一pickup變成舊rain而不增加節點() -> void:
 
 	var snapshot: Dictionary = _loadout.get_snapshot()
 	assert_eq(snapshot.get("mode", ""), "held")
-	assert_eq((snapshot.get("component", {}) as Dictionary).get("id", ""), "water")
+	assert_eq((snapshot.get("component", {}) as Dictionary).get("id", ""), "fire")
 	assert_eq(snapshot.get("visible_glyph", ""), "令")
-	assert_eq((snapshot.get("active_weapon", {}) as Dictionary).get("id", ""), "shui")
+	assert_eq((snapshot.get("active_weapon", {}) as Dictionary).get("id", ""), "huo")
 
 
 func test_eject_signal由dropper轉成恰好一個世界pickup() -> void:
-	_loadout.equip_component_id("water")
+	_loadout.equip_component_id("fire")
 	var before := _get_pickups().size()
 	var ejected: Dictionary = _loadout.eject_component()
 	var eject_position := _player.global_position
@@ -175,13 +175,13 @@ func test_eject_signal由dropper轉成恰好一個世界pickup() -> void:
 
 	var pickup: Variant = pickups[-1]
 	var component: Dictionary = pickup.get("component")
-	assert_eq(component.get("id", ""), "water")
+	assert_eq(component.get("id", ""), "fire")
 	assert_eq(pickup.global_position, eject_position)
 	assert_eq(_loadout.get_snapshot().get("mode", ""), "core")
 
 
 func test_Q輸入會彈出目前部件並回到CORE() -> void:
-	_loadout.equip_component_id("water")
+	_loadout.equip_component_id("fire")
 	var before := _get_pickups().size()
 
 	Input.action_press(&"eject_component")
@@ -196,7 +196,7 @@ func test_Q輸入會彈出目前部件並回到CORE() -> void:
 	if pickups.size() > before:
 		var pickup: Variant = pickups[-1]
 		var component: Dictionary = pickup.get("component")
-		assert_eq(component.get("id", ""), "water")
+		assert_eq(component.get("id", ""), "fire")
 		pickup.call(&"_on_body_entered", _player)
 		assert_false(
 			bool(pickup.call(&"try_collect")),
@@ -210,7 +210,7 @@ func test_Q輸入會彈出目前部件並回到CORE() -> void:
 
 
 func test_pickup主字與外置字永遠保持正向scale() -> void:
-	var pickup: Variant = await _spawn_pickup("water", Vector2(80, 120))
+	var pickup: Variant = await _spawn_pickup("fire", Vector2(80, 120))
 	assert_not_null(pickup)
 	if pickup == null:
 		return
@@ -228,7 +228,7 @@ func test_pickup主字與外置字永遠保持正向scale() -> void:
 
 	assert_eq(_loadout.get_snapshot().get("mode", ""), "held")
 	assert_eq(main_glyph.text, "令")
-	assert_eq(external_glyph.text, "氵")
+	assert_eq(external_glyph.text, "火")
 	assert_true(_display.visible)
 	assert_lt(_display.position.x, 0.0, "朝左只應換側")
 	assert_gt(main_glyph.scale.x, 0.0, "主字不可鏡像")

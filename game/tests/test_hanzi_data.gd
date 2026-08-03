@@ -9,9 +9,9 @@ func test_singleton_已載入資料() -> void:
 	assert_gt(HanziData.data.size(), 0, "應載入至少一個字")
 
 
-func test_收錄字數為25() -> void:
+func test_收錄字數為29() -> void:
 	# 原有23字加上Task 2.6的字核「令」與融合字「零」
-	assert_eq(HanziData.data.size(), 25, "應收錄25字")
+	assert_eq(HanziData.data.size(), 29, "應收錄29字")
 
 
 func test_焚已取代查無的燄() -> void:

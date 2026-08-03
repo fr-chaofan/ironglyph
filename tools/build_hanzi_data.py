@@ -22,7 +22,12 @@ import urllib.request
 # 「燄」原在此表，但Make Me a Hanzi查無此字（它是「焰」的異體字，資料集只收「焰」）。
 # 依專案決策不做近似字替換而是移除，並補上同為火屬性、資料集有收錄的「焚」以維持
 # 每屬性4隻敵人的對稱（⿱林火，其部首「林」同時也是木屬性敵字，部首武器機制可跨屬性互動）。
-NEEDED_CHARS = "我令零淼焱森河海湖雨焰炎灶焚鋼針劍錘樹藤林巖石山塵"
+# 形聲合體字（令為聲符）：泠苓鈴柃。這些是 `令 + 部件` 的真字，
+# 不是外掛偏旁——見 data/fusion_recipes.json。
+#
+# ⚠️ 繁體沒有「山＋令」的字：「嶺」是 ⿱山領（領才是 ⿰令頁），
+# 「岭」只作為「嶺」的簡化形存在。因此山屬部件無法融合，維持外置手持。
+NEEDED_CHARS = "我令零淼焱森河海湖雨焰炎灶焚鋼針劍錘樹藤林巖石山塵泠苓鈴柃"
 
 DICT_URL = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt"
 GRAPHICS_URL = "https://raw.githubusercontent.com/skishore/makemeahanzi/master/graphics.txt"

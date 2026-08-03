@@ -68,31 +68,31 @@ func test_rain進入fused零並裝備reset_burst且外置字隱藏() -> void:
 	assert_eq(_external_glyph.text, "")
 
 
-func test_water替換rain後進入held令氵shui並回傳舊rain() -> void:
+func test_fire替換rain後進入held令火huo並回傳舊rain() -> void:
 	_loadout.equip_component_id("rain")
-	var replaced: Dictionary = _loadout.equip_component_id("water")
+	var replaced: Dictionary = _loadout.equip_component_id("fire")
 	var snapshot: Dictionary = _loadout.get_snapshot()
 
 	assert_eq(replaced.get("id", ""), "rain", "單槽替換必須回傳原本的rain")
 	assert_eq(snapshot.get("mode", ""), "held")
 	assert_eq(snapshot.get("mode_id", -1), GlyphLoadoutScript.Mode.HELD)
 	assert_eq(snapshot.get("visible_glyph", ""), "令")
-	assert_eq((snapshot.get("component", {}) as Dictionary).get("id", ""), "water")
+	assert_eq((snapshot.get("component", {}) as Dictionary).get("id", ""), "fire")
 	assert_true((snapshot.get("recipe", {}) as Dictionary).is_empty())
-	assert_eq((snapshot.get("external_weapon", {}) as Dictionary).get("display_glyph", ""), "氵")
-	assert_eq((snapshot.get("active_weapon", {}) as Dictionary).get("id", ""), "shui")
-	assert_eq(_weapon_manager.get_current_weapon().get("id", ""), "shui")
+	assert_eq((snapshot.get("external_weapon", {}) as Dictionary).get("display_glyph", ""), "火")
+	assert_eq((snapshot.get("active_weapon", {}) as Dictionary).get("id", ""), "huo")
+	assert_eq(_weapon_manager.get_current_weapon().get("id", ""), "huo")
 	assert_eq(_main_glyph.text, "令")
 	assert_true(_display.visible, "HELD 必須顯示外置部件")
-	assert_eq(_external_glyph.text, "氵")
+	assert_eq(_external_glyph.text, "火")
 
 
 func test_eject回到core並回傳目前部件() -> void:
-	_loadout.equip_component_id("water")
+	_loadout.equip_component_id("fire")
 	var ejected: Dictionary = _loadout.eject_component()
 	var snapshot: Dictionary = _loadout.get_snapshot()
 
-	assert_eq(ejected.get("id", ""), "water")
+	assert_eq(ejected.get("id", ""), "fire")
 	assert_eq(snapshot.get("mode", ""), "core")
 	assert_eq(snapshot.get("visible_glyph", ""), "令")
 	assert_true((snapshot.get("component", {}) as Dictionary).is_empty())
@@ -134,7 +134,7 @@ func test_每次有效狀態轉換只發出一次loadout_changed() -> void:
 	_loadout.equip_component_id("rain")
 	assert_signal_emit_count(_loadout, "loadout_changed", 1, "CORE→FUSED 應只送一次")
 
-	_loadout.equip_component_id("water")
+	_loadout.equip_component_id("fire")
 	assert_signal_emit_count(_loadout, "loadout_changed", 2, "FUSED→HELD 應只再送一次")
 
 	_loadout.eject_component()

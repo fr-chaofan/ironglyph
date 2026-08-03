@@ -18,5 +18,79 @@
       "pattern": "radial",
       "projectile_count": 8
     }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "water",
+    "result_glyph": "泠",
+    "layout": "left_right",
+    "ability_id": "clear_note",
+    "attack": {
+      "id": "clear_note",
+      "radical": "氵",
+      "name": "清泠",
+      "element": "water",
+      "attack_type": "projectile",
+      "damage": 7,
+      "fire_rate": 0.18,
+      "projectile": "wave",
+      "range": "long"
+    }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "metal",
+    "result_glyph": "鈴",
+    "layout": "left_right",
+    "ability_id": "bell_toll",
+    "attack": {
+      "id": "bell_toll",
+      "radical": "釒",
+      "name": "鈴聲震盪",
+      "element": "metal",
+      "attack_type": "projectile",
+      "damage": 6,
+      "fire_rate": 0.75,
+      "projectile": "blade",
+      "range": "short",
+      "pattern": "radial",
+      "projectile_count": 12
+    }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "grass",
+    "result_glyph": "苓",
+    "layout": "top_bottom",
+    "ability_id": "herb_scatter",
+    "attack": {
+      "id": "herb_scatter",
+      "radical": "艹",
+      "name": "茯苓散",
+      "element": "wood",
+      "attack_type": "projectile",
+      "damage": 8,
+      "fire_rate": 0.35,
+      "projectile": "vine",
+      "range": "medium"
+    }
+  },
+  {
+    "core_glyph": "令",
+    "component_id": "wood",
+    "result_glyph": "柃",
+    "layout": "left_right",
+    "ability_id": "thicket",
+    "attack": {
+      "id": "thicket",
+      "radical": "木",
+      "name": "柃木貫",
+      "element": "wood",
+      "attack_type": "projectile",
+      "damage": 16,
+      "fire_rate": 0.7,
+      "projectile": "vine",
+      "range": "short"
+    }
   }
 ]

@@ -52,17 +52,17 @@ func test_CORE顯示令並隱藏外置部件() -> void:
 	assert_eq(_glyph.text, "")
 
 
-func test_HELD保持令並顯示氵與水屬色() -> void:
-	_loadout.equip_component_id("water")
+func test_HELD保持令並顯示火與火屬色() -> void:
+	_loadout.equip_component_id("fire")
 	await _wait_for_switch_animation()
 
 	assert_eq(_loadout.get_snapshot().get("mode", ""), "held")
 	assert_eq(_sprite.text, "令")
-	assert_eq(_wm.get_current_weapon().get("id", ""), "shui")
+	assert_eq(_wm.get_current_weapon().get("id", ""), "huo")
 	assert_true(_display.visible)
-	assert_eq(_glyph.text, "氵")
+	assert_eq(_glyph.text, "火")
 	_assert_display_rgb(
-		ComponentGlyph.wash(Bullet.ELEMENT_COLORS["water"]), "HELD 水部件")
+		ComponentGlyph.wash(Bullet.ELEMENT_COLORS["fire"]), "HELD 火部件")
 
 
 func test_FUSED顯示零並隱藏外置部件() -> void:
@@ -77,18 +77,17 @@ func test_FUSED顯示零並隱藏外置部件() -> void:
 
 
 func test_金部使用可渲染的金而不是缺字的釒() -> void:
-	_loadout.equip_component_id("metal")
+	_loadout.equip_component_id("earth")
 	await _wait_for_switch_animation()
 
 	assert_eq(_sprite.text, "令")
-	assert_eq(_glyph.text, "金")
-	assert_ne(_glyph.text, "釒")
+	assert_eq(_glyph.text, "土")
 	_assert_display_rgb(
-		ComponentGlyph.wash(Bullet.ELEMENT_COLORS["metal"]), "HELD 金部件")
+		ComponentGlyph.wash(Bullet.ELEMENT_COLORS["earth"]), "HELD 土部件")
 
 
 func test_左右朝向只換邊不鏡像字形() -> void:
-	_loadout.equip_component_id("water")
+	_loadout.equip_component_id("fire")
 	await _wait_for_switch_animation()
 	var original_text := _glyph.text
 
@@ -112,7 +111,9 @@ func test_左右朝向只換邊不鏡像字形() -> void:
 
 func test_快速替換部件後動畫收斂到最後狀態() -> void:
 	var resolver := FusionResolverScript.new()
-	var component_ids := ["water", "fire", "wood", "stone"]
+	# ⚠️ 只能用**不會融合**的部件。氵/木/金/艹/雨 都有形聲配方，
+	# 混進來的話最後停在 FUSED，測的就不是外置字形的收斂了。
+	var component_ids := ["fire", "earth", "stone", "mountain"]
 	for index in range(17):
 		_loadout.equip_component_id(component_ids[index % component_ids.size()])
 
@@ -126,7 +127,7 @@ func test_快速替換部件後動畫收斂到最後狀態() -> void:
 
 
 func test_Player死亡時立即隱藏且復活後按loadout恢復() -> void:
-	_loadout.equip_component_id("wood")
+	_loadout.equip_component_id("stone")
 	await _wait_for_switch_animation()
 	assert_true(_display.visible)
 
@@ -138,7 +139,7 @@ func test_Player死亡時立即隱藏且復活後按loadout恢復() -> void:
 	_display.revive()
 	await _wait_for_switch_animation()
 	assert_true(_display.visible)
-	assert_eq(_glyph.text, "木")
+	assert_eq(_glyph.text, "石")
 
 
 func test_缺少Loadout與WeaponManager時安全隱藏() -> void:

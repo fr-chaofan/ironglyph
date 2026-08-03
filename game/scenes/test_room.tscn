@@ -163,6 +163,12 @@ script = ExtResource("5_spawner")
 enemy_char = "樹"
 respawn_delay = 3.0
 
+[node name="SpawnHeldFire" type="Node2D" parent="EnemySpawners"]
+position = Vector2(-260, 236)
+script = ExtResource("5_spawner")
+enemy_char = "焰"
+respawn_delay = 3.0
+
 [node name="SpawnMeleeBlade" type="Node2D" parent="EnemySpawners"]
 position = Vector2(-560, 236)
 script = ExtResource("5_spawner")
