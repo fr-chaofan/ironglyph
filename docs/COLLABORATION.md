@@ -24,7 +24,7 @@
 |---|---|---|
 | **整合者 (Integrator)** | 唯一有權修改`.tscn`場景檔案、`project.godot`、`.tres`資源；負責把各個agent產出的`.gd`腳本掛載進場景、連接signal、配置節點屬性 | 全部 |
 | **邏輯實作者 (Logic Worker)** | 只寫`.gd`腳本、JSON資料表；不碰場景檔案。每個worker負責一個獨立子系統 | 限定在自己負責的`scripts/`子目錄 + 對應`data/`檔案 |
-| **文件/資料維護者 (Data & Docs Worker)** | 維護JSON資料表（`weapons.json`/`enemies.json`/`bosses.json`/`elements.json`）、GDD、實施計劃文件 | `data/*.json`、`docs/**` |
+| **文件/資料維護者 (Data & Docs Worker)** | 維護JSON資料表、資料產生器及其產物、GDD、實施計劃文件 | `data/*.json`、`docs/**`；只有Task邊界明確指派時才能修改對應`tools/`產生器，且產生器與產物必須由同一人提交 |
 | **審查者 (Reviewer)** | 對每個PR做spec compliance + code quality兩階段審查（見`subagent-driven-development`技能），批准後才能合併 | 唯讀，僅留審查意見 |
 
 **這個模型直接解決了上面提到的場景檔案合併地獄問題**：任何時刻只有一個agent（整合者）在改`.tscn`，其他人提交的都是純腳本/資料，衝突機率降到最低。
@@ -43,9 +43,9 @@
 | **敵人與AI** | 三 | `scripts/enemy.gd`, `scripts/enemy_ai_*.gd`, `scripts/enemy_spawner.gd`, `data/enemies.json` | 依賴核心角色系統 + 武器系統（`take_damage`介面） |
 | **近戰系統** | 二（Task 2.7；Phase 4.0.5 gate） | `scripts/melee_attack.gd`, `scripts/melee_arc.gd`；在 `data/weapons.json` 新增 `attack_type` 與近戰 profile、在 `data/enemies.json` 新增 `melee` 區塊 | 依賴武器系統與敵人AI；**玩家與敵人共用同一個 `MeleeAttack` 元件**，必須在階段四關卡設計前完成，見 `docs/COMBAT.md` |
 | **關卡系統** | 四 | `scripts/level_manager.gd`, `scripts/checkpoint.gd`, `data/`關卡相關設定 | 依賴敵人系統（放置EnemySpawner） |
-| **Boss系統** | 五 | `scripts/boss.gd`, `scripts/boss_attack_patterns.gd`, `data/bosses.json`；終Boss「仁」額外負責 `scripts/boss_ren.gd`（Phase 2.1「命」機制、賜俸招式判定） | 依賴敵人系統（Boss繼承Enemy）+ 對話/演出框架（開場白、賜俸台詞、Phase 2.1選擇UI） |
-| **對話／演出框架** | 四（序章／終章）+ 五（Boss台詞） | `scripts/dialogue_box.gd`, `scripts/cutscene_player.gd`, `data/dialogue/*.json`（各關卡/Boss台詞資料表，繁體中文） | 依賴核心角色系統（暫停玩家輸入時的介面）；序章教程NPC、仁的開場白／賜俸／Phase 2.1三選一、終章「主」降臨訓誡，共用同一套對話演出元件 |
-| **UI與存檔** | 六 | `scripts/pause_menu.gd`, `scripts/weapon_codex.gd`, `scripts/save_system.gd`（含`has_ever_hoarded`隱藏結局旗標） | 依賴武器系統（圖鑑讀取weapons.json）|
+| **Boss系統** | 五 | `scripts/boss.gd`, `scripts/boss_attack_patterns.gd`, `data/bosses.json`；終Boss「仁」額外負責`scripts/boss_ren.gd`與`scripts/shangfeng_coin.gd`（Phase 2.1「命」、實體520賜俸錢幣與分支判定） | 依賴敵人系統（Boss繼承Enemy）+ 近戰系統（錢幣彈反）+ 對話/演出框架（開場白、賜俸前後台詞、Phase 2.1選擇UI） |
+| **對話／演出框架** | 四（序章／終章）+ 五（Boss台詞／尾聲） | `scripts/dialogue_box.gd`, `scripts/cutscene_player.gd`, `scripts/ending_epilogue_controller.gd`, `data/dialogue/*.json`（各關卡／Boss／尾聲台詞資料表，繁體中文） | 依賴核心角色系統（暫停玩家輸入時的介面）；序章教程、逐章證物、仁的開場白／賜俸／Phase 2.1、終章主取回亻與二的共同尾聲，共用同一套對話演出元件 |
+| **UI與存檔** | 四（Task 4.0b基礎切片）＋五（Task 5.3b契約gate）＋六 | `scripts/pause_menu.gd`, `scripts/weapon_codex.gd`, `scripts/save_system.gd`（checkpoint與`has_ever_hoarded`最小切片須在首個正式關卡前建立） | checkpoint依賴核心角色介面；Boss只消費既有旗標；完整圖鑑依賴武器系統 |
 | **Steam整合與打包** | 七、八 | `scripts/steam.gd`, `export_presets.cfg`, `steam_appid.txt` | 依賴全部模組（最後整合） |
 
 **並行策略：** 「核心角色系統」必須第一個完成（其他所有模組都繼承`Character`或依賴`HanziData`/`ElementSystem`兩個autoload）。完成後，「武器系統」「敵人與AI」「UI與存檔」三個模組**互相獨立、可以完全並行**（它們互不依賴彼此的具體實作，只依賴核心角色系統暴露的介面）。「關卡系統」「Boss系統」需等敵人系統的`Enemy`基類穩定後才能開工。
@@ -86,6 +86,36 @@ Task 4.0 產出的是一個**新的**場景檔 `game/scenes/ui/dialogue_box.tscn
 
 後續 Task 4.1a／4.4／5.4 若需要在正式關卡掛對話框，`dialogue_box.tscn` 直接 instance 即可，
 不需要再改 `project.godot` 或本PR的任何檔案。
+
+### 2.3 主線v3證物鏈與Task 5.4尾聲的Integrator邊界
+
+主線v3會在序章、水域、火山、森林、礦山五個既有／規劃場景掛入必要證物，並新增尾聲場景。
+這些工作不得由多個劇情／邏輯worker直接並行修改`.tscn`；執行時指定**root agent為唯一Integrator**，
+獨占以下場景檔：
+
+- `game/scenes/levels/level_00_prologue.tscn`
+- `game/scenes/levels/level_01_water.tscn`
+- `game/scenes/levels/level_02_fire.tscn`
+- `game/scenes/levels/level_03_wood.tscn`
+- `game/scenes/levels/level_04_earth.tscn`
+- `game/scenes/levels/level_05_final_altar.tscn`
+- `game/scenes/levels/level_06_epilogue.tscn`（新增）
+- `game/scenes/projectiles/shangfeng_coin.tscn`（新增；實體錢幣正面520／背面銘）
+
+Task 4.0b註冊`SaveSystem`時，`game/project.godot`同樣由Integrator獨占，且只在`[autoload]`追加一行；
+Task 5.3b只複驗契約，不再修改autoload。Boss與尾聲worker不得另建`GameState`或第二份
+`has_ever_hoarded`旗標。
+
+本輪指定一名**單一Data Worker**獨占`game/data/fusion_recipes.json`、`tools/build_hanzi_data.py`與
+生成產物`game/data/hanzi_decomposition.json`；三者不得拆給不同worker，以免產生器與提交資料漂移。
+同一worker可更新對應資料測試所需的fixture，但`.gd`測試仍由Logic Worker負責。
+
+對話／資料worker負責新增`game/data/dialogue/story_*.json`、其餘`ending_*.json`，並在原檔上修改
+Task 4.0已建立的`boss_ren_intro.json`／`ending_zhu_descent.json`；不得以新檔繞過舊版台詞。
+Boss Logic Worker獨占`game/scripts/boss_ren.gd`、`game/scripts/shangfeng_coin.gd`及兩者測試；
+尾聲Logic Worker獨占`game/scripts/ending_epilogue_controller.gd`及其測試。Integrator最後統一掛載
+實體520／銘錢幣、證物觸發區、三個Q歸還點、`DialogueBox`與`CutscenePlayer`，並驗證隱藏「命」
+分支無法跳過所有路線共用的二之尾聲。
 
 ---
 
@@ -207,6 +237,7 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 | `Boss` | `scripts/boss.gd` | Boss系統 |
 | `BossAttackPatterns` | `scripts/boss_attack_patterns.gd` | Boss系統 |
 | `BossRen` | `scripts/boss_ren.gd` | Boss系統（終Boss「仁」，繼承`Boss`） |
+| `ShangfengCoin` | `scripts/shangfeng_coin.gd` | Boss系統（賜俸實體錢幣，繼承`Bullet`） |
 | `DialogueBox` | `scripts/dialogue_box.gd` | 對話／演出框架 |
 | `CutscenePlayer` | `scripts/cutscene_player.gd` | 對話／演出框架 |
 
@@ -218,6 +249,7 @@ gh pr create --title "feat: 部首武器 x 五行相剋系統" --body "實作Tas
 
 | 日期 | 變更 |
 |---|---|
+| 2026-08-02 | 對齊主線劇情v3：對話／演出模組納入逐章證物、主取回亻與`ending_epilogue_controller.gd`；尾聲控制器只負責二的三個Q節點與時間跳切，`level_06_epilogue.tscn`仍屬整合者獨占的場景檔；Task 4.0b須在首個checkpoint前建立唯一`SaveSystem`與旗標源，Task 5.3b只做Boss接線前契約複驗；Task 5.4的520／銘實體錢幣場景由Integrator掛載，Boss Logic Worker只寫腳本；苓配方產生器與產物由單一Data Worker獨占 |
 | 2026-08-01 | 加入Task 4.0協作邊界（第2.2節）：對話框場景是新增檔案而非修改既有場景，但掛進`test_room.tscn`仍由root獨占；`project.godot`只在`[input]`追加`menu_up`(W)/`menu_down`(S)供直向選項清單使用，其餘推進／選項沿用既有action，測試場景的除錯捷徑改用原始keycode |
 | 2026-07-30 | 新增「對話／演出框架」模組（序章教程NPC、終Boss「仁」開場白/賜俸/Phase 2.1三選一、終章「主」降臨訓誡共用同一套元件），登記`DialogueBox`/`CutscenePlayer`/`BossRen`三個`class_name`；Boss系統模組職責擴充納入終Boss「仁」專屬腳本；UI與存檔模組補充`has_ever_hoarded`隱藏結局旗標職責 |
 | 2026-07-26 | 加入Task 2.6協作邊界：新增音核合體／部件掉落模組與四個`class_name`；本PR由root擔任唯一Integrator並獨占`player.tscn`、`component_pickup.tscn`、`test_room.tscn`與`project.godot` |
