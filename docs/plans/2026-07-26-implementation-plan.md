@@ -1463,6 +1463,24 @@ func play_choice(dialogue_id: String, choices: Array) -> void:
 
 ### Task 4.0b: 存檔基礎切片（checkpoint／隱藏旗標共同前置）
 
+> **✅ 已完成。** 新增15項測試（`test_save_system.gd`），全專案累計407項2857個assert全過
+> （唯一失敗項是`test_component_flow.gd`既有的防重拾鎖時序問題，與本Task無關，複查前後
+> 皆為391/392，不是本次改動引入）。實作與下方原始草稿有兩點差異：
+>
+> 1. **`checkpoint`欄位獨立成`SaveSystem`的一個記憶體屬性**（原文只在`set_checkpoint()`裡
+>    寫入傳入的`data`字典，沒有對應的記憶體快取供`load_game()`回填）。實際實作補上
+>    `var checkpoint: Dictionary = {}`，`load_game()`與`save_game()`都會同步這個欄位，
+>    語意上與`has_ever_hoarded`對稱（兩者都是「記憶體欄位 + 磁碟持久化」），也方便
+>    Task 6.3擴充讀取當前關卡索引時直接複用同一份`checkpoint`。
+> 2. **`_read_save_data()`把「檔案不存在」「內容空白」「JSON格式錯誤」「JSON不是物件（例如陣列）」
+>    四種情況都明確區分並安全回退為空字典**，原文只處理了前兩種。實測`JSON.parse_string("[]")`
+>    會回傳`TYPE_ARRAY`而非`TYPE_DICTIONARY`，若不特別檢查型別，後續`data.get(...)`呼叫會在
+>    非Dictionary物件上報錯。
+>
+> `SaveSystem`已在`project.godot`的`[autoload]`小節追加（`HanziData`/`ElementSystem`維持原樣，
+> 只新增一行），Task 4.1的`checkpoint.gd`與Task 5.4的Boss「仁」可以直接呼叫
+> `SaveSystem.set_checkpoint()` / `SaveSystem.mark_hoarded()`，不需要再修改本檔案的核心邏輯。
+
 **Objective:** 在第一個正式關卡建立checkpoint之前，先提供可用的`SaveSystem` autoload。此切片同時保存
 checkpoint座標與`has_ever_hoarded`；後者在階段五才由「賜俸」消費，但必須從一開始就是同一個真相源，
 不得到Boss階段再補第二套旗標。
@@ -2518,6 +2536,9 @@ git tag v0.1.0-milestone-complete
 
 ### 小結：現在（複查當下）最多可並行的路數
 
+> **2026-08-03更新：Task 4.0b（存檔系統）已完成**，見上方Task 4.0b標註。Wave A剩餘3路可並行
+> （4.1a / 4.3 / 5.1+5.2），Task 4.1（水域關，依賴4.0b）現在可以直接開工，不需要再等。
+
 - 立即可開工（Wave A）：**4路**（4.0b / 4.1a / 4.3 / 5.1+5.2）
 - 若把6.1/6.2也提前一併算入：**Wave A可擴大到6路並行**
 - Wave B峰值：**5路並行**（4.1 / 4.2 / 5.3 / 5.3b / 5.4資料準備，其中4.1與4.2要注意`fusion_recipes.json`已經沒有剩餘工作，不要重複分派）
@@ -2529,6 +2550,7 @@ git tag v0.1.0-milestone-complete
 
 | 日期 | 變更 |
 |---|---|
+| 2026-08-03 | Task 4.0b（存檔基礎切片）完成。新增`game/scripts/save_system.gd`、15項測試（`test_save_system.gd`），`project.godot`的`[autoload]`追加`SaveSystem`一行。與原始草稿相比補了兩處：①`checkpoint`獨立成記憶體欄位並隨`load_game()`/`save_game()`同步，不只是寫入傳入的`data`字典；②`_read_save_data()`額外處理「JSON內容合法但型別不是Dictionary（例如`[]`）」的情況，原文只防了「檔案不存在」與「格式錯誤」。全專案累計407項2857個assert，406項通過（唯一失敗項是`test_component_flow.gd`既有時序問題，與本Task無關）。Wave A剩餘3路可並行，Task 4.1（水域關）現在可以直接開工 |
 | 2026-08-03 | **新增「剩餘工作並行矩陣」**：複查發現原文「4.0→4.0b→4.1a→4.1→4.2→4.3→4.4」全序列執行順序過度保守——4.1a（序章）不碰SaveSystem可與4.0b並行；4.3（LevelManager）只需場景路徑字串可提前寫腳本；6.1/6.2（主選單/圖鑑）只依賴階段二武器系統，實際與階段四/五無關，可提前到Wave A/B插入分派。重新劃分Wave A（4.0b/4.1a/4.3/5.1+5.2，4路並行）→Wave B（4.1/4.2/5.3/5.3b/5.4資料準備，5路並行）→Wave C（5.4程式碼主體/4.4/6.1+6.2/6.3）→Wave D（6.4/7.x/8.x收尾）。同時修正Task 4.2文檔與代碼脫節：`fusion_recipes.json`的9條配方（含`grass→苓`）已在PR #44/#45/#48提前完成，原文「新增苓配方」段落已刪除，避免重複分派造成資料衝突 |
 | 2026-08-02 | **隨主線劇情v3同步實施計劃**：①序章至礦山加入不可漏收的家庭證物鏈與四份對話資料，森林加入完整配方`艹＋令→苓`；②Task 4.4新增不走LevelManager的`level_06_epilogue.tscn`；③Task 5.4加入正面520／背面銘的實體`ShangfengCoin`，貪／爭／棄由拾取／近戰彈反／全閃避決定而非選單，並把結局改為主只取回亻、可選「命」只影響令，之後所有路線控制二完成苓草／金／空物品欄三次Q並進入「還沒天明」語言循環；④Task 4.0b在首個checkpoint前建立唯一`SaveSystem`與隱藏旗標，Task 5.3b只做Boss接線前契約複驗，Task 6.3沿用並擴充；⑤Task 8.1新增共同尾聲與無赦免驗收，避免隱藏路線跳過二的後果 |
 | 2026-08-01 | Task 4.0（對話／演出框架）完成。**草稿的 `DialogueBox` 有一個會讓遊戲永久卡死的錯誤**：`play()` 暫停整棵樹卻沒把對話框自己設成 `PROCESS_MODE_ALWAYS`，推進鍵與打字機跟著停擺，第一句話之後就再也動不了；另補上「結束時還原原本的暫停狀態」避免解除階段六的暫停選單。實作上補齊草稿只寫在文字裡的打字機（含「先補完整句、再換句」兩段式推進）、做出可直接用的選項UI（W/S移游標、J確認；選項是直向清單，實機驗證後新增`menu_up`/`menu_down`兩個action，A/D一併保留），並把 `CutscenePlayer` 從硬編函式改為「步驟資料＋cue signal」——特效由關卡端接cue，Task 4.4/5.4的白光與筆畫反向崩解不會反過來寫死進框架。新增 `test_dialogue_data.gd` 把台詞的schema／字型字形涵蓋／簡體字擋在CI（缺字形只會安靜顯示成豆腐方框，簡體字完全不報錯）。`test_room.tscn` 加上 T/Y/U 三個除錯捷徑供實機驗證 |
