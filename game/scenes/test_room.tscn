@@ -6,7 +6,7 @@
 ;    直接掛在 Node2D 根節點下的 Control 是**世界座標**，會跟著鏡頭一起捲動，
 ;    而且鏡頭跟隨玩家時會被推到畫面外看不見。CanvasLayer 底下才是螢幕座標。
 
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://co2qonv8ukblv" path="res://scripts/debug_weapon_label.gd" id="2_wlabel"]
@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="8_dialogue"]
 [ext_resource type="PackedScene" path="res://scenes/world_environment.tscn" id="10_env"]
 [ext_resource type="Script" path="res://scripts/ink_parallax.gd" id="11_parallax"]
+[ext_resource type="Script" path="res://scripts/hp_bar.gd" id="12_hp"]
 [ext_resource type="Script" uid="uid://tpryqay3iiyc" path="res://scripts/cutscene_player.gd" id="9_cutscene"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
@@ -73,6 +74,7 @@ color = Color(0.85, 0.81, 0.72, 1)
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 position = Vector2(-40, 120)
+max_hp = 500
 
 [node name="Dummies" type="Node2D" parent="."]
 
@@ -118,6 +120,14 @@ script = ExtResource("2_wlabel")
 weapon_manager_path = NodePath("../../Player/WeaponManager")
 melee_attack_path = NodePath("../../Player/MeleeAttack")
 glyph_loadout_path = NodePath("../../Player/GlyphLoadout")
+
+[node name="HpBar" type="Control" parent="HUD"]
+offset_left = 16.0
+offset_top = 124.0
+offset_right = 296.0
+offset_bottom = 166.0
+script = ExtResource("12_hp")
+target_path = NodePath("../../Player")
 
 [node name="InfoLabel" type="Label" parent="HUD"]
 anchors_preset = 1
