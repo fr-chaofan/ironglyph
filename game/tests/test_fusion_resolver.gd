@@ -103,7 +103,7 @@ func test_金部來源正規化為metal且畫面顯示金() -> void:
 
 func test_唯一配方為令加雨融合成零() -> void:
 	var recipes: Array = _resolver.get_all_recipes()
-	assert_eq(recipes.size(), 1, "MVP 只開放一個 curated fusion recipe")
+	assert_eq(recipes.size(), 5, "五條形聲配方：雨/氵/金/艹/木 各配一個「令」")
 
 	var recipe: Dictionary = _resolver.resolve("令", "rain")
 	assert_false(recipe.is_empty())
@@ -131,7 +131,9 @@ func test_唯一配方為令加雨融合成零() -> void:
 func test_未知部件或未策展組合不會擅自造字() -> void:
 	assert_true(_resolver.get_component("missing").is_empty())
 	assert_true(_resolver.get_component_for_source_radical("不存在").is_empty())
-	assert_true(_resolver.resolve("令", "water").is_empty(), "令+氵目前沒有 curated recipe")
+	# 繁體沒有「山＋令」的字：「嶺」是 ⿱山領（領才是 ⿰令頁），
+	# 「岭」只作為簡化形存在——山屬部件因此永遠無法融合。
+	assert_true(_resolver.resolve("令", "mountain").is_empty(), "令+山 在繁體裡拼不出字")
 	assert_true(_resolver.resolve("良", "rain").is_empty())
 	assert_true(_resolver.resolve("", "rain").is_empty())
 	assert_true(_resolver.resolve("令", "missing").is_empty())

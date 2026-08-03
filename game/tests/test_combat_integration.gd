@@ -46,13 +46,14 @@ func test_假人碰撞層讓子彈打得到() -> void:
 		"子彈的 mask 必須涵蓋假人所在的層，否則永遠偵測不到")
 
 
-func test_水波彈打火屬假人走優勢倍率() -> void:
+func test_火球打火屬假人走中性倍率() -> void:
 	var dummy: Character = _room.get_node(^"Dummies/DummyFire")
 	var before: int = dummy.hp
 
-	# 氵與「令」目前沒有 curated recipe，因此進入 HELD 並使用既有水波彈。
-	_loadout.equip_component_id("water")
-	assert_eq(_wm.get_current_weapon()["id"], "shui")
+	# 火與「令」拼不出字（資料集查無「炩」），因此進入 HELD 並使用既有火球。
+	# ⚠️ 別拿「氵」當 HELD 範例——它會融合成「泠」。
+	_loadout.equip_component_id("fire")
+	assert_eq(_wm.get_current_weapon()["id"], "huo")
 
 	# 把玩家挪到假人左邊一點，朝右開火
 	_player.global_position = dummy.global_position + Vector2(-90, 0)
@@ -63,20 +64,21 @@ func test_水波彈打火屬假人走優勢倍率() -> void:
 	await wait_seconds(0.5)
 
 	var dealt: int = before - dummy.hp
-	assert_eq(dealt, 12, "水打火：傷害8 × 1.5 = 12。實際扣了 %d" % dealt)
+	assert_eq(dealt, 12, "同屬性走中性倍率：傷害12 × 1.0。實際扣了 %d" % dealt)
 
 
-func test_水波彈打水屬假人走中性倍率() -> void:
+func test_火球打水屬假人走劣勢倍率() -> void:
+	# 水剋火，所以火球打水屬是劣勢
 	var dummy: Character = _room.get_node(^"Dummies/DummyWater")
 	var before: int = dummy.hp
 
-	_loadout.equip_component_id("water")
+	_loadout.equip_component_id("fire")
 	_player.global_position = dummy.global_position + Vector2(-90, 0)
 	await wait_physics_frames(2)
 	_wm.fire(1.0)
 	await wait_seconds(0.5)
 
-	assert_eq(before - dummy.hp, 8, "同屬性應為原傷害 8")
+	assert_eq(before - dummy.hp, 7, "劣勢倍率：傷害12 × 0.6 = 7.2，取整為 7")
 
 
 func test_子彈從角色前方生成不會立刻打到自己() -> void:
