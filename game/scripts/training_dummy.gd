@@ -42,9 +42,9 @@ func _refresh_label() -> void:
 	info_label.text = "%s屬  %d/%d" % [element, hp, max_hp]
 
 
-func take_damage(amount: int, attacker_element: String) -> void:
+func take_damage(amount: int, attacker_element: String, min_multiplier: float = 0.0) -> void:
 	var before := hp
-	super(amount, attacker_element)
+	super(amount, attacker_element, min_multiplier)
 	var dealt := before - hp
 
 	if is_instance_valid(hanzi_sprite):

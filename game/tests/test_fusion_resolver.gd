@@ -114,21 +114,21 @@ func test_唯一配方為令加雨融合成零() -> void:
 	assert_eq(recipe.get("component_id", ""), "rain")
 	assert_eq(recipe.get("result_glyph", ""), "零")
 	assert_eq(recipe.get("layout", ""), "top_bottom")
-	assert_eq(recipe.get("ability_id", ""), "reset_burst")
+	assert_eq(recipe.get("ability_id", ""), "scattering_rain")
 
 	var attack: Dictionary = recipe.get("attack", {})
 	for field: String in REQUIRED_ATTACK_FIELDS:
-		assert_true(attack.has(field), "reset_burst attack 缺少欄位 %s" % field)
-	assert_eq(attack.get("id", ""), "reset_burst")
+		assert_true(attack.has(field), "scattering_rain attack 缺少欄位 %s" % field)
+	assert_eq(attack.get("id", ""), "scattering_rain")
 	assert_eq(attack.get("radical", ""), "雨")
-	assert_eq(attack.get("name", ""), "歸零爆發")
+	assert_eq(attack.get("name", ""), "零落")
 	assert_eq(attack.get("element", ""), "water")
 	assert_eq(int(attack.get("damage", 0)), 5)
 	assert_almost_eq(float(attack.get("fire_rate", 0.0)), 0.9, 0.001)
 	assert_eq(attack.get("projectile", ""), "wave")
 	assert_eq(attack.get("range", ""), "medium")
-	assert_eq(attack.get("pattern", ""), "radial")
-	assert_eq(int(attack.get("projectile_count", 0)), 8)
+	assert_eq(attack.get("pattern", ""), "rain", "零的本義是落雨，彈幕從上方落下")
+	assert_eq(int(attack.get("projectile_count", 0)), 7)
 
 
 func test_未知部件或未策展組合不會擅自造字() -> void:

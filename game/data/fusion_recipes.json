@@ -4,19 +4,20 @@
     "component_id": "rain",
     "result_glyph": "零",
     "layout": "top_bottom",
-    "ability_id": "reset_burst",
+    "ability_id": "scattering_rain",
     "attack": {
-      "id": "reset_burst",
+      "id": "scattering_rain",
       "radical": "雨",
-      "name": "歸零爆發",
+      "name": "零落",
       "element": "water",
       "attack_type": "projectile",
       "damage": 5,
       "fire_rate": 0.9,
       "projectile": "wave",
       "range": "medium",
-      "pattern": "radial",
-      "projectile_count": 8
+      "pattern": "rain",
+      "projectile_count": 7,
+      "_note": "零 的本義就是落雨。彈幕從上方落下，覆蓋身前一片——全場唯一從天而降的攻擊。"
     }
   },
   {
@@ -34,7 +35,11 @@
       "damage": 7,
       "fire_rate": 0.18,
       "projectile": "wave",
-      "range": "long"
+      "range": "long",
+      "ability": {
+        "pierce": 2
+      },
+      "_note": "清泠：水聲清越，穿透。"
     }
   },
   {
@@ -54,7 +59,11 @@
       "projectile": "blade",
       "range": "short",
       "pattern": "radial",
-      "projectile_count": 12
+      "projectile_count": 12,
+      "ability": {
+        "interrupt": true
+      },
+      "_note": "鈴聲震盪：唯一能隔空打斷蓄力的招。"
     }
   },
   {
@@ -72,7 +81,11 @@
       "damage": 8,
       "fire_rate": 0.35,
       "projectile": "vine",
-      "range": "medium"
+      "range": "medium",
+      "ability": {
+        "heal": 3
+      },
+      "_note": "茯苓是藥材：命中回血，玩家唯一的回復手段。"
     }
   },
   {
@@ -90,7 +103,12 @@
       "damage": 16,
       "fire_rate": 0.7,
       "projectile": "vine",
-      "range": "short"
+      "range": "short",
+      "ability": {
+        "chain": 1,
+        "chain_range": 260.0
+      },
+      "_note": "柃木成叢：命中後彈向下一個敵人。"
     }
   },
   {
@@ -108,7 +126,18 @@
       "damage": 18,
       "fire_rate": 0.85,
       "projectile": "rock",
-      "range": "short"
+      "range": "short",
+      "ability": {
+        "wall": {
+          "duration": 3.5,
+          "size": [
+            26,
+            96
+          ],
+          "hp": 3
+        }
+      },
+      "_note": "坽是堤岸：命中處立起一道墨牆擋子彈。"
     }
   },
   {
@@ -128,7 +157,15 @@
       "projectile": "fireball_aoe",
       "range": "medium",
       "pattern": "radial",
-      "projectile_count": 5
+      "projectile_count": 5,
+      "ability": {
+        "burn": {
+          "damage": 3,
+          "ticks": 3,
+          "interval": 0.5
+        }
+      },
+      "_note": "炩是明亮：留下灼燒。"
     }
   },
   {
@@ -146,7 +183,11 @@
       "damage": 13,
       "fire_rate": 0.5,
       "projectile": "pebble",
-      "range": "medium"
+      "range": "medium",
+      "ability": {
+        "ignore_disadvantage": true
+      },
+      "_note": "砱是石間空隙：從縫裡鑽進去，無視五行劣勢。"
     }
   },
   {
@@ -165,7 +206,11 @@
       "damage": 8,
       "fire_rate": 0.3,
       "projectile": "blade",
-      "range": "medium"
+      "range": "medium",
+      "ability": {
+        "pierce": 1
+      },
+      "_note": "刢是刃利：兼具穿透，且是唯一同時升級近戰的配方。"
     }
   }
 ]

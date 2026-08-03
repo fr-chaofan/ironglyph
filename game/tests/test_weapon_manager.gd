@@ -255,34 +255,31 @@ func test_子彈不掛在Player底下() -> void:
 	b.queue_free()
 
 
-func test_歸零爆發生成八方向水屬子彈() -> void:
+func test_零落從上方落下() -> void:
+	# 「零」的本義就是落雨（零 = 雨 + 令）。這是全場唯一從天而降的攻擊——
+	# 打得到直射打不到的東西，也是它與其他八條配方最大的區別。
 	var recipe: Dictionary = FusionResolverScript.new().resolve("令", "rain")
 	var attack: Dictionary = recipe.get("attack", {})
+	assert_eq(attack.get("pattern", ""), "rain")
 	assert_true(_wm.set_active_weapon(attack))
 
 	var before := _get_bullets()
 	_wm.fire(1.0)
-	var after := _get_bullets()
 	var spawned: Array = []
-	for bullet: Bullet in after:
+	for bullet: Bullet in _get_bullets():
 		if not before.has(bullet):
 			spawned.append(bullet)
 
-	assert_eq(spawned.size(), 8, "reset_burst 必須恰好生成8發")
-	var unique_directions := {}
+	assert_eq(spawned.size(), 7, "零落應生成7滴")
 	for bullet: Bullet in spawned:
 		assert_eq(bullet.element, "water")
-		assert_eq(bullet.damage, 5)
-		assert_almost_eq(bullet.direction.length(), 1.0, 0.001)
-		unique_directions[Vector2(
-			snappedf(bullet.direction.x, 0.001),
-			snappedf(bullet.direction.y, 0.001)
-		)] = true
+		assert_gt(bullet.direction.y, 0.9, "每一滴都要往下落")
+		assert_lt(
+			bullet.global_position.y, _player.global_position.y,
+			"生成點必須在玩家上方，否則不是「從天而降」"
+		)
 		bullet.queue_free()
-	assert_eq(unique_directions.size(), 8, "8發必須沿不同方向均勻散開")
 
-
-# ---- Task 2.3 / 2.4 子彈 ----
 
 func test_子彈碰撞層設定正確() -> void:
 	var b: Bullet = BulletScene.instantiate()

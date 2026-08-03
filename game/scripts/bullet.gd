@@ -42,6 +42,16 @@ var direction: Vector2 = Vector2.RIGHT
 
 var _age: float = 0.0
 var _travelled: float = 0.0
+## 形聲合體字的特殊技能。每個能力都掛在攻擊 profile 的 `ability` 區塊上，
+## 由這裡統一結算——技能寫在資料裡，不必為每個字開一支腳本。
+##
+## pierce / heal / interrupt / chain / burn / wall / ignore_disadvantage
+var ability: Dictionary = {}
+## 誰打出這一發（茯苓散要回血給他）
+var shooter: Node = null
+
+var _pierced: int = 0
+var _chained: int = 0
 var _trail: BulletTrail
 var _vfx: Dictionary = {}
 var _spin: float = 0.0
@@ -174,10 +184,101 @@ func _physics_process(delta: float) -> void:
 
 func _on_body_entered(body: Node2D) -> void:
 	if body is Character:
-		(body as Character).take_damage(damage, element)
+		_hit_character(body as Character)
+		# 穿透：還有次數就繼續飛，不炸不消失
+		if _pierced < int(ability.get("pierce", 0)):
+			_pierced += 1
+			return
+
+	_spawn_wall()
 	# 打到地形（沒有 take_damage 的 StaticBody2D）也要消失，不能穿牆
 	_burst()
 	queue_free()
+
+
+## 命中一個角色時的全部結算。
+func _hit_character(target: Character) -> void:
+	# 砱穴：從石縫裡鑽進去，劣勢倍率抬到 1.0（優勢仍然吃得到）
+	var floor_multiplier := 1.0 if bool(ability.get("ignore_disadvantage", false)) else 0.0
+	target.take_damage(damage, element, floor_multiplier)
+
+	_apply_heal()
+	_apply_interrupt(target)
+	_apply_burn(target)
+	_apply_chain(target)
+
+
+## 茯苓散：命中回血。玩家在此之前完全沒有回復手段。
+func _apply_heal() -> void:
+	var amount := int(ability.get("heal", 0))
+	if amount <= 0 or shooter == null or not is_instance_valid(shooter):
+		return
+	var character := shooter as Character
+	if character == null or character.hp <= 0:
+		return
+	character.hp = mini(character.max_hp, character.hp + amount)
+	character.hp_changed.emit(character.hp, character.max_hp)
+
+
+## 鈴聲震盪：唯一能隔空打斷蓄力的招。
+## 近戰能打斷是「為什麼要靠近錘／灶」的理由，這一招是那條規則的唯一例外。
+func _apply_interrupt(target: Character) -> void:
+	if not bool(ability.get("interrupt", false)):
+		return
+	if is_instance_valid(target) and target.has_method(&"interrupt_charge"):
+		target.call(&"interrupt_charge")
+
+
+## 炩明：留下灼燒。同一目標不疊加，只刷新剩餘跳數。
+func _apply_burn(target: Character) -> void:
+	var config: Variant = ability.get("burn", null)
+	if typeof(config) != TYPE_DICTIONARY:
+		return
+	BurnEffect.apply(target, config, element)
+
+
+## 柃木貫：命中後彈向下一個敵人。
+##
+## ⚠️ 必須排除剛打到的這一個，否則子彈會在同一個目標身上來回彈到次數用完。
+func _apply_chain(target: Character) -> void:
+	var times := int(ability.get("chain", 0))
+	if _chained >= times:
+		return
+
+	var best: Node2D = null
+	var best_distance := float(ability.get("chain_range", 260.0))
+	for node: Node in get_tree().get_nodes_in_group(&"enemy"):
+		var enemy := node as Node2D
+		if enemy == null or enemy == target or not is_instance_valid(enemy):
+			continue
+		var distance := enemy.global_position.distance_to(global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = enemy
+	if best == null:
+		return
+
+	var next := (get_script() as Script).new() as Bullet
+	next.speed = speed
+	next.max_lifetime = max_lifetime
+	next.collision_layer = collision_layer
+	next.collision_mask = collision_mask
+	next.ability = ability.duplicate(true)
+	next.shooter = shooter
+	next._chained = _chained + 1
+	_get_effect_parent().add_child(next)
+	next.setup(damage, element, global_position, (best.global_position - global_position).normalized())
+
+
+## 坽壘：命中處立起一道墨牆，擋敵方子彈。全場唯一的防禦性招式。
+func _spawn_wall() -> void:
+	var config: Variant = ability.get("wall", null)
+	if typeof(config) != TYPE_DICTIONARY:
+		return
+	InkWall.spawn(
+		_get_effect_parent(), global_position, config,
+		ELEMENT_COLORS.get(element, Color.WHITE)
+	)
 
 
 ## 命中時炸開幾點墨。原本子彈是直接 queue_free，打中什麼都沒有回饋。

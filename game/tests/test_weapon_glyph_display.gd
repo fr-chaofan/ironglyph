@@ -71,7 +71,7 @@ func test_FUSED顯示零並隱藏外置部件() -> void:
 
 	assert_eq(_loadout.get_snapshot().get("mode", ""), "fused")
 	assert_eq(_sprite.text, "零")
-	assert_eq(_wm.get_current_weapon().get("id", ""), "reset_burst")
+	assert_eq(_wm.get_current_weapon().get("id", ""), "scattering_rain")
 	assert_false(_display.visible)
 	assert_eq(_glyph.text, "")
 

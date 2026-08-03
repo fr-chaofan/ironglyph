@@ -143,8 +143,8 @@ func _try_fire() -> void:
 		weapon_manager.fire(facing_dir)
 
 
-func take_damage(amount: int, attacker_element: String) -> void:
-	super(amount, attacker_element)
+func take_damage(amount: int, attacker_element: String, min_multiplier: float = 0.0) -> void:
+	super(amount, attacker_element, min_multiplier)
 	if hp > 0:
 		hanzi_sprite.flash_hit()
 		# 自己被打到震得比打到別人更重——玩家要立刻知道「這下是我在挨打」

@@ -34,6 +34,9 @@ var _telegraph_tween: Tween
 
 func _ready() -> void:
 	super()
+	# 讓其他系統能找到場上的敵人（柃木貫的連鎖要挑下一個目標）。
+	# 玩家早就有 "player" 群組，敵人一直缺一個對應的。
+	add_to_group(&"enemy")
 	if melee_attack != null:
 		melee_attack.swing_started.connect(_on_swing_started)
 		melee_attack.swing_finished.connect(_on_swing_finished)
@@ -181,14 +184,14 @@ func is_charging() -> bool:
 	return _ai.call(&"is_charging")
 
 
-func take_damage(amount: int, attacker_element: String) -> void:
-	var multiplier := get_element_multiplier(attacker_element, element)
+func take_damage(amount: int, attacker_element: String, min_multiplier: float = 0.0) -> void:
+	var multiplier := maxf(get_element_multiplier(attacker_element, element), min_multiplier)
 	var before := hp
 
 	# ⚠️ 順序很重要：先 super() 結算，只有**沒死**才閃紅。
 	# 若這一下正好打死，super() 內部已觸發 die() → shatter_and_die() → queue_free()，
 	# 此時再對節點做 flash_hit() 會操作到正在銷毀的節點。
-	super(amount, attacker_element)
+	super(amount, attacker_element, min_multiplier)
 
 	if hp > 0 and is_instance_valid(hanzi_sprite):
 		hanzi_sprite.flash_hit()
