@@ -174,3 +174,33 @@ position = Vector2(-560, 236)
 script = ExtResource("5_spawner")
 enemy_char = "劍"
 respawn_delay = 4.0
+
+[node name="SpawnHeldFire" type="Node2D" parent="EnemySpawners"]
+position = Vector2(-700, 236)
+script = ExtResource("5_spawner")
+enemy_char = "焰"
+respawn_delay = 4.0
+
+[node name="SpawnMetal" type="Node2D" parent="EnemySpawners"]
+position = Vector2(-820, 236)
+script = ExtResource("5_spawner")
+enemy_char = "針"
+respawn_delay = 4.0
+
+[node name="SpawnGrass" type="Node2D" parent="EnemySpawners"]
+position = Vector2(-940, 236)
+script = ExtResource("5_spawner")
+enemy_char = "藤"
+respawn_delay = 4.0
+
+[node name="SpawnEarth" type="Node2D" parent="EnemySpawners"]
+position = Vector2(-1060, 236)
+script = ExtResource("5_spawner")
+enemy_char = "塵"
+respawn_delay = 4.0
+
+[node name="SpawnStone" type="Node2D" parent="EnemySpawners"]
+position = Vector2(-1180, 236)
+script = ExtResource("5_spawner")
+enemy_char = "石"
+respawn_delay = 4.0
