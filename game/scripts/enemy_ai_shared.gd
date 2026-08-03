@@ -28,6 +28,8 @@ static func spawn_enemy_bullet(shooter: Node2D, direction: Vector2, damage: int,
 	bullet.collision_layer = ENEMY_BULLET_LAYER
 	bullet.collision_mask = ENEMY_BULLET_MASK
 	bullet.speed = 320.0  # 比玩家子彈(500)慢，玩家才閃得掉
+	# 記下是誰打的：回鋒彈反時子彈要調頭打回原射手，而不是單純反向飛
+	bullet.shooter = shooter
 
 	var spawn_pos: Vector2 = shooter.global_position + direction.normalized() * 40.0
 	bullet.setup(damage, element, spawn_pos, direction)

@@ -189,11 +189,15 @@ func test_傷害走基類因此吃五行相剋() -> void:
 
 
 # ---- 消彈 ----
+#
+# ⚠️ 判定窗**前段**打到敵彈已經不是消彈而是回鋒（彈反），見 test_parry.gd。
+# 這一節只管「敵彈進得了判定框、而且進得去的一定會被處理掉」。
 
-func test_揮擊可以打掉敵方子彈() -> void:
+func test_揮擊可以擋下敵方子彈() -> void:
 	var bullet: Bullet = await _spawn_enemy_bullet(Vector2(80, 0))
 
 	watch_signals(_melee)
+	_melee.can_parry = false  # 關掉彈反，這裡驗的是消彈那條路
 	_swing_through(1.0)
 
 	assert_signal_emit_count(_melee, "bullet_blocked", 1)

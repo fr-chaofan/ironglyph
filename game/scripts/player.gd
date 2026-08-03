@@ -52,6 +52,7 @@ func _ready() -> void:
 	if melee_attack != null:
 		melee_attack.pogo_bounced.connect(_on_pogo_bounced)
 		melee_attack.hit_landed.connect(_on_melee_hit_landed)
+		melee_attack.bullet_parried.connect(_on_bullet_parried)
 
 
 func _physics_process(delta: float) -> void:
@@ -117,6 +118,18 @@ func _try_melee() -> bool:
 func _on_melee_hit_landed(_target: Node, _damage: int) -> void:
 	GameFeel.hit_stop(self)
 	GameFeel.shake(self, 5.0)
+
+
+## 回鋒的手感。刻意比普通命中更重（停頓更長、放得更慢、震得更兇）——
+## 彈反與消彈只差幾格判定幀，回饋若和普通揮擊一樣，玩家根本分不出自己成功了沒有。
+func _on_bullet_parried(_bullet: Node, _element: String) -> void:
+	var settings := MeleeAttack.get_parry_settings()
+	GameFeel.hit_stop(
+		self,
+		float(settings.get("hit_stop", 0.09)),
+		float(settings.get("hit_stop_scale", 0.05))
+	)
+	GameFeel.shake(self, float(settings.get("shake", 8.0)), 0.2)
 
 
 func _get_melee_profile() -> Dictionary:
