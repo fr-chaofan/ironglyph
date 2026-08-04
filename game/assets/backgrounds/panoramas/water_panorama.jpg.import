@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://byo3vegcworry"
-path="res://.godot/imported/earth_ground.png-89c7882d97835b79bdaccc30f0c413fd.ctex"
+uid="uid://dtcneyopsdkuc"
+path="res://.godot/imported/water_panorama.jpg-9db7c9315f85b382692f4a6d891208c0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/tilesets/earth_ground.png"
-dest_files=["res://.godot/imported/earth_ground.png-89c7882d97835b79bdaccc30f0c413fd.ctex"]
+source_file="res://assets/backgrounds/panoramas/water_panorama.jpg"
+dest_files=["res://.godot/imported/water_panorama.jpg-9db7c9315f85b382692f4a6d891208c0.ctex"]
 
 [params]
 
