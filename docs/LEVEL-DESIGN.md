@@ -215,8 +215,38 @@ LevelEpilogue (Node2D)
 
 ---
 
-## 4. 變更記錄
+## 5. 美術素材備用清單
+
+配合本文件的關卡設計，已預先備好以下美術資源供場景實作直接取用：
+
+**背景（`game/assets/backgrounds/`，公共領域古代水墨手卷，授權見同目錄`CREDITS.md`）：**
+
+| 關卡 | 檔案 | 作品／作者 |
+|---|---|---|
+| 水域關 | `liuyu-landscape-1680.jpg` | 劉玉《山水》1680 |
+| 火山關 | `zhaoyuan-landscape-1400.jpg` | 趙原《山水》14世紀晚期 |
+| 森林關 | `liuyanchong-bamboo-grove-1844.jpg` | 劉彥沖《竹林七賢》1844 |
+| 礦山關 | `zhangruitu-red-cliff-1628.jpg` | 張瑞圖《後赤壁賦圖》1628 |
+| 終章祭壇 | `unidentified-landscape-17c.jpg` | 無款《山水》17世紀 |
+
+**地形貼圖（`game/assets/tilesets/`，程式化生成的過渡佔位資源，詳見同目錄`README.md`）：**
+`water_ground.png` / `fire_ground.png` / `wood_ground.png` / `earth_ground.png` / `altar_ground.png`——
+可無縫平鋪，顏色取自`palette.json`，供各關TileMap先行搭建，待正式美術資源到位後替換。
+
+**劇情道具圖標（`game/assets/props/`，程式化生成的過渡佔位資源，詳見同目錄`README.md`）：**
+`empty_medicine_box.png`（空藥匣）／`ming_placard.png`（「名」匾額）／`coin_front_520.png`＋
+`coin_back_ming.png`（賜俸錢幣正反面）／`empty_bed.png`（祖母空床）／`workshop_tools.png`（作坊工具）——
+對應第2節逐關必經證物與第2.5節終章賜俸招式道具。
+
+⚠️ 地形貼圖與道具圖標**都是臨時佔位資源**（環境未配置圖像生成API，改用程式化水墨渲染合成），
+用於場景搭建階段先驗證關卡結構與敘事節點觸發，不代表最終上線美術品質。背景手卷則是真正的
+公共領域館藏真跡，可直接沿用至上線。
+
+---
+
+## 6. 變更記錄
 
 | 日期 | 變更 |
 |---|---|
-| 2026-08-03 | 初版：與Paul逐段覆述`STORY.md`/`PROTAGONIST-令.md`/`BOSS-仁.md`全文，確認故事線**無需調整**，正式定稿；在此基礎上完成序章+4關+終章+尾聲的high-level關卡設計，含每關敵人配置表（對照`enemies.json`實際數值）、難度曲線、證物點與Task對應關係，供Task 4.1a/4.1/4.2/4.4場景實作直接參考 |
+| 2026-08-03 | 初版：與Paul逐段覆述`STORY.md`/`PROTAGONIST-令.md`/`BOSS-仁.md`全文，確認故事線無需調整，正式定稿；在此基礎上完成序章+4關+終章+尾聲的high-level關卡設計，含每關敵人配置表（對照`enemies.json`實際數值）、難度曲線、證物點與Task對應關係，供Task 4.1a/4.1/4.2/4.4場景實作直接參考 |
+| 2026-08-03 | 新增第5節「美術素材備用清單」：為4個新關卡（火山/森林/礦山/終章祭壇）各補一張公共領域古代水墨手卷背景（The Met開放資料，程式化驗證CC0授權，方法與既有`liuyu-landscape-1680.jpg`一致）；並生成5張地形貼圖tileset與6張劇情道具圖標作為過渡佔位資源（環境無圖像生成API，改用程式化水墨渲染合成，已在檔案內註明升級待辦） |
