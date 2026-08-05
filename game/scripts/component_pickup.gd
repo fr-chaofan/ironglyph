@@ -5,7 +5,14 @@
 class_name ComponentPickup
 extends Area2D
 
+const FUSION_RESOLVER_SCRIPT := preload("res://scripts/fusion_resolver.gd")
+
 @export_range(0.0, 1.0, 0.01) var exchange_lock_duration: float = 0.2
+
+## 序章「字界殘頁」教學用（Task 4.1a）：可在場景檔直接宣告式指定「地上一開始就有
+## 這個部件」，不需要額外腳本在執行期呼叫 setup()。留空字串（預設）維持既有行為——
+## 由 ComponentDropper／測試在執行期動態呼叫 setup()，不影響任何現有用法。
+@export var initial_component_id: String = ""
 
 ## 沒被撿走的部件多久後消失（秒）。0 表示永不消失。
 ##
@@ -51,6 +58,19 @@ func _ready() -> void:
 		body_entered.connect(_on_body_entered)
 	if not body_exited.is_connected(_on_body_exited):
 		body_exited.connect(_on_body_exited)
+
+	# 場景檔宣告式初始部件（Task 4.1a 序章 FirstComponentDrop）：
+	# 用 component_id 查表轉成完整 component 資料再走既有 setup()，
+	# 不重新發明一套視覺刷新路徑。
+	var initial_id := initial_component_id.strip_edges()
+	if not initial_id.is_empty() and component.is_empty():
+		var resolver = FUSION_RESOLVER_SCRIPT.new()
+		var resolved: Dictionary = resolver.get_component(initial_id)
+		if resolved.is_empty():
+			push_warning("ComponentPickup: 未知的 initial_component_id「%s」" % initial_id)
+		else:
+			component = resolved
+
 	_refresh_visuals()
 
 

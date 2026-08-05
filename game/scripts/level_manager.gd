@@ -77,9 +77,13 @@ func _change_scene(path: String) -> void:
 		push_error("LevelManager: 場景檔案不存在：%s" % path)
 		return
 
-	var tree := get_tree()
-	if tree == null:
+	# ⚠️ 必須先問 is_inside_tree()，不能直接呼叫 get_tree() 再判斷回傳值是否為 null——
+	# Node.get_tree() 在節點根本不在場景樹裡時，會先丟出引擎層級的
+	# `Parameter "data.tree" is null` 錯誤，這個錯誤不會被 push_error 分支接住，
+	# 在GUT測試裡會被算成「非預期錯誤」讓測試失敗（即使呼叫端已經用
+	# assert_push_error 準備接住我們自己的 push_error 訊息也一樣攔不到它）。
+	if not is_inside_tree():
 		push_error("LevelManager: 目前不在場景樹中，無法切換場景：%s" % path)
 		return
 
-	tree.change_scene_to_file(path)
+	get_tree().change_scene_to_file(path)
